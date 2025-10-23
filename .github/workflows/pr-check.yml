@@ -54,13 +54,13 @@ jobs:
           push: false
           load: true                          # Load image into Docker daemon
           tags: komodo-mcp-server:test
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          cache-from: type=gha                # Read from cache
+          # Note: cache-to removed - incompatible with load:true
 
       - name: Test Docker image
         run: |
           docker run --rm komodo-mcp-server:test node --version
-          echo "✅ Docker image builds successfully"
+          echo "✅ Docker image builds and runs successfully"
 
   version-check:
     name: Check Version Bump

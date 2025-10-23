@@ -35,6 +35,22 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
+          # Always build on manual trigger (workflow_dispatch)
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "🚀 Manual trigger - building version $CURRENT_VERSION"
+            exit 0
+          fi
+          
+          # For push events, check if we have a parent commit
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "🎉 Initial commit - building version $CURRENT_VERSION"
+            exit 0
+          fi
+          
           # Check if package.json changed in this push
           if git diff HEAD^ HEAD --name-only | grep -q "package.json"; then
             PREV_VERSION=$(git show HEAD^:package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')).version")

@@ -76,9 +76,9 @@ jobs:
     needs: check-version
     if: needs.check-version.outputs.should_build == 'true'
     permissions:
-      contents: read
-      packages: write
-      id-token: write
+      contents: write      # Required for creating releases
+      packages: write      # Required for pushing to GHCR
+      id-token: write      # Required for OIDC authentication
     steps:
       - name: Checkout code
         uses: actions/checkout@v4

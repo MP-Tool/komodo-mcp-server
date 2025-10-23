@@ -99,9 +99,9 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}},value=v${{ needs.check-version.outputs.current_version }}
-            type=semver,pattern={{major}}.{{minor}},value=v${{ needs.check-version.outputs.current_version }}
-            type=semver,pattern={{major}},value=v${{ needs.check-version.outputs.current_version }}
+            type=semver,pattern={{version}},value=${{ needs.check-version.outputs.current_version }}
+            type=semver,pattern={{major}}.{{minor}},value=${{ needs.check-version.outputs.current_version }}
+            type=semver,pattern={{major}},value=${{ needs.check-version.outputs.current_version }}
             type=raw,value=latest
           labels: |
             org.opencontainers.image.title=Komodo MCP Server
@@ -125,7 +125,7 @@ jobs:
         id: release_notes
         run: |
           VERSION="${{ needs.check-version.outputs.current_version }}"
-          echo "## 🚀 Release v${VERSION}" > release_notes.md
+          echo "## 🚀 Release ${VERSION}" > release_notes.md
           echo "" >> release_notes.md
           echo "### 📦 Docker Image" >> release_notes.md
           echo "" >> release_notes.md
@@ -144,8 +144,8 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: v${{ needs.check-version.outputs.current_version }}
-          name: Release v${{ needs.check-version.outputs.current_version }}
+          tag_name: ${{ needs.check-version.outputs.current_version }}
+          name: Release ${{ needs.check-version.outputs.current_version }}
           body_path: release_notes.md
           draft: false
           prerelease: false
@@ -157,9 +157,13 @@ jobs:
     runs-on: ubuntu-latest
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
+    permissions:
+      contents: write      # Required for pushing catalog updates
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Update catalog version
         run: |
@@ -175,7 +179,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add komodo-mcp-catalog.yaml
-          git diff --staged --quiet || git commit -m "chore: update catalog to v${{ needs.check-version.outputs.current_version }}"
+          git diff --staged --quiet || git commit -m "chore: update catalog to ${{ needs.check-version.outputs.current_version }}"
           git push
 
   notify:
@@ -186,7 +190,7 @@ jobs:
     steps:
       - name: Summary
         run: |
-          echo "## ✅ Release v${{ needs.check-version.outputs.current_version }} Published!" >> $GITHUB_STEP_SUMMARY
+          echo "## ✅ Release ${{ needs.check-version.outputs.current_version }} Published!" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🐳 Docker Images" >> $GITHUB_STEP_SUMMARY
           echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.check-version.outputs.current_version }}\`" >> $GITHUB_STEP_SUMMARY
@@ -194,4 +198,4 @@ jobs:
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
           echo "- [Docker Image](${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Release](https://github.com/${{ github.repository }}/releases/tag/v${{ needs.check-version.outputs.current_version }})" >> $GITHUB_STEP_SUMMARY
+          echo "- [Release](https://github.com/${{ github.repository }}/releases/tag/${{ needs.check-version.outputs.current_version }})" >> $GITHUB_STEP_SUMMARY

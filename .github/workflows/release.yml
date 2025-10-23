@@ -35,6 +35,14 @@ jobs:
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
           
+          # Check if this is the initial commit (no parent)
+          if ! git rev-parse HEAD^ >/dev/null 2>&1; then
+            echo "changed=true" >> $GITHUB_OUTPUT
+            echo "should_build=true" >> $GITHUB_OUTPUT
+            echo "🎉 Initial commit detected - building version $CURRENT_VERSION"
+            exit 0
+          fi
+          
           # Check if package.json changed in this push
           if git diff HEAD^ HEAD --name-only | grep -q "package.json"; then
             PREV_VERSION=$(git show HEAD^:package.json | node -p "JSON.parse(require('fs').readFileSync('/dev/stdin', 'utf8')).version")

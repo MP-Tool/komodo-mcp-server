@@ -7,7 +7,7 @@ registry:
     title: "🦎 Komodo MCP Server"
     type: server
     dateAdded: 2025-10-23
-    image: ghcr.io/MP-Tool/komodo-mcp-server:latest
+    image: ghcr.io/mp-tool/komodo-mcp-server:latest
     ref: ""
     readme: "https://github.com/MP-Tool/komodo-mcp-server/blob/main/README.md"
     toolsUrl: ""

@@ -67,12 +67,12 @@ After merge to main with version bump:
 ### Docker Images
 ```bash
 # Version-specific tags
-ghcr.io/MP-Tool/komodo-mcp-server:1.2.3
-ghcr.io/MP-Tool/komodo-mcp-server:1.2
-ghcr.io/MP-Tool/komodo-mcp-server:1
+ghcr.io/mp-tool/komodo-mcp-server:1.2.3
+ghcr.io/mp-tool/komodo-mcp-server:1.2
+ghcr.io/mp-tool/komodo-mcp-server:1
 
 # Latest tag (always points to newest)
-ghcr.io/MP-Tool/komodo-mcp-server:latest
+ghcr.io/mp-tool/komodo-mcp-server:latest
 ```
 
 ### GitHub Release

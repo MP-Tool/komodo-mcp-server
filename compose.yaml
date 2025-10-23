@@ -1,0 +1,37 @@
+services:
+  # Komodo MCP Server - For MCP clients (AI assistants, automation tools, IDEs)
+  komodo-mcp-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: komodo-mcp-server
+    image: komodo-mcp-server:latest
+    
+    environment:
+      - KOMODO_URL=https://komodo.example.com:9120
+      - KOMODO_USERNAME=user
+      - KOMODO_PASSWORD=password
+    
+    # Required for MCP stdio communication
+    stdin_open: true
+    tty: true
+    
+    # Don't auto-restart (MCP clients manage the lifecycle)
+    restart: "no"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+          cpus: '0.25'
+        reservations:
+          memory: 128M
+          cpus: '0.1'
+    
+    # Container metadata
+    labels:
+      - "com.komodo.mcp.version=1.0.0"
+      - "com.komodo.mcp.mode=stdio"
+      - "org.opencontainers.image.title=Komodo MCP Server"
+      - "org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager"

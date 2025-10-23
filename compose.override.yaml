@@ -1,0 +1,13 @@
+services:
+  komodo-mcp-server:
+    # image: ghcr.io/MP-Tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
+    
+    # Override environment variables from .env file or shell
+    environment:
+      KOMODO_URL: ${KOMODO_URL:-https://localhost:9120}
+      KOMODO_USERNAME: ${KOMODO_USERNAME:-komodo}
+      KOMODO_PASSWORD: ${KOMODO_PASSWORD:-password}
+    
+    # Use host network for easy localhost access to Komodo
+    # Change to bridge network for production deployments
+    network_mode: host

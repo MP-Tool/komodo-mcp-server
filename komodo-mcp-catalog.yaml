@@ -1,0 +1,61 @@
+version: 2
+name: komodo-mcp-server
+displayName: Komodo MCP Server
+registry:
+  komodo-mcp-server:
+    description: "Model Context Protocol server for Komodo Container Manager - Manage Docker containers, deployments, stacks, and servers"
+    title: "🦎 Komodo MCP Server"
+    type: server
+    dateAdded: "2025-10-23T00:00:00Z"
+    image: ghcr.io/MP-Tool/komodo-mcp-server:latest
+    ref: ""
+    readme: "https://github.com/MP-Tool/komodo-mcp-server/blob/main/README.md"
+    toolsUrl: ""
+    source: "https://github.com/MP-Tool/komodo-mcp-server"
+    upstream: ""
+    icon: "🦎"
+    tools:
+      - name: komodo_configure
+        description: "Configure Komodo server connection"
+      - name: komodo_list_servers
+        description: "List all available Komodo servers"
+      - name: komodo_get_server_stats
+        description: "Get server statistics and status"
+      - name: komodo_list_containers
+        description: "List Docker containers on a server"
+      - name: komodo_start_container
+        description: "Start a Docker container"
+      - name: komodo_stop_container
+        description: "Stop a Docker container"
+      - name: komodo_restart_container
+        description: "Restart a Docker container"
+      - name: komodo_pause_container
+        description: "Pause a Docker container"
+      - name: komodo_unpause_container
+        description: "Unpause a Docker container"
+      - name: komodo_list_deployments
+        description: "List all deployments"
+      - name: komodo_deploy_container
+        description: "Deploy a container"
+      - name: komodo_list_stacks
+        description: "List Docker Compose stacks"
+      - name: komodo_stop_stack
+        description: "Stop a Docker Compose stack"
+    metadata:
+      category: devops
+      tags:
+        - komodo
+        - docker
+        - container-management
+        - devops
+        - orchestration
+        - deployments
+        - docker-compose
+        - server-management
+        - automation
+        - mcp
+      license: GPL-3.0
+      owner: community
+      author: "Marcel Pfennig"
+      version: "1.0.0"
+      homepage: "https://github.com/MP-Tool/komodo-mcp-server"

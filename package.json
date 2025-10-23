@@ -1,0 +1,52 @@
+{
+  "name": "komodo-mcp-server",
+  "version": "1.0.0",
+  "description": "Model Context Protocol Client for Komodo Container Manager - Enables AI assistants to interact with Docker containers, deployments, stacks, and servers managed by Komodo",
+  "type": "module",
+  "bin": {
+    "komodo-mcp": "./build/index.js"
+  },
+  "scripts": {
+    "build": "tsc && chmod 755 build/index.js",
+    "dev": "npm run build && node build/index.js",
+    "start": "node build/index.js",
+    "clean": "rm -rf build",
+    "docker:build": "docker build -t komodo-mcp-server .",
+    "docker:build-no-cache": "docker build --no-cache -t komodo-mcp-server:latest .",
+    "docker:run": "docker run -i komodo-mcp-server"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "komodo",
+    "docker",
+    "container-management",
+    "devops",
+    "orchestration",
+    "automation",
+    "ai",
+    "typescript",
+    "docker-compose"
+  ],
+  "author": "Marcel Pfennig",
+  "license": "GPL-3.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MP-Tool/komodo-mcp-server"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.18.0",
+    "axios": "^1.12.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  },
+  "files": [
+    "build"
+  ]
+}

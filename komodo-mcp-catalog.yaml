@@ -1,4 +1,4 @@
-version: 2
+version: 1.0.0
 name: komodo-mcp-server
 displayName: Komodo MCP Server
 registry:
@@ -6,8 +6,8 @@ registry:
     description: "Model Context Protocol server for Komodo Container Manager - Manage Docker containers, deployments, stacks, and servers"
     title: "🦎 Komodo MCP Server"
     type: server
-    dateAdded: "2025-10-23T00:00:00Z"
-    image: ghcr.io/MP-Tool/komodo-mcp-server:latest
+    dateAdded: 2025-10-23
+    image: ghcr.io/mp-tool/komodo-mcp-server:latest
     ref: ""
     readme: "https://github.com/MP-Tool/komodo-mcp-server/blob/main/README.md"
     toolsUrl: ""
@@ -57,5 +57,5 @@ registry:
       license: GPL-3.0
       owner: community
       author: "Marcel Pfennig"
-      version: "1.0.0"
+      version: 1.0.0
       homepage: "https://github.com/MP-Tool/komodo-mcp-server"

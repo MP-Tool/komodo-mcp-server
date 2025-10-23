@@ -8,7 +8,7 @@
         "-i",
         "--network",
         "default",
-        "ghcr.io/MP-Tool/komodo-mcp-server:latest"
+        "ghcr.io/mp-tool/komodo-mcp-server:latest"
       ],
       "env": {
         "KOMODO_URL": "https://komodo.example.com:9120",

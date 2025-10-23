@@ -28,7 +28,7 @@ Edit the `env` section in your config:
 **4. Pull the Docker image:**
 
 ```bash
-docker pull ghcr.io/MP-Tool/komodo-mcp-server:latest
+docker pull ghcr.io/mp-tool/komodo-mcp-server:latest
 ```
 
 **5. Restart Claude Desktop:**
@@ -46,7 +46,7 @@ The provided config uses Docker mode:
   "mcpServers": {
     "komodo-mcp-server": {
       "command": "docker",
-      "args": ["run", "--rm", "-i", "ghcr.io/MP-Tool/komodo-mcp-server:latest"],
+      "args": ["run", "--rm", "-i", "ghcr.io/mp-tool/komodo-mcp-server:latest"],
       "env": {
         "KOMODO_URL": "https://your-server.com:9120",
         "KOMODO_USERNAME": "your-username",
@@ -120,7 +120,7 @@ Once configured, you can ask Claude:
 **Solution:**
 ```bash
 # Pull the image
-docker pull ghcr.io/MP-Tool/komodo-mcp-server:latest
+docker pull ghcr.io/mp-tool/komodo-mcp-server:latest
 
 # Verify it exists
 docker images | grep komodo-mcp-server

@@ -8,6 +8,7 @@ updates:
       day: "friday"
       time: "09:00"
     open-pull-requests-limit: 5
+    target-branch: "dev"
     labels:
       - "dependencies"
       - "npm"
@@ -37,6 +38,7 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 3
+    target-branch: "dev"
     labels:
       - "dependencies"
       - "docker"
@@ -51,6 +53,7 @@ updates:
       day: "monday"
       time: "09:00"
     open-pull-requests-limit: 3
+    target-branch: "dev"
     labels:
       - "dependencies"
       - "github-actions"

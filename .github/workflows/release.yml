@@ -142,7 +142,7 @@ jobs:
           git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --pretty=format:"- %s (%h)" >> release_notes.md || echo "- Initial release" >> release_notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check-version.outputs.current_version }}
           name: Release ${{ needs.check-version.outputs.current_version }}

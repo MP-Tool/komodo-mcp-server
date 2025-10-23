@@ -2,6 +2,18 @@
 
 This directory contains automated workflows for CI/CD, releases, and quality checks.
 
+## 📋 Development Workflow
+
+**Branch Strategy**:
+- `main` - Production branch (releases only)
+- `dev` - Development branch (integration)
+- `feature/*` - Feature branches
+
+**Process**:
+1. Feature branches → `dev` (via PR)
+2. `dev` → `main` (via PR with version bump)
+3. `main` triggers automatic release
+
 ## 📋 Available Workflows
 
 ### 1. Release (`release.yml`)
@@ -28,26 +40,28 @@ ghcr.io/mp-tool/komodo-mcp-server:latest # Always newest
 
 ### 2. PR Checks (`pr-check.yml`)
 
-**Trigger**: Automatic on Pull Requests to `main`
+**Trigger**: Automatic on Pull Requests to `main` or `dev`
 
 **What it does**:
 - ✅ TypeScript compilation check
 - 🐳 Docker build test
 - 📋 Version format validation
-- 🔍 Version bump detection
+- 🔍 Version bump detection (only for PRs to `main`)
 - 📊 PR summary with release preview
 
 **Benefits**:
 - Early detection of build issues
-- Validates version bumps before merge
+- Validates version bumps before release
 - Shows what will be released
 
 ## 🚀 Release Process
 
-### Standard Release (Version Bump)
+### Development Workflow
 
-1. **Create Feature Branch**
+1. **Create Feature Branch from dev**
    ```bash
+   git checkout dev
+   git pull
    git checkout -b feature/my-feature
    ```
 
@@ -57,30 +71,46 @@ ghcr.io/mp-tool/komodo-mcp-server:latest # Always newest
    npm run build  # Test locally
    ```
 
-3. **Bump Version**
-   ```bash
-   # Update package.json version
-   # Example: 1.0.0 -> 1.1.0
-   npm version minor  # or patch, major
-   ```
-
-4. **Commit & Push**
+3. **Commit & Push**
    ```bash
    git add .
    git commit -m "feat: add new feature"
    git push origin feature/my-feature
    ```
 
-5. **Create Pull Request**
-   - PR checks will run automatically
-   - Version comparison will show in PR summary
+4. **Create PR to dev**
+   - Open PR: `feature/my-feature` → `dev`
+   - PR checks run automatically
+   - ✅ Review and merge to dev
+
+### Release Workflow (dev → main)
+
+1. **Bump Version in dev**
+   ```bash
+   git checkout dev
+   git pull
+   # Update package.json version
+   # Example: 1.0.0 -> 1.1.0
+   npm version minor  # or patch, major
+   git push
+   ```
+
+2. **Create PR to main**
+   - Open PR: `dev` → `main`
+   - Version check shows release preview
    - ✅ Review and merge
 
-6. **Automatic Release**
+3. **Automatic Release**
    - On merge to `main`, release workflow triggers
    - Docker images built and published
    - GitHub Release created
    - Catalog updated
+
+### Dependabot Updates
+
+- Dependabot opens PRs against `dev` branch
+- Review and merge to dev
+- Include in next release via dev → main PR
 
 ### Quick Fix (No Version Bump)
 

@@ -1,9 +1,4 @@
 version: 2
-
-# Dependabot configuration for Komodo MCP Server
-# Focus: Security updates, LTS versions, and stable dependencies
-# Strategy: Weekly checks, grouped updates, ignore non-LTS Node versions
-
 updates:
   # npm dependencies
   - package-ecosystem: "npm"
@@ -21,18 +16,21 @@ updates:
       prefix: "chore(deps)"
       prefix-development: "chore(deps-dev)"
       include: "scope"
-    # Allow all security updates immediately
-    allow:
-      - dependency-type: "all"
-    # Version strategy: increase for security patches
-    versioning-strategy: increase
+    ignore:
+      # Ignore Zod major version updates until MCP SDK supports Zod 4.x
+      # MCP SDK internally uses Zod 3.x - upgrading would create version conflicts
+      - dependency-name: "zod"
+        update-types: ["version-update:semver-major"]
+      # Keep @types/node aligned with production runtime (node:22-alpine in Dockerfile)
+      # Prevents type definitions from allowing Node.js APIs not available in production
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
-      # Group production dependencies
+      # Group production dependencies (MCP SDK and HTTP client)
       production-dependencies:
         patterns:
           - "@modelcontextprotocol/*"
           - "axios"
-          - "zod"
       # Group development dependencies
       development-dependencies:
         dependency-type: "development"
@@ -54,12 +52,6 @@ updates:
       - "docker"
     commit-message:
       prefix: "chore(docker)"
-    # Ignore non-LTS Node.js versions (only allow LTS: 20, 22, 24, etc.)
-    # Node.js 25 is "Current" (not LTS) - ignore until Node.js 26 LTS in 2026
-    ignore:
-      - dependency-name: "node"
-        update-types: ["version-update:semver-major"]
-        # Allow security updates and LTS versions only
 
   # GitHub Actions
   - package-ecosystem: "github-actions"

@@ -9,6 +9,8 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 5
     target-branch: "dev"
+    pull-request-branch-name:
+      separator: "-"
     labels:
       - "dependencies"
       - "npm"
@@ -39,6 +41,8 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 3
     target-branch: "dev"
+    pull-request-branch-name:
+      separator: "-"
     labels:
       - "dependencies"
       - "docker"
@@ -54,6 +58,8 @@ updates:
       time: "09:00"
     open-pull-requests-limit: 3
     target-branch: "dev"
+    pull-request-branch-name:
+      separator: "-"
     labels:
       - "dependencies"
       - "github-actions"

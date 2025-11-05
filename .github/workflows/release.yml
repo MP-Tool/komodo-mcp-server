@@ -25,7 +25,7 @@ jobs:
       should_build: ${{ steps.version_check.outputs.should_build }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           fetch-depth: 2
 
@@ -81,7 +81,7 @@ jobs:
       id-token: write      # Required for OIDC authentication
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -109,7 +109,7 @@ jobs:
             org.opencontainers.image.version=${{ needs.check-version.outputs.current_version }}
 
       - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: .
           platforms: linux/amd64,linux/arm64
@@ -142,7 +142,7 @@ jobs:
           git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --pretty=format:"- %s (%h)" >> release_notes.md || echo "- Initial release" >> release_notes.md
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check-version.outputs.current_version }}
           name: Release ${{ needs.check-version.outputs.current_version }}
@@ -161,7 +161,7 @@ jobs:
       contents: write      # Required for pushing catalog updates
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 

@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Model Context Protocol Client for Komodo Container Manager - Enables AI assistants to interact with Docker containers, deployments, stacks, and servers managed by Komodo",
   "type": "module",
   "bin": {

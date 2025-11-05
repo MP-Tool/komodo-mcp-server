@@ -5,12 +5,13 @@ on:
     branches:
       - main
       - dev
-    types: [opened, synchronize, reopened]
+    types: [opened, synchronize, reopened, ready_for_review]
 
 jobs:
   validate:
     name: Validate Changes
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -40,6 +41,7 @@ jobs:
   docker-build-test:
     name: Test Docker Build
     runs-on: ubuntu-latest
+    if: github.event.pull_request.draft == false
     steps:
       - name: Checkout code
         uses: actions/checkout@v5

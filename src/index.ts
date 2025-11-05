@@ -531,9 +531,16 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServer) => 
-          `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${s.info.version} | Region: ${s.info.region}`
-        ).join('\n') || 'No servers found.'}`
+        text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServer) => {
+          // Handle version display - show N/A if empty or "unknown"
+          const version = s.info.version && s.info.version.toLowerCase() !== 'unknown' 
+            ? s.info.version 
+            : 'N/A';
+          // Region is optional, show empty string if not set
+          const region = s.info.region || '';
+          const regionStr = region ? ` | Region: ${region}` : '';
+          return `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${version}${regionStr}`;
+        }).join('\n') || 'No servers found.'}`
       }]
     };
   }

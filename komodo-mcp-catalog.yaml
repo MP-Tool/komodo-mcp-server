@@ -1,4 +1,4 @@
-version: 1.0.1
+version: 1.0.2
 name: komodo-mcp-server
 displayName: Komodo MCP Server
 registry:
@@ -57,5 +57,5 @@ registry:
       license: GPL-3.0
       owner: community
       author: "Marcel Pfennig"
-      version: 1.0.1
+      version: 1.0.2
       homepage: "https://github.com/MP-Tool/komodo-mcp-server"

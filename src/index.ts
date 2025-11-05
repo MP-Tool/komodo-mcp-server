@@ -9,7 +9,7 @@ import {
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
-import { KomodoClient, KomodoContainer, KomodoServer, KomodoDeployment, KomodoStack } from './komodo-client.js';
+import { KomodoClient, KomodoContainer, KomodoServer, KomodoDeployment, KomodoStack, extractUpdateId } from './komodo-client.js';
 
 // Komodo MCP server - Container Management Server
 class KomodoMCPServer {
@@ -452,7 +452,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `🚀 Container "${container}" started on server "${server}".\n\nUpdate ID: ${result.id}`
+        text: `🚀 Container "${container}" started on server "${server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -469,7 +469,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `⏹️ Container "${container}" stopped on server "${server}".\n\nUpdate ID: ${result.id}`
+        text: `⏹️ Container "${container}" stopped on server "${server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -486,7 +486,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `🔄 Container "${container}" restarted on server "${server}".\n\nUpdate ID: ${result.id}`
+        text: `🔄 Container "${container}" restarted on server "${server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -503,7 +503,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `⏸️ Container "${container}" paused on server "${server}".\n\nUpdate ID: ${result.id}`
+        text: `⏸️ Container "${container}" paused on server "${server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -520,7 +520,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `▶️ Container "${container}" resumed on server "${server}".\n\nUpdate ID: ${result.id}`
+        text: `▶️ Container "${container}" resumed on server "${server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -532,7 +532,7 @@ class KomodoMCPServer {
       content: [{
         type: 'text',
         text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServer) => 
-          `• ${s.name} (${s.id}) - Status: ${s.state || 'Unknown'}`
+          `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${s.info.version} | Region: ${s.info.region}`
         ).join('\n') || 'No servers found.'}`
       }]
     };
@@ -550,9 +550,7 @@ class KomodoMCPServer {
       content: [{
         type: 'text',
         text: `📊 Server "${server}" status:\n\n` +
-              `• Status: ${stats.state}\n` +
-              `• Version: ${stats.version || 'Unknown'}\n` +
-              `• Last update: ${new Date(stats.ts).toLocaleString()}`
+              `• Status: ${stats.status}`
       }]
     };
   }
@@ -581,7 +579,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `🚀 Deployment "${deployment}" started.\n\nUpdate ID: ${result.id}`
+        text: `🚀 Deployment "${deployment}" started.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -593,7 +591,7 @@ class KomodoMCPServer {
       content: [{
         type: 'text',
         text: `📚 Docker Compose stacks:\n\n${stacks.map((s: KomodoStack) => 
-          `• ${s.name} (${s.id}) - State: ${s.state || 'Unknown'}`
+          `• ${s.name} (${s.id}) - State: ${s.info.state}`
         ).join('\n') || 'No stacks found.'}`
       }]
     };
@@ -610,7 +608,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `🚀 Stack "${stack}" deployed.\n\nUpdate ID: ${result.id}`
+        text: `🚀 Stack "${stack}" deployed.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }
@@ -626,7 +624,7 @@ class KomodoMCPServer {
     return {
       content: [{
         type: 'text',
-        text: `⏹️ Stack "${stack}" stopped.\n\nUpdate ID: ${result.id}`
+        text: `⏹️ Stack "${stack}" stopped.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
       }]
     };
   }

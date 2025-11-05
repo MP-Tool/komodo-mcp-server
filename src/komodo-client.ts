@@ -1,6 +1,29 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 
-// Komodo API Types - based on the official Komodo API
+// ===== Komodo API Types =====
+// Based on the official Komodo TypeScript client (v1.19.0+)
+// These types are aligned with the Komodo Core API response structures
+
+/**
+ * Mongo ObjectId structure used by Komodo API
+ */
+export interface MongoId {
+  $oid: string;
+}
+
+/**
+ * Server state enum
+ */
+export type ServerState = 'Ok' | 'NotOk' | 'Disabled';
+
+/**
+ * Update status enum
+ */
+export type UpdateStatus = 'Queued' | 'InProgress' | 'Complete';
+
+/**
+ * Container information returned by Komodo API
+ */
 export interface KomodoContainer {
   name: string;
   state: string;
@@ -11,21 +34,40 @@ export interface KomodoContainer {
   image_id?: string;
 }
 
+/**
+ * Server list item returned by ListServers
+ */
 export interface KomodoServer {
   id: string;
   name: string;
-  state?: string;
-  ip?: string;
-  port?: number;
-  enabled?: boolean;
+  template: boolean;
+  tags: string[];
+  info: {
+    state: ServerState;
+    region: string;
+    address: string;
+    external_address?: string;
+    version: string;
+    send_unreachable_alerts: boolean;
+    send_cpu_alerts: boolean;
+    send_mem_alerts: boolean;
+    send_disk_alerts: boolean;
+    send_version_mismatch_alerts: boolean;
+    terminals_disabled: boolean;
+    container_exec_disabled: boolean;
+  };
 }
 
+/**
+ * Server state response from GetServerState
+ */
 export interface KomodoServerState {
-  state: 'Ok' | 'NotOk' | 'Disabled';
-  version?: string;
-  ts: number;
+  status: ServerState;
 }
 
+/**
+ * Deployment list item
+ */
 export interface KomodoDeployment {
   id: string;
   name: string;
@@ -34,24 +76,60 @@ export interface KomodoDeployment {
   image?: string;
 }
 
+/**
+ * Stack list item
+ */
 export interface KomodoStack {
   id: string;
   name: string;
-  state?: 'running' | 'stopped' | 'deploying' | 'unknown';
+  info: {
+    state: 'Unknown' | 'Running' | 'Stopped' | 'Restarting' | 'Paused' | 'Exited';
+  };
   server_id?: string;
 }
 
+/**
+ * Update object returned by execute operations
+ * Represents an action performed by Komodo
+ */
 export interface KomodoUpdate {
-  id: string;
-  operation?: string;
-  status?: 'Ok' | 'InProgress' | 'Failed';
-  ts?: number;
+  _id?: MongoId;
+  operation: string;
+  start_ts: number;
+  success: boolean;
+  operator: string;
+  target: {
+    type: string;
+    id: string;
+  };
+  logs: Array<{
+    ts: number;
+    message: string;
+  }>;
+  end_ts?: number;
+  status: UpdateStatus;
+  version?: {
+    major: number;
+    minor: number;
+    patch: number;
+  };
+  commit_hash?: string;
 }
 
+/**
+ * Structured error from Komodo API
+ */
 export interface KomodoApiError {
   message: string;
   code?: number;
   details?: any;
+}
+
+/**
+ * Helper function to extract Update ID from Mongo ObjectId
+ */
+export function extractUpdateId(update: KomodoUpdate): string {
+  return update._id?.$oid || 'unknown';
 }
 
 /**
@@ -291,10 +369,10 @@ export class KomodoClient {
   async getServerState(serverId: string): Promise<KomodoServerState> {
     try {
       const response = await this.client.post('/read/GetServerState', { server: serverId });
-      return response.data || { state: 'NotOk', ts: Date.now() };
+      return response.data || { status: 'NotOk' };
     } catch (error) {
       console.error(`Failed to get server state for ${serverId}:`, error);
-      return { state: 'NotOk', ts: Date.now() };
+      return { status: 'NotOk' };
     }
   }
 
@@ -322,7 +400,7 @@ export class KomodoClient {
         server: serverId,
         container: containerName
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to start container ${containerName} on server ${serverId}:`, error);
       throw error;
@@ -338,7 +416,7 @@ export class KomodoClient {
         server: serverId,
         container: containerName
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to stop container ${containerName} on server ${serverId}:`, error);
       throw error;
@@ -354,7 +432,7 @@ export class KomodoClient {
         server: serverId,
         container: containerName
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to restart container ${containerName} on server ${serverId}:`, error);
       throw error;
@@ -370,7 +448,7 @@ export class KomodoClient {
         server: serverId,
         container: containerName
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to pause container ${containerName} on server ${serverId}:`, error);
       throw error;
@@ -386,7 +464,7 @@ export class KomodoClient {
         server: serverId,
         container: containerName
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to unpause container ${containerName} on server ${serverId}:`, error);
       throw error;
@@ -416,7 +494,7 @@ export class KomodoClient {
       const response = await this.client.post('/execute/Deploy', {
         deployment: deploymentId
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to deploy container ${deploymentId}:`, error);
       throw error;
@@ -446,7 +524,7 @@ export class KomodoClient {
       const response = await this.client.post('/execute/DeployStack', {
         stack: stackId
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to deploy stack ${stackId}:`, error);
       throw error;
@@ -461,7 +539,7 @@ export class KomodoClient {
       const response = await this.client.post('/execute/StopStack', {
         stack: stackId
       });
-      return response.data || { id: 'unknown', status: 'InProgress' };
+      return response.data;
     } catch (error) {
       console.error(`Failed to stop stack ${stackId}:`, error);
       throw error;

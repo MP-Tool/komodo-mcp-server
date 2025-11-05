@@ -1,0 +1,103 @@
+name: Dependabot Auto Draft
+
+on:
+  pull_request:
+    types: [opened]
+    branches: [dev]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  convert-to-draft:
+    name: Convert Dependabot PR to Draft
+    runs-on: ubuntu-latest
+    if: github.actor == 'dependabot[bot]'
+    steps:
+      - name: Convert to Draft PR
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.issue.number;
+            
+            // Convert PR to draft
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number,
+              draft: true
+            });
+            
+            console.log(`✅ Converted PR #${pull_number} to draft`);
+            
+            // Add comment explaining the process
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pull_number,
+              body: `🤖 **Dependabot PR Auto-Draft**\n\nThis PR has been automatically converted to draft mode.\n\n**Next Steps:**\n1. Review the dependency updates\n2. Check compatibility and breaking changes\n3. Mark as "Ready for Review" to trigger CI/CD checks\n\nOnce marked ready, the PR checks will run automatically.`
+            });
+
+  auto-ready-on-success:
+    name: Auto-Ready After Validation
+    runs-on: ubuntu-latest
+    if: |
+      github.actor == 'dependabot[bot]' &&
+      github.event.pull_request.draft == true
+    steps:
+      # Wait for initial commit to settle
+      - name: Wait for Dependabot to Finish
+        run: sleep 30
+      
+      # Simple validation: Check if PR is still a draft and no conflicts
+      - name: Check PR Status
+        id: check_pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.issue.number;
+            
+            const pr = await github.rest.pulls.get({
+              owner,
+              repo,
+              pull_number
+            });
+            
+            console.log(`PR Status: ${pr.data.mergeable_state}`);
+            console.log(`Has Conflicts: ${pr.data.mergeable === false}`);
+            
+            // Only mark ready if no conflicts and mergeable
+            if (pr.data.mergeable === true && pr.data.mergeable_state !== 'dirty') {
+              return 'ready';
+            } else {
+              return 'needs_attention';
+            }
+        
+      - name: Mark as Ready for Review
+        if: steps.check_pr.outputs.result == 'ready'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { owner, repo } = context.repo;
+            const pull_number = context.issue.number;
+            
+            // Mark PR as ready for review
+            await github.rest.pulls.update({
+              owner,
+              repo,
+              pull_number,
+              draft: false
+            });
+            
+            console.log(`✅ Marked PR #${pull_number} as ready for review`);
+            
+            // Add comment
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pull_number,
+              body: `✅ **Auto-Ready for Review**\n\nDependabot has finished updating dependencies and the PR has no conflicts.\n\nCI/CD checks will now run automatically. Please review the changes before merging.`
+            });

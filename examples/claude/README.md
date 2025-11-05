@@ -6,7 +6,7 @@ Use the Komodo MCP Server with Claude Desktop to manage containers and deploymen
 
 **1. Locate your Claude config file:**
 
-- **macOS:** `~/Library/Application Support/Claude/claude_desktop_config.json`
+- **macOS:** `~/Library/Application\ Support/Claude/claude_desktop_config.json`
 - **Windows:** `%APPDATA%\Claude\claude_desktop_config.json`
 - **Linux:** `~/.config/Claude/claude_desktop_config.json`
 

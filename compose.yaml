@@ -31,7 +31,7 @@ services:
     
     # Container metadata
     labels:
-      - "com.komodo.mcp.version=1.0.0"
+      - "com.komodo.mcp.version=1.0.2"
       - "com.komodo.mcp.mode=stdio"
       - "org.opencontainers.image.title=Komodo MCP Server"
       - "org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager"

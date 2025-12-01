@@ -27,7 +27,7 @@ ehthumbs.db
 Thumbs.db
 
 # IDE Files
-.vscode/settings.json
+.vscode/
 .idea/
 *.swp
 *.swo
@@ -45,5 +45,3 @@ coverage/
 
 # Jest
 jest_0
-
-.vscode/mcp.json

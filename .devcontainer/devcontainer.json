@@ -1,0 +1,24 @@
+{
+  "name": "Komodo MCP Server DevContainer",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "devcontainer",
+  "workspaceFolder": "/app",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-vscode.vscode-typescript-next",
+        "editorconfig.editorconfig",
+        "github.copilot"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "zsh",
+        "editor.formatOnSave": true
+      }
+    }
+  },
+  // "forwardPorts": [3000], // Uncomment if you add an HTTP server
+  "postCreateCommand": "npm install && npm run build",
+  "remoteUser": "node"
+}

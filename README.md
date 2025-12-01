@@ -2,9 +2,11 @@
 
 # 🦎 Komodo MCP Server
 
-**Model Context Protocol server for [Komodo Container Manager](https://github.com/moghtech/komodo)**
+**Model Context Protocol Server for [Komodo](https://github.com/moghtech/komodo)**
 
-Manage Docker containers, deployments, and stacks through AI assistants and automation tools.
+Manage your Docker or Podman deployments through Komodo with AI assistants and automation tools.
+
+Komodo MCP Server enables seamless interaction between AI assistants (like Claude, GitHub Copilot) and Komodo (Container Management Platform) for efficient container management, server orchestration, and deployment operations. The MCP-Server gives you the ability to control your Komodo-managed infrastructure by using natural language or automated workflows.
 
 [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://github.com/MP-Tool/komodo-mcp-server/pkgs/container/komodo-mcp-server) [![MCP](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
 
@@ -114,42 +116,32 @@ Ask Claude, Copilot, or any MCP-compatible assistant:
 
 Comming soon: Pre-built n8n workflows for automated container health checks and deployment pipelines.
 
-## Available Tools
-
-| Tool | Description |
-|------|-------------|
-| `komodo_configure` | Configure Komodo server connection |
-| `komodo_list_servers` | List all available servers |
-| `komodo_get_server_stats` | Get server statistics and status |
-| `komodo_list_containers` | List Docker containers on a server |
-| `komodo_start_container` | Start a Docker container |
-| `komodo_stop_container` | Stop a Docker container |
-| `komodo_restart_container` | Restart a Docker container |
-| `komodo_pause_container` | Pause a Docker container |
-| `komodo_unpause_container` | Unpause a Docker container |
-| `komodo_list_deployments` | List all deployments |
-| `komodo_deploy_container` | Deploy a container |
-| `komodo_list_stacks` | List Docker Compose stacks |
-| `komodo_deploy_stack` | Deploy a Docker Compose stack |
-| `komodo_stop_stack` | Stop a Docker Compose stack |
-
 ## Documentation
 
-### Integration Guides
-
-- **[Claude Desktop](examples/claude/)** - Direct MCP integration
-- **[VS Code](examples/vscode/)** - GitHub Copilot Chat support  
-- **[Docker Compose](examples/compose/)** - Standalone deployment
-- **[Docker Desktop](examples/docker-desktop/)** - Native MCP beta feature
-
 ### Requirements
-
 - **Komodo** v1.19.5 or later
 - **Docker** (for containerized deployment)
 - **Node.js 20+** (for local development)
 - Valid Komodo credentials (username/password)
 
-## Development
+### Integration Guides
+- **[Claude Desktop](examples/claude/)** - Direct MCP integration
+- **[VS Code](examples/vscode/)** - GitHub Copilot Chat support  
+- **[Docker Compose](examples/compose/)** - Standalone deployment
+- **[Docker Desktop](examples/docker-desktop/)** - Native MCP beta feature
+
+
+## License
+GPL-3.0 License - see [LICENSE](LICENSE) for details.
+
+## Contributing
+Contributions are welcome! See our [Contributing Guide](CONTRIBUTING.md) for details.
+
+- 🐛 [Report bugs](https://github.com/MP-Tool/komodo-mcp-server/issues)
+- 💡 [Request features](https://github.com/MP-Tool/komodo-mcp-server/issues)
+- 🔧 [Submit PRs](https://github.com/MP-Tool/komodo-mcp-server/pulls)
+
+### Development
 
 ```bash
 # Clone and install
@@ -162,58 +154,14 @@ npm run build
 npm start
 ```
 
-### Project Structure
-
-```
-komodo-mcp-server/
-├── src/
-│   ├── index.ts              # MCP server implementation
-│   └── komodo-client.ts      # Komodo API client
-├── examples/
-│   ├── claude/               # Claude Desktop integration
-│   ├── docker-desktop/       # Docker Desktop integration
-│   ├── vscode/               # VS Code integration
-│   └── compose/              # Docker Compose setup
-├── Dockerfile                # Multi-stage production build
-└── package.json              # Dependencies and scripts
-```
-
-## Contributing
-
-Contributions welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Submit a pull request
-
 ## Security
-
-Report security vulnerabilities via email (see [SECURITY.md](SECURITY.md)).
+Report security vulnerabilities via GitHub's Private Vulnerability Reporting (see [SECURITY.md](SECURITY.md)).
 
 **Best practices:**
 - Never commit credentials
 - Use environment variables
 - Keep dependencies updated
 - Run as non-root user (default in Docker)
-
-## Contributing
-
-Contributions are welcome! See our [Contributing Guide](CONTRIBUTING.md) for details.
-
-**Quick Start:**
-- 🐛 [Report bugs](https://github.com/MP-Tool/komodo-mcp-server/issues)
-- 💡 [Request features](https://github.com/MP-Tool/komodo-mcp-server/issues)
-- 🔧 [Submit PRs](https://github.com/MP-Tool/komodo-mcp-server/pulls)
-- 📦 [Release Process](RELEASE.md) - Automated releases on version bump
-
-## Security
-
-Report security vulnerabilities via [GitHub Security Advisories](https://github.com/MP-Tool/komodo-mcp-server/security/advisories). See [SECURITY.md](SECURITY.md) for details.
-
-## License
-
-GPL-3.0 License - see [LICENSE](LICENSE) for details.
 
 ## Links
 
@@ -226,8 +174,7 @@ GPL-3.0 License - see [LICENSE](LICENSE) for details.
 
 <div align="center">
 
-**Built with ❤️ for the Komodo community**
-
+**Built with ❤️ for the Komodo  community 🦎**
 [Report Bug](https://github.com/MP-Tool/komodo-mcp-server/issues) • [Request Feature](https://github.com/MP-Tool/komodo-mcp-server/issues) • [Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions)
 
 </div>

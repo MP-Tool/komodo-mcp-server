@@ -6,8 +6,8 @@ Thank you for your interest in contributing to Komodo MCP Server! 🎉
 
 - [Code of Conduct](#code-of-conduct)
 - [Getting Started](#getting-started)
+- [Project Structure](#project-structure)
 - [Development Workflow](#development-workflow)
-- [Release Process](#release-process)
 - [Pull Request Guidelines](#pull-request-guidelines)
 - [Coding Standards](#coding-standards)
 - [Testing](#testing)
@@ -53,6 +53,19 @@ npm run build
 ```bash
 npm run dev
 ```
+
+## 📂 Project Structure
+
+The project follows a modular architecture:
+
+- `src/api/` - Komodo API client and type definitions
+- `src/config/` - Configuration and environment validation (Zod)
+- `src/tools/` - MCP tool definitions (Controllers)
+  - `base.ts` - Tool interface and registry
+  - `container/` - Container management tools
+  - `stack/` - Stack management tools
+  - `server/` - Server management tools
+- `src/index.ts` - Server entry point and setup
 
 ## 💻 Development Workflow
 
@@ -109,37 +122,6 @@ git push origin feature/your-feature-name
 ```
 
 Then create a Pull Request on GitHub.
-
-## 📦 Release Process
-
-**Releases are fully automated!** See [RELEASE.md](RELEASE.md) for complete details.
-
-### Quick Version Bump Guide
-
-```bash
-# Bug fix (1.0.0 -> 1.0.1)
-npm version patch
-
-# New feature (1.0.0 -> 1.1.0)
-npm version minor
-
-# Breaking change (1.0.0 -> 2.0.0)
-npm version major
-```
-
-**When to bump version:**
-- ✅ New MCP tools
-- ✅ Bug fixes
-- ✅ API changes
-- ❌ Documentation only
-- ❌ CI/CD changes
-
-**What happens after merge:**
-1. GitHub Actions detects version change
-2. Docker images built (multi-platform)
-3. Published to `ghcr.io/mp-tool/komodo-mcp-server`
-4. GitHub Release created
-5. Tags: `1.0.0`, `1.0`, `1`, `latest`
 
 ## 🔍 Pull Request Guidelines
 
@@ -208,36 +190,43 @@ interface KomodoContainer {
   image?: string;
 }
 
-async function startContainer(server: string, container: string): Promise<void> {
-  const client = getKomodoClient();
-  await client.startContainer(server, container);
+// Tools receive the client as context
+const handler = async (args: { server: string }, { client }: ToolContext) => {
+  if (!client) throw new Error('Client not initialized');
+  await client.startContainer(args.server);
 }
 
 // ❌ Bad
 function start(s: any, c: any) {
+  const client = getGlobalClient(); // Avoid global state
   client.start(s, c);
 }
 ```
 
 ### MCP Tools
 
-Follow this structure:
+We use the `Tool` interface and **Zod** for schema validation. Follow this structure:
 
 ```typescript
-{
+import { z } from 'zod';
+import { Tool } from '../base.js';
+
+export const myTool: Tool = {
   name: 'komodo_tool_name',
   description: 'Clear, concise description of what the tool does',
-  inputSchema: {
-    type: 'object',
-    properties: {
-      server: {
-        type: 'string',
-        description: 'Server ID or name'
-      }
-    },
-    required: ['server']
+  schema: z.object({
+    server: z.string().describe('Server ID or name'),
+    count: z.number().optional().describe('Number of items')
+  }),
+  handler: async (args, { client }) => {
+    if (!client) throw new Error('Komodo client not initialized');
+    
+    // Your implementation here
+    return {
+      content: [{ type: 'text', text: 'Result' }]
+    };
   }
-}
+};
 ```
 
 ### Error Handling
@@ -302,7 +291,6 @@ async function startContainer(server: string, container: string): Promise<void>
 
 ### When to Update Docs
 
-- New MCP tools → Update README tool list
 - Configuration changes → Update examples
 - Breaking changes → Update RELEASE.md
 - New features → Update feature list
@@ -310,10 +298,8 @@ async function startContainer(server: string, container: string): Promise<void>
 ### Documentation Files
 
 - `README.md` - Main documentation
-- `RELEASE.md` - Release process
 - `SECURITY.md` - Security policy
 - `examples/*/README.md` - Integration guides
-- `.github/workflows/README.md` - CI/CD documentation
 
 ## 🐛 Bug Reports
 
@@ -354,6 +340,7 @@ the operation times out after 30 seconds.
 ## 💡 Feature Requests
 
 Have an idea? Open an issue with:
+- **Feature**: What you have in mind?
 - **Problem**: What problem does this solve?
 - **Solution**: How should it work?
 - **Alternatives**: Other approaches considered?
@@ -362,9 +349,8 @@ Have an idea? Open an issue with:
 ## 🆘 Need Help?
 
 - 📖 Read the [README](README.md)
-- 🚀 Check [RELEASE.md](RELEASE.md) for release process
-- 💬 Ask in [Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions)
 - 🐛 Report bugs in [Issues](https://github.com/MP-Tool/komodo-mcp-server/issues)
+- 💬 Ask in [Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions)
 
 ## 🌟 Recognition
 

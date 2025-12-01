@@ -14,7 +14,6 @@ services:
     
     # Required for MCP stdio communication
     stdin_open: true
-    tty: true
     
     # Don't auto-restart (MCP clients manage the lifecycle)
     restart: "no"
@@ -31,7 +30,7 @@ services:
     
     # Container metadata
     labels:
-      - "com.komodo.mcp.version=1.0.2"
+      - "com.komodo.mcp.version=1.0.4"
       - "com.komodo.mcp.mode=stdio"
       - "org.opencontainers.image.title=Komodo MCP Server"
       - "org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager"

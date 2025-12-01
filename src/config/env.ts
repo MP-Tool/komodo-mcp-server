@@ -7,6 +7,7 @@ export const envSchema = z.object({
   KOMODO_URL: z.string().url().optional(),
   KOMODO_USERNAME: z.string().optional(),
   KOMODO_PASSWORD: z.string().optional(),
+  VERSION: z.string().default(process.env.npm_package_version || 'unknown'),
 });
 
 export type Env = z.infer<typeof envSchema>;

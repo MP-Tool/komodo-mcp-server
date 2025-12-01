@@ -1,10 +1,10 @@
+# Komodo MCP Server
+
 services:
-  # Komodo MCP Server - For MCP clients (AI assistants, automation tools, IDEs)
   komodo-mcp-server:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: komodo-mcp-server
     image: komodo-mcp-server:latest
     
     environment:
@@ -30,7 +30,4 @@ services:
     
     # Container metadata
     labels:
-      - "com.komodo.mcp.version=1.0.4"
       - "com.komodo.mcp.mode=stdio"
-      - "org.opencontainers.image.title=Komodo MCP Server"
-      - "org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager"

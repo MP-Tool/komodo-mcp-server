@@ -20,7 +20,7 @@ class KomodoMCPServer {
     this.server = new McpServer(
       {
         name: 'komodo-mcp-gateway',
-        version: '1.0.4',
+        version: config.VERSION,
       }
     );
 

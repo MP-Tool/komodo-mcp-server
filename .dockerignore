@@ -61,7 +61,8 @@ examples/
 # Docker files (already handled by build context)
 .dockerignore
 
+# Additional files to ignore
 .vscode/
-
 .dev/
-examples/
+.devcontainer/
+scripts/

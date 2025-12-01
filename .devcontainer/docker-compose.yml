@@ -1,0 +1,19 @@
+services:
+  devcontainer:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: development
+      args:
+        - VERSION=${VERSION:-dev}
+    volumes:
+      - ..:/app:cached
+      - /app/node_modules
+    # network_mode: "host" # Uncomment if you are on Linux and want to use localhost
+    environment:
+      - NODE_ENV=development
+      # Configure these in your local environment or .env file
+      # - KOMODO_URL=http://host.docker.internal:9120
+      # - KOMODO_USERNAME=username
+      # - KOMODO_PASSWORD=password
+    command: sleep infinity

@@ -19,6 +19,36 @@ COPY . .
 # Build the project
 RUN npm run build
 
+# Development stage (for DevContainer)
+FROM node:22-alpine AS development
+
+# Upgrade OS packages and install development tools
+RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
+
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install all dependencies
+RUN npm ci
+
+# Copy source and built files
+COPY . .
+
+# Set user
+USER node
+
+# Build arguments
+ARG VERSION
+
+# Environment variables
+ENV NODE_ENV=development
+ENV VERSION=${VERSION}
+
+# Default development command
+CMD ["npm", "run", "dev"]
+
 # Production stage
 FROM node:22-alpine AS production
 

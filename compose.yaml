@@ -5,6 +5,8 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        - VERSION=${VERSION:-latest}    
     image: komodo-mcp-server:latest
     
     environment:

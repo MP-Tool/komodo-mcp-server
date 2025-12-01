@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.0.4",
+  "version": "1.0.5",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",
@@ -10,11 +10,11 @@
   "scripts": {
     "build": "tsc",
     "start": "node build/index.js",
-    "dev"  : "npm run build && node build/index.js",
+    "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build, node_modules ",
-    "docker:build"         : "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
+    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
-    "docker:run"           : "docker run -i komodo-mcp-server"
+    "docker:run": "docker run -i komodo-mcp-server"
   },
   "keywords": [
     "mcp",
@@ -43,10 +43,12 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.22.0",
     "axios": "^1.13.2",
+    "express": "^5.2.1",
     "zod": "^3.23.8",
     "zod-to-json-schema": "^3.25.0"
   },
   "devDependencies": {
+    "@types/express": "^5.0.6",
     "@types/node": "^20.19.25",
     "typescript": "^5.9.3"
   }

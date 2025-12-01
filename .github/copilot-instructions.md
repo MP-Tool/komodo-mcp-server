@@ -32,6 +32,10 @@ A Model Context Protocol (MCP) server that enables AI assistants and automation 
   - **Streamable HTTP (SSE)**: For network/Docker usage (via Express).
 - **Configuration**: Centralized configuration with Zod validation in `src/config`.
 
+### Additional Guidelines
+- Keep the changelog updated with all notable changes.
+- Follow conventional commit messages for clarity in version history.
+
 ## Project Overview
 
 ### Core Technology Stack

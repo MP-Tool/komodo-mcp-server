@@ -10,6 +10,7 @@ import { z } from 'zod';
 import { KomodoClient } from './api/komodo-client.js';
 import { registerTools, toolRegistry } from './tools/index.js';
 import { config } from './config/env.js';
+import { startHttpServer } from './transport/http-server.js';
 
 // Komodo MCP server - Container Management Server
 class KomodoMCPServer {
@@ -90,9 +91,16 @@ class KomodoMCPServer {
       }
     }
 
-    const transport = new StdioServerTransport();
-    await this.server.connect(transport);
-    console.error('Komodo MCP server started');
+    if (config.MCP_TRANSPORT === 'sse') {
+      await startHttpServer(this.server);
+      console.error(`Komodo MCP server started (SSE Mode) on port ${config.MCP_PORT}`);
+    } else if (config.MCP_TRANSPORT === 'stdio') {
+      const transport = new StdioServerTransport();
+      await this.server.connect(transport);
+      console.error('Komodo MCP server started (Stdio Mode)');
+    } else {
+      throw new Error(`Unsupported MCP_TRANSPORT: ${config.MCP_TRANSPORT}`);
+    }
   }
 }
 

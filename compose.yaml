@@ -8,28 +8,31 @@ services:
       args:
         - VERSION=${VERSION:-latest}    
     image: komodo-mcp-server:latest
-    
-    environment:
-      - KOMODO_URL=https://komodo.example.com:9120
-      - KOMODO_USERNAME=user
-      - KOMODO_PASSWORD=password
-    
-    # Required for MCP stdio communication
-    stdin_open: true
-    
-    # Don't auto-restart (MCP clients manage the lifecycle)
+
     restart: "no"
-    
-    # Resource limits
-    deploy:
+    deploy:         # Resource limits
       resources:
         limits:
           memory: 256M
-          cpus: '0.25'
+          cpus: '0.5'
         reservations:
           memory: 128M
           cpus: '0.1'
-    
-    # Container metadata
-    labels:
-      - "com.komodo.mcp.mode=stdio"
+
+    ports:
+      - "3000:3000"
+
+    environment:
+      - KOMODO_URL=https://komodo.example.com:9120
+      - KOMODO_USERNAME=username
+      - KOMODO_PASSWORD=password
+      - MCP_TRANSPORT=sse
+      - MCP_PORT=3000
+      - MCP_BIND_HOST=0.0.0.0
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 5s

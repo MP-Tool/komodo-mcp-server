@@ -1,6 +1,6 @@
 services:
   komodo-mcp-server:
-    # image: ghcr.io/mp-tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
+    image: ghcr.io/mp-tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
     
     # Override environment variables from .env file or shell
     environment:

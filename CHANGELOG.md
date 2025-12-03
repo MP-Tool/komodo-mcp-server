@@ -32,6 +32,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Hardening**: Added CodeQL (SAST) and OpenSSF Scorecard workflows to ensure code security and best practices.
 - **Dependency Review**: Added automated dependency review for Pull Requests to block vulnerable packages.
 - **Docker Security**: Added `apk upgrade` to Dockerfile to fix OS-level vulnerabilities in the base image.
+- **Protocol Validation**: Added strict validation for `MCP-Protocol-Version` header (supports 2025-06-18 & 2024-11-05).
+- **Header Validation**: Enforced `Accept: text/event-stream` validation for SSE endpoints.
+- **DNS Rebinding**: Implemented middleware to block DNS rebinding attacks (validates Host header).
+- **Rate Limiting**: Added rate limiting for MCP endpoints to prevent DoS attacks.
+
+### Transport Layer (Streamable HTTP)
+- **Migration**: Replaced deprecated `SSEServerTransport` with `StreamableHTTPServerTransport` (MCP Spec 2025-06-18).
+- **Keep-Alive**: Implemented active heartbeat mechanism (every 30s) to prevent connection timeouts.
+- **Fault Tolerance**: Added session resilience tolerating up to 3 missed heartbeats before disconnection.
+- **Session Management**:
+    - Centralized `TransportSessionManager` with automatic cleanup of idle sessions.
+    - Support for both Legacy (GET+Event) and Modern (Header-based) connection flows.
+    - Fixed POST request handling to correctly map to existing SSE streams.
+
+### Refactoring
+- **Modular Architecture**: Split transport logic alinge to express convention into `config`, `middleware`, `routes`, and `utils`.
+- **Central Config**: Created `src/transport/config/transport.config.ts` as the single source of truth for transport constants.
 
 ### Changed
 - **CI/CD Optimization**: Replaced Dependabot with Renovate for better dependency management and reduced noise.

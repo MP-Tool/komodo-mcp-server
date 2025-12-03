@@ -12,8 +12,6 @@ on:
 jobs:
   analyze:
     name: Analyze
-    # Skip on draft PRs to save resources
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       actions: read

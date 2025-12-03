@@ -7,9 +7,9 @@ on:
   schedule:
     - cron: '20 7 * * 1'
   push:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ "main", "dev" ]
     types: [opened, synchronize, reopened, ready_for_review]
 
 # Declare default permissions as read only.
@@ -18,8 +18,6 @@ permissions: read-all
 jobs:
   analysis:
     name: Scorecard analysis
-    # Skip on draft PRs to save resources
-    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     permissions:
       # Needed to upload the results to code-scanning dashboard.

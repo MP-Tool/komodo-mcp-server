@@ -291,6 +291,32 @@ class KomodoStreamableTransport extends StreamableHTTPServerTransport {
             }
         }
     }
+
+    /**
+     * Sends a heartbeat (SSE comment) to keep the connection alive and check status
+     */
+    sendHeartbeat(): boolean {
+        const self = this as unknown as InternalStreamableTransport;
+        // Try to find the main SSE stream
+        const streamId = self._standaloneSseStreamId;
+        
+        if (!self._streamMapping || !streamId) {
+            return false;
+        }
+
+        const response = self._streamMapping.get(streamId);
+        if (!response || response.writableEnded || response.destroyed) {
+            return false;
+        }
+
+        try {
+            // Send SSE comment as heartbeat
+            response.write(': keepalive\n\n');
+            return true;
+        } catch (error) {
+            return false;
+        }
+    }
 }
 
 /**

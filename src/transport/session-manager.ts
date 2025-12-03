@@ -6,7 +6,9 @@
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
 import { 
     SESSION_TIMEOUT_MS, 
-    SESSION_CLEANUP_INTERVAL_MS 
+    SESSION_CLEANUP_INTERVAL_MS,
+    SESSION_KEEP_ALIVE_INTERVAL_MS,
+    SESSION_MAX_MISSED_HEARTBEATS
 } from './config/transport.config.js';
 
 /**
@@ -15,6 +17,7 @@ import {
 interface SessionData {
     transport: StreamableHTTPServerTransport;
     lastActivity: Date;
+    missedHeartbeats: number;
 }
 
 /**
@@ -29,12 +32,18 @@ interface SessionData {
 export class TransportSessionManager {
     private sessions = new Map<string, SessionData>();
     private cleanupInterval: NodeJS.Timeout;
+    private keepAliveInterval: NodeJS.Timeout;
 
     constructor() {
         // Start background cleanup task for expired sessions
         this.cleanupInterval = setInterval(() => {
             this.cleanupExpiredSessions();
         }, SESSION_CLEANUP_INTERVAL_MS);
+
+        // Start background keep-alive task
+        this.keepAliveInterval = setInterval(() => {
+            this.sendKeepAlives();
+        }, SESSION_KEEP_ALIVE_INTERVAL_MS);
         
         console.error(`[SessionManager] Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
     }
@@ -45,7 +54,8 @@ export class TransportSessionManager {
     add(sessionId: string, transport: StreamableHTTPServerTransport): void {
         this.sessions.set(sessionId, {
             transport,
-            lastActivity: new Date()
+            lastActivity: new Date(),
+            missedHeartbeats: 0
         });
         console.error(`[SessionManager] Session added: ${sessionId} (total: ${this.sessions.size})`);
     }
@@ -58,6 +68,8 @@ export class TransportSessionManager {
         if (session) {
             // Update last activity time
             session.lastActivity = new Date();
+            // Reset missed heartbeats on active usage
+            session.missedHeartbeats = 0;
             return session.transport;
         }
         return undefined;
@@ -70,6 +82,7 @@ export class TransportSessionManager {
         const session = this.sessions.get(sessionId);
         if (session) {
             session.lastActivity = new Date();
+            session.missedHeartbeats = 0;
         }
     }
 
@@ -97,8 +110,9 @@ export class TransportSessionManager {
     async closeAll(): Promise<void> {
         console.error(`[SessionManager] Closing ${this.sessions.size} sessions...`);
         
-        // Stop cleanup interval
+        // Stop intervals
         clearInterval(this.cleanupInterval);
+        clearInterval(this.keepAliveInterval);
         
         const closePromises: Promise<void>[] = [];
 
@@ -138,6 +152,15 @@ export class TransportSessionManager {
             const idleTime = now - session.lastActivity.getTime();
             
             if (idleTime > SESSION_TIMEOUT_MS) {
+                // Try to send heartbeat to keep active connections alive
+                const transport = session.transport as any;
+                if (transport.sendHeartbeat && transport.sendHeartbeat()) {
+                    // Connection is alive, extend session
+                    // We don't log this to avoid spamming logs
+                    session.lastActivity = new Date(); 
+                    continue;
+                }
+
                 console.error(`[SessionManager] Expiring idle session: ${sessionId} (idle: ${Math.round(idleTime / 60000)} min)`);
                 session.transport.close().catch(err => 
                     console.error('[SessionManager] Error closing expired transport:', err)
@@ -149,6 +172,35 @@ export class TransportSessionManager {
 
         if (expiredCount > 0) {
             console.error(`[SessionManager] Cleaned up ${expiredCount} expired session(s). Active: ${this.sessions.size}`);
+        }
+    }
+
+    /**
+     * Sends keep-alive heartbeats to all active sessions
+     * This prevents intermediate proxies or clients from closing the connection due to inactivity
+     * Also proactively cleans up dead connections after threshold is reached
+     */
+    private sendKeepAlives(): void {
+        for (const [sessionId, session] of this.sessions.entries()) {
+            const transport = session.transport as any;
+            if (transport.sendHeartbeat) {
+                const isAlive = transport.sendHeartbeat();
+                
+                if (isAlive) {
+                    // Connection is healthy, reset counter
+                    session.missedHeartbeats = 0;
+                } else {
+                    // Connection failed, increment counter
+                    session.missedHeartbeats++;
+                    
+                    if (session.missedHeartbeats >= SESSION_MAX_MISSED_HEARTBEATS) {
+                        // Threshold reached, clean up dead connection
+                        console.error(`[SessionManager] Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
+                        session.transport.close().catch(() => {});
+                        this.sessions.delete(sessionId);
+                    }
+                }
+            }
         }
     }
 }

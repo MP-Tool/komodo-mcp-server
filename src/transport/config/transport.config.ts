@@ -35,6 +35,18 @@ export const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
 export const SESSION_CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
 
 /**
+ * Session keep-alive interval in milliseconds
+ * Sends a heartbeat every 30 seconds to prevent connection timeouts
+ */
+export const SESSION_KEEP_ALIVE_INTERVAL_MS = 30 * 1000; // 30 seconds
+
+/**
+ * Maximum number of missed heartbeats before closing session
+ * Allows for temporary network glitches (e.g. 3 * 30s = 90s tolerance)
+ */
+export const SESSION_MAX_MISSED_HEARTBEATS = 3;
+
+/**
  * Generates allowed hosts list for DNS rebinding protection
  */
 export function getAllowedHosts(): string[] {

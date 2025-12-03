@@ -28,13 +28,16 @@ process.on('uncaughtException', (err: any) => {
 
 describe('MCP Transport Layer - Session Management', () => {
   let app: express.Application;
+  let sessionManager: TransportSessionManager;
 
   beforeEach(() => {
-    app = setupTestApp();
+    const setup = setupTestApp();
+    app = setup.app;
+    sessionManager = setup.sessionManager;
   });
 
   afterEach(async () => {
-    await cleanupTestApp(app);
+    await cleanupTestApp(sessionManager);
   });
 
   it('should require sessionId for POST requests', async () => {
@@ -71,12 +74,11 @@ describe('MCP Transport Layer - Session Management', () => {
     vi.useFakeTimers();
     
     // Create a local app instance so SessionManager picks up the fake timers
-    const localApp = createExpressApp(() => new McpServer({
+    const { app: localApp, sessionManager } = createExpressApp(() => new McpServer({
       name: 'test-server',
       version: PACKAGE_VERSION
     }));
     
-    const sessionManager = (localApp as any).sessionManager as TransportSessionManager;
     const sessionId = 'timeout-session-test';
     
     const mockTransport = {

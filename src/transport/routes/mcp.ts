@@ -13,7 +13,7 @@ import { logSessionInitialized, logSessionClosed } from '../utils/logging.js';
 /**
  * Creates the MCP router with injected dependencies
  */
-export function createMcpRouter(mcpServer: McpServer, sessionManager: TransportSessionManager): Router {
+export function createMcpRouter(mcpServerFactory: () => McpServer, sessionManager: TransportSessionManager): Router {
     const router = Router();
 
     /**
@@ -22,7 +22,6 @@ export function createMcpRouter(mcpServer: McpServer, sessionManager: TransportS
      */
     router.get('/', async (req: Request, res: Response) => {
         try {
-            console.log('[MCP] Handling GET request', req.url, req.headers);
             const transport = createSecureTransport({
                 onSessionInitialized: (sessionId) => {
                     logSessionInitialized(sessionId);
@@ -33,6 +32,9 @@ export function createMcpRouter(mcpServer: McpServer, sessionManager: TransportS
                     sessionManager.remove(sessionId);
                 }
             });
+
+            // Create a new MCP server instance for this connection
+            const mcpServer = mcpServerFactory();
 
             // Connect the transport to the MCP server
             await mcpServer.connect(transport);
@@ -56,7 +58,7 @@ export function createMcpRouter(mcpServer: McpServer, sessionManager: TransportS
      */
     router.post('/', async (req: Request, res: Response) => {
         const sessionId = req.query.sessionId as string;
-
+        
         if (!sessionId) {
             res.status(400).json(createJsonRpcError(-32602, 'Missing sessionId query parameter'));
             return;
@@ -70,13 +72,20 @@ export function createMcpRouter(mcpServer: McpServer, sessionManager: TransportS
         }
 
         try {
-            await transport.handleRequest(req, res);
+            await transport.handleRequest(req, res, req.body);
         } catch (error) {
             console.error('[MCP] Error handling POST message:', error);
             if (!res.headersSent) {
                 res.status(500).json(createJsonRpcError(-32603, 'Internal Error handling message'));
             }
         }
+    });
+
+    /**
+     * Handle unsupported methods
+     */
+    router.all('/', (req: Request, res: Response) => {
+        res.status(405).json(createJsonRpcError(-32601, 'Method Not Allowed'));
     });
 
     return router;

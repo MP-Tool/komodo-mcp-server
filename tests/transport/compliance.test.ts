@@ -30,13 +30,16 @@ process.on('uncaughtException', (err: any) => {
 
 describe('MCP Transport Layer Compliance', () => {
   let app: express.Application;
+  let sessionManager: TransportSessionManager;
 
   beforeEach(() => {
-    app = setupTestApp();
+    const setup = setupTestApp();
+    app = setup.app;
+    sessionManager = setup.sessionManager;
   });
 
   afterEach(async () => {
-    await cleanupTestApp(app);
+    await cleanupTestApp(sessionManager);
   });
 
   /**
@@ -258,7 +261,6 @@ describe('MCP Transport Layer Compliance', () => {
     let sessionId: string;
 
     beforeEach(async () => {
-        const sessionManager = (app as any).sessionManager as TransportSessionManager;
         sessionId = 'test-session-' + Date.now();
         
         const mockTransport = {
@@ -413,7 +415,6 @@ describe('MCP Transport Layer Compliance', () => {
         const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
         try {
-            const sessionManager = (app as any).sessionManager as TransportSessionManager;
             const errorSessionId = 'error-session-' + Date.now();
             
             const mockErrorTransport = {

@@ -26,7 +26,7 @@ export function validateProtocolVersion(req: Request, res: Response, next: NextF
         return;
     }
     
-    if (!SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion as any)) {
+    if (!SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion as typeof SUPPORTED_PROTOCOL_VERSIONS[number])) {
         logProtocolEvent(`Unsupported protocol version: ${protocolVersion}`);
         res.status(400).json(createJsonRpcError(
             -32600, 

@@ -8,6 +8,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
+import { TransportSessionManager } from '../../src/transport/session-manager.js';
 import { setupTestApp, cleanupTestApp, createSseRequest, PROTOCOL_VERSION_2025_11_25 } from './utils.js';
 
 // Mock config
@@ -23,13 +24,16 @@ process.on('uncaughtException', (err: any) => {
 
 describe('MCP Transport Layer - Newest Client Compatibility (2025-11-25)', () => {
   let app: express.Application;
+  let sessionManager: TransportSessionManager;
 
   beforeEach(() => {
-    app = setupTestApp();
+    const setup = setupTestApp();
+    app = setup.app;
+    sessionManager = setup.sessionManager;
   });
 
   afterEach(async () => {
-    await cleanupTestApp(app);
+    await cleanupTestApp(sessionManager);
   });
 
   /**

@@ -19,7 +19,13 @@ export function dnsRebindingProtection(req: Request, res: Response, next: NextFu
     const allowedHosts = getAllowedHosts();
 
     // Validate Host header (MUST for all configurations)
-    if (!host || !allowedHosts.includes(host)) {
+    // We allow localhost/127.0.0.1 on ANY port to support Docker port mapping
+    const cleanHost = host ? host.trim() : '';
+    const isLocal = cleanHost.startsWith('localhost:') || cleanHost === 'localhost' || 
+                    cleanHost.startsWith('127.0.0.1:') || cleanHost === '127.0.0.1' ||
+                    cleanHost.startsWith('[::1]:') || cleanHost === '[::1]';
+
+    if (!host || (!isLocal && !allowedHosts.includes(host))) {
         logSecurityEvent(`DNS Rebinding attempt blocked: Host=${host}`);
         res.status(403).json(createJsonRpcError(-32000, 'Forbidden: Invalid Host header'));
         return;

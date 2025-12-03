@@ -6,7 +6,6 @@ import {
   ErrorCode,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { z } from 'zod';
 import { KomodoClient } from './api/komodo-client.js';
 import { registerTools, toolRegistry } from './tools/index.js';
 import { config } from './config/env.js';
@@ -14,40 +13,34 @@ import { startHttpServer } from './transport/http-server.js';
 
 // Komodo MCP server - Container Management Server
 class KomodoMCPServer {
-  private server: McpServer;
   private komodoClient: KomodoClient | null = null;
 
   constructor() {
-    this.server = new McpServer(
+    // Register all tools
+    registerTools();
+    
+    // Handle SIGINT globally
+    process.on('SIGINT', async () => {
+      process.exit(0);
+    });
+  }
+
+  private createMcpServer(): McpServer {
+    const server = new McpServer(
       {
         name: 'komodo-mcp-gateway',
         version: config.VERSION,
       }
     );
 
-    // Register all tools
-    registerTools();
-
-    this.setupToolHandlers();
-    this.setupErrorHandling();
-  }
-
-  private setupErrorHandling(): void {
-    this.server.server.onerror = (error) => {
+    server.server.onerror = (error) => {
       console.error('[MCP Error]', error);
     };
 
-    process.on('SIGINT', async () => {
-      await this.server.server.close();
-      process.exit(0);
-    });
-  }
-
-  private setupToolHandlers(): void {
     const tools = toolRegistry.getTools();
 
     for (const tool of tools) {
-      this.server.registerTool(
+      server.registerTool(
         tool.name,
         {
           description: tool.description,
@@ -73,6 +66,8 @@ class KomodoMCPServer {
         }
       );
     }
+    
+    return server;
   }
 
   async run(): Promise<void> {
@@ -92,11 +87,13 @@ class KomodoMCPServer {
     }
 
     if (config.MCP_TRANSPORT === 'sse') {
-      await startHttpServer(this.server);
+      // Pass factory function to create a new server instance per connection
+      await startHttpServer(() => this.createMcpServer());
       console.error(`Komodo MCP server started (SSE Mode) on port ${config.MCP_PORT}`);
     } else if (config.MCP_TRANSPORT === 'stdio') {
+      const server = this.createMcpServer();
       const transport = new StdioServerTransport();
-      await this.server.connect(transport);
+      await server.connect(transport);
       console.error('Komodo MCP server started (Stdio Mode)');
     } else {
       throw new Error(`Unsupported MCP_TRANSPORT: ${config.MCP_TRANSPORT}`);

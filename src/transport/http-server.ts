@@ -27,6 +27,8 @@ import { mcpRateLimiter } from './middleware/rate-limit.js';
 import { validateProtocolVersion } from './middleware/protocol-version.js';
 import { validateAcceptHeader } from './middleware/accept-header.js';
 import { dnsRebindingProtection } from './middleware/dns-rebinding.js';
+import { validateContentType } from './middleware/content-type.js';
+import { validateJsonRpc } from './middleware/json-rpc.js';
 
 // Routes
 import { createHealthRouter } from './routes/health.js';
@@ -38,7 +40,7 @@ import { logSecurityStatus } from './utils/logging.js';
 /**
  * Creates and configures the Express application
  */
-export function createExpressApp(mcpServer: McpServer): express.Application {
+export function createExpressApp(mcpServerFactory: () => McpServer): { app: express.Application, sessionManager: TransportSessionManager } {
     const app = express();
     const sessionManager = new TransportSessionManager();
     
@@ -55,22 +57,20 @@ export function createExpressApp(mcpServer: McpServer): express.Application {
     app.use('/mcp', mcpRateLimiter);              // 2. Rate Limiting
     app.use('/mcp', validateProtocolVersion);     // 3. Protocol Version (MUST)
     app.use('/mcp', validateAcceptHeader);        // 4. Accept Header (MUST)
+    app.use('/mcp', validateContentType);         // 5. Content-Type (MUST for POST)
+    app.use('/mcp', validateJsonRpc);             // 6. JSON-RPC Validation (MUST for POST)
     
     // MCP route handler
-    app.use('/mcp', createMcpRouter(mcpServer, sessionManager));
+    app.use('/mcp', createMcpRouter(mcpServerFactory, sessionManager));
 
-    // Expose session manager for shutdown (attached to app for access)
-    (app as any).sessionManager = sessionManager;
-
-    return app;
+    return { app, sessionManager };
 }
 
 /**
  * Starts the HTTP server
  */
-export async function startHttpServer(mcpServer: McpServer) {
-    const app = createExpressApp(mcpServer);
-    const sessionManager = (app as any).sessionManager as TransportSessionManager;
+export async function startHttpServer(mcpServerFactory: () => McpServer): Promise<void> {
+    const { app, sessionManager } = createExpressApp(mcpServerFactory);
 
     // ===== Server Startup =====
     
@@ -95,6 +95,4 @@ export async function startHttpServer(mcpServer: McpServer) {
 
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
-    
-    return server;
 }

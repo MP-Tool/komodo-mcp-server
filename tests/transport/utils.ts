@@ -41,7 +41,7 @@ export const TEST_CONFIG = {
 /**
  * Helper to setup the Express app with a mock MCP server.
  * Creates a fresh instance for each test to ensure isolation.
- * @returns {express.Application} The configured Express application
+ * @returns {{ app: express.Application, sessionManager: TransportSessionManager }} The configured Express application and session manager
  */
 export const setupTestApp = () => {
     return createExpressApp(() => new McpServer({
@@ -53,16 +53,13 @@ export const setupTestApp = () => {
 /**
  * Helper to cleanup the test app.
  * Closes all active sessions to prevent leaks and open handles.
- * @param {express.Application} app - The Express application to cleanup
+ * @param {TransportSessionManager} sessionManager - The session manager to cleanup
  */
-export const cleanupTestApp = async (app: express.Application) => {
-    const sessionManager = (app as any).sessionManager as TransportSessionManager;
+export const cleanupTestApp = async (sessionManager: TransportSessionManager) => {
     if (sessionManager) {
-      await sessionManager.closeAll();
+        await sessionManager.closeAll();
     }
-};
-
-/**
+};/**
  * Helper to create a standard SSE request.
  * Sets the necessary headers for a valid MCP SSE connection.
  * @param {express.Application} app - The Express application

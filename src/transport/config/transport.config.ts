@@ -11,8 +11,9 @@ import { config } from '../../config/env.js';
  * Current version: 2025-06-18 (but 2024-11-05 is still widely used)
  */
 export const SUPPORTED_PROTOCOL_VERSIONS = [
-    '2025-06-18',  // Current spec version
-    '2024-11-05',  // Previous stable version (still widely used)
+    '2025-11-25',  // Newest release
+    '2025-06-18',  // Previous spec version
+    '2024-11-05',  // Legacy stable version
 ] as const;
 
 /**
@@ -38,12 +39,18 @@ export const SESSION_CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
  */
 export function getAllowedHosts(): string[] {
     const port = config.MCP_PORT;
-    return [
+    const defaults = [
         'localhost',
         '127.0.0.1',
         `localhost:${port}`,
         `127.0.0.1:${port}`,
     ];
+    
+    if (config.MCP_ALLOWED_HOSTS) {
+        return [...defaults, ...config.MCP_ALLOWED_HOSTS];
+    }
+    
+    return defaults;
 }
 
 /**

@@ -39,6 +39,22 @@ export const stopContainerTool: Tool = {
   }
 };
 
+export const restartContainerTool: Tool = {
+  name: 'komodo_restart_container',
+  description: 'Restart a Docker container',
+  schema: containerActionSchema,
+  handler: async (args, { client }) => {
+    if (!client) throw new Error('Komodo client not initialized');
+    const result = await client.restartContainer(args.server, args.container);
+    return {
+      content: [{
+        type: 'text',
+        text: `🔄 Container "${args.container}" restarted on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`
+      }]
+    };
+  }
+};
+
 export const pauseContainerTool: Tool = {
   name: 'komodo_pause_container',
   description: 'Pause a Docker container',

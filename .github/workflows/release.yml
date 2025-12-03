@@ -15,9 +15,6 @@ env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
-permissions:
-  contents: read
-
 jobs:
   check-version:
     name: Check Version Change

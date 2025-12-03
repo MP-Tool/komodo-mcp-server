@@ -6,7 +6,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { config } from '../../config/env.js';
 import { createJsonRpcError } from '../utils/json-rpc.js';
-import { logSecurityEvent } from '../utils/logging.js';
+import { logSecurityEvent, sanitizeForLog } from '../utils/logging.js';
 import { getAllowedHosts, getAllowedOrigins } from '../config/transport.config.js';
 
 /**
@@ -26,7 +26,7 @@ export function dnsRebindingProtection(req: Request, res: Response, next: NextFu
                     cleanHost.startsWith('[::1]:') || cleanHost === '[::1]';
 
     if (!host || (!isLocal && !allowedHosts.includes(host))) {
-        logSecurityEvent(`DNS Rebinding attempt blocked: Host=${host}`);
+        logSecurityEvent(`DNS Rebinding attempt blocked: Host=${sanitizeForLog(host)}`);
         res.status(403).json(createJsonRpcError(-32000, 'Forbidden: Invalid Host header'));
         return;
     }

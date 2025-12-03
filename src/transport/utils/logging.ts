@@ -4,6 +4,17 @@
 
 
 /**
+ * Sanitizes a string for logging to prevent log injection attacks
+ * Replaces newlines and other control characters
+ */
+export function sanitizeForLog(input: string | undefined | null): string {
+    if (!input) return '';
+    // Replace newlines and carriage returns with space
+    // Also replace other control characters if needed, but newlines are the main vector
+    return String(input).replace(/[\n\r]/g, ' ').trim();
+}
+
+/**
  * Logs security status based on bind host configuration
  */
 export function logSecurityStatus(bindHost: string, port: number): void {

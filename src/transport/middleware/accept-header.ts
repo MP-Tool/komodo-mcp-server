@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createJsonRpcError } from '../utils/json-rpc.js';
-import { logProtocolEvent } from '../utils/logging.js';
+import { logProtocolEvent, sanitizeForLog } from '../utils/logging.js';
 
 /**
  * Validates Accept header
@@ -33,7 +33,7 @@ export function validateAcceptHeader(req: Request, res: Response, next: NextFunc
     
     // At least one valid content type must be accepted
     if (!hasJson && !hasSSE && !acceptsAll) {
-        logProtocolEvent(`Invalid Accept header: ${accept}`);
+        logProtocolEvent(`Invalid Accept header: ${sanitizeForLog(accept)}`);
         res.status(400).json(createJsonRpcError(
             -32600, 
             'Accept header must include application/json or text/event-stream'

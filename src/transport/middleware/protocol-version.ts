@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createJsonRpcError } from '../utils/json-rpc.js';
-import { logProtocolEvent } from '../utils/logging.js';
+import { logProtocolEvent, sanitizeForLog } from '../utils/logging.js';
 import { 
     SUPPORTED_PROTOCOL_VERSIONS, 
     FALLBACK_PROTOCOL_VERSION 
@@ -27,7 +27,7 @@ export function validateProtocolVersion(req: Request, res: Response, next: NextF
     }
     
     if (!SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion as typeof SUPPORTED_PROTOCOL_VERSIONS[number])) {
-        logProtocolEvent(`Unsupported protocol version: ${protocolVersion}`);
+        logProtocolEvent(`Unsupported protocol version: ${sanitizeForLog(protocolVersion)}`);
         res.status(400).json(createJsonRpcError(
             -32600, 
             `Unsupported MCP-Protocol-Version: ${protocolVersion}. Supported versions: ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')}`

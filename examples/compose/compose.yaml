@@ -1,42 +1,27 @@
 services:
   komodo-mcp-server:
     image: ghcr.io/mp-tool/komodo-mcp-server:latest
-    container_name: komodo-mcp
     restart: unless-stopped
     
-    # Environment variables for Komodo connection
+    # Environment variables
     environment:
-      # Komodo server URL (adjust to your setup)
+      # Komodo Connection
       KOMODO_URL: ${KOMODO_URL:-https://localhost:9120}
-      
-      # Credentials - I recommend creating a dedicated MCP user in Komodo
       KOMODO_USERNAME: ${KOMODO_USERNAME:-komodo}
       KOMODO_PASSWORD: ${KOMODO_PASSWORD:-password}
-      
-      # Optional: Set to 'development' for verbose logging
-      # NODE_ENV: development
+
+    # ports:
+    #   - "${MCP_PORT:-3000}:${MCP_PORT:-3000}"
     
-    # Keep container interactive for MCP stdio communication
-    stdin_open: true
-    tty: true
-    
-    # Resource limits (adjust based on your needs)
+    # Resource limits
     deploy:
       resources:
         limits:
           memory: 256M
-          cpus: '0.25'
+          cpus: '0.5'
         reservations:
           memory: 128M
           cpus: '0.1'
-    
-    # Network configuration
-    # Option 1: Host network (easiest for localhost Komodo)
-    network_mode: host
-    
-    # Option 2: Bridge network with custom network (uncomment if using Docker network)
-    # networks:
-    #   - komodo-network
     
     # Health check
     healthcheck:
@@ -45,8 +30,3 @@ services:
       timeout: 10s
       retries: 3
       start_period: 5s
-
-# Uncomment if using custom network
-# networks:
-#   komodo-network:
-#     driver: bridge

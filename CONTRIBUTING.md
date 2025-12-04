@@ -60,6 +60,10 @@ The project follows a modular architecture:
 
 - `src/api/` - Komodo API client and type definitions
 - `src/config/` - Configuration and environment validation (Zod)
+- `src/transport/` - MCP Transport Layer (Stdio & SSE)
+  - `config/` - Transport configuration
+  - `middleware/` - Express middleware (Auth, Rate Limit)
+  - `routes/` - SSE and Message routes
 - `src/tools/` - MCP tool definitions (Controllers)
   - `base.ts` - Tool interface and registry
   - `container/` - Container management tools
@@ -97,6 +101,33 @@ npm run dev
 ```
 
 ### 4. Commit Changes
+
+- Use conventional commits (e.g., `feat: add new tool`, `fix: resolve connection issue`).
+- Keep commits atomic and focused.
+
+### 5. Open Pull Request
+
+- Push your branch to your fork.
+- Open a PR against the `dev` branch.
+- Fill out the PR template.
+
+## CI/CD Checks
+
+When you open a Pull Request, the following automated checks will run:
+
+- **Build & Test**: Compiles the code and runs tests.
+- **CodeQL Analysis**: Scans for security vulnerabilities (SAST).
+- **Dependency Review**: Checks for vulnerable dependencies.
+- **Docker Build**: Verifies the container build process.
+
+We use **Renovate** for automated dependency updates.
+
+## Coding Standards
+
+- **TypeScript**: Strict mode enabled.
+- **Linting**: ESLint with standard config.
+- **Formatting**: Prettier.
+
 
 Use conventional commit messages:
 

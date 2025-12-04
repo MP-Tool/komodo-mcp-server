@@ -1,34 +1,8 @@
 {
   "servers": {
-    // Local build
-    // "komodo-mcp-server": {
-    //   "type": "stdio",
-    //   "command": "node",
-    //   "args": ["build/index.js"],
-    //   "env": {
-    //     "KOMODO_URL": "https://komodo.example.com:9120",
-    //     "KOMODO_USERNAME": "user",
-    //     "KOMODO_PASSWORD": "password"
-    //   }
-    // }
-    
-    // Docker
-    "komodo-mcp-server": {
-      "type": "stdio",
-      "command": "docker",
-      "args": [
-        "run",
-        "--rm",
-        "-i",
-        "--network",
-        "default",
-        "ghcr.io/mp-tool/komodo-mcp-server:latest"
-      ],
-      "env": {
-        "KOMODO_URL": "https://komodo.example.com:9120",
-        "KOMODO_USERNAME": "user",
-        "KOMODO_PASSWORD": "password"
-      }
+    "Komodo MCP Server": {
+      "type": "sse",
+      "url": "http://localhost:3000/mcp"
     }
   }
 }

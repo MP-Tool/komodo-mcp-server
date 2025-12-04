@@ -1,20 +1,17 @@
 {
   "mcpServers": {
-    "komodo-mcp-server": {
+    "Komodo MCP Server": {
       "command": "docker",
       "args": [
         "run",
         "--rm",
         "-i",
-        "--network",
-        "default",
+        "-e", "MCP_TRANSPORT=stdio",
+        "-e", "KOMODO_URL=https://komodo.example.com:9120",
+        "-e", "KOMODO_USERNAME=username",
+        "-e", "KOMODO_PASSWORD=password",
         "ghcr.io/mp-tool/komodo-mcp-server:latest"
-      ],
-      "env": {
-        "KOMODO_URL": "https://komodo.example.com:9120",
-        "KOMODO_USERNAME": "user",
-        "KOMODO_PASSWORD": "password"
-      }
+      ]
     }
   }
 }

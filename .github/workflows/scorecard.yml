@@ -7,9 +7,9 @@ on:
   schedule:
     - cron: '20 7 * * 1'
   push:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ "main", "dev" ]
+    branches: [ "main" ]
     types: [opened, synchronize, reopened, ready_for_review]
 
 # Declare default permissions as read only.
@@ -26,8 +26,9 @@ jobs:
       # Needed to publish results and get a badge (see publish_results below).
       id-token: write
       # Uncomment the permissions below if installing in a private repository.
-      # contents: read
-      # actions: read
+      contents: read
+      packages: read
+      actions: read
 
     steps:
       - name: "Checkout code"

@@ -1,240 +1,55 @@
-# Docker Compose Deployment
+# Self-Hosting with Docker Compose
 
-Deploy the Komodo MCP Server using Docker Compose for production or development environments with proper resource management and health checks.
+Run the Komodo MCP Server as a persistent service using Docker Compose. This is ideal for long-running environments or when running alongside Komodo.
 
-## Quick Setup
+## 🚀 Quick Start
 
-**1. Copy environment file:**
+### 1. Prepare Directory
+Create a folder and download the necessary files:
+- [`compose.yaml`](./compose.yaml)
+- [`.env.example`](./.env.example)
+
+### 2. Configure Environment
+Rename `.env.example` to `.env` and edit it with your credentials:
 
 ```bash
-cp .env.example .env
+mv .env.example .env
+# Edit the file with your preferred editor
+nano .env
 ```
 
-**2. Configure credentials:**
-
-Edit `.env` and set your Komodo connection details:
-
-```env
+**Required settings:**
+```dotenv
 KOMODO_URL=https://your-komodo-server.com:9120
 KOMODO_USERNAME=your-username
 KOMODO_PASSWORD=your-password
 ```
 
-**3. Start the server:**
+### 3. Start Server
+Launch the service in the background:
 
 ```bash
 docker compose up -d
 ```
 
-**4. Verify it's running:**
+## 🔌 Connecting Clients
 
-```bash
-docker compose ps
-docker compose logs komodo-mcp-server
-```
+### Claude Desktop
+Claude Desktop requires the server to be managed directly via `stdio`.
+👉 **Please use the [Claude Desktop Guide](../claude/README.md)** for the correct setup.
 
-**5. Connect your MCP client:**
+### Other MCP Clients (SSE)
+For clients that support remote connections via Server-Sent Events (SSE) (e.g. generic MCP inspectors or other tools):
 
-The server is now running and ready to accept MCP connections via stdio.
+1.  **Start Server:**
+    ```bash
+    docker compose up -d
+    ```
 
-## Configuration
-
-### Environment Variables
-
-| Variable | Description | Required | Default |
-|----------|-------------|----------|---------|
-| `KOMODO_URL` | Komodo server URL | Yes | - |
-| `KOMODO_USERNAME` | Komodo username | Yes | - |
-| `KOMODO_PASSWORD` | Komodo password | Yes | - |
-| `NODE_ENV` | Runtime environment | No | `production` |
-
-**Example `.env`:**
-```env
-KOMODO_URL=https://komodo.example.com:9120
-KOMODO_USERNAME=admin
-KOMODO_PASSWORD=secret-password
-NODE_ENV=production
-```
-
-### Resource Limits
-
-Default limits in [`compose.yaml`](./compose.yaml):
-
-- **Memory:** 256MB limit, 128MB reservation
-- **CPU:** 0.25 cores (25%)
-
-Adjust for your workload:
-
-```yaml
-deploy:
-  resources:
-    limits:
-      memory: 512M      # Increase if needed
-      cpus: '0.5'       # More CPU for heavy usage
-    reservations:
-      memory: 256M
-```
-
-### Network Configuration
-
-**Default: Host Mode**
-
-Uses host networking for simplicity:
-
-```yaml
-network_mode: host
-```
-
-**Production: Bridge Mode**
-
-For remote Komodo or better isolation:
-
-```yaml
-services:
-  komodo-mcp-server:
-    # Remove: network_mode: host
-    networks:
-      - komodo-network
-    ports:
-      - "9120:9120"    # If exposing ports
-
-networks:
-  komodo-network:
-    driver: bridge
-```
-
-### Health Check
-
-Built-in health check monitors the MCP process:
-
-```yaml
-healthcheck:
-  test: ["CMD", "pgrep", "-f", "node.*build/index.js"]
-  interval: 30s
-  timeout: 10s
-  retries: 3
-  start_period: 10s
-```
-
-## Usage
-
-### Connecting MCP Clients
-
-**Docker Exec Method:**
-
-```json
-{
-  "mcpServers": {
-    "komodo-mcp-server": {
-      "command": "docker",
-      "args": ["exec", "-i", "komodo-mcp-server", "node", "build/index.js"]
-    }
-  }
-}
-```
-
-**Standalone Container:**
-
-For Claude Desktop or VS Code, use the standalone image instead (see [claude](../claude/) or [vscode](../vscode/) examples).
-
-### Management Commands
-
-```bash
-# Start server
-docker compose up -d
-
-# Stop server
-docker compose down
-
-# View logs
-docker compose logs -f
-
-# Restart server
-docker compose restart
-
-# Check status
-docker compose ps
-
-# View resource usage
-docker stats komodo-mcp-server
-```
-
-### Updating
-
-```bash
-# Pull latest image
-docker compose pull
-
-# Restart with new image
-docker compose up -d
-```
-
-## Troubleshooting
-
-### Container not starting
-
-**Solution:**
-```bash
-# Check logs for errors
-docker compose logs komodo-mcp-server
-
-# Verify environment variables
-docker compose config
-
-# Test without detached mode
-docker compose up
-```
-
-### Health check failing
-
-**Solution:**
-- Check if MCP server process is running
-- Verify resource limits aren't too restrictive
-- Increase memory if needed
-- Check logs for startup errors
-
-### Cannot connect to Komodo
-
-**Solution:**
-- Verify `KOMODO_URL` is correct and reachable
-- Test connection: `curl -k ${KOMODO_URL}/health`
-- Check firewall/network access from Docker
-- Verify credentials are correct
-
-### Resource issues
-
-**Solution:**
-```bash
-# Check resource usage
-docker stats komodo-mcp-server
-
-# Increase limits in compose.yaml
-# Then recreate
-docker compose up -d --force-recreate
-```
-
-### Permission errors
-
-**Solution:**
-- Ensure Docker daemon is running
-- Check user has Docker permissions
-- Verify `.env` file permissions (should be readable)
+2.  **Connect:**
+    Configure your client to connect to:
+    `http://localhost:3000/mcp`
 
 ## More Info
-
 - [Main Documentation](../../README.md)
-- [All Examples](../README.md)
-
-## Additional Resources
-
 - [Komodo](https://komo.do)
-- [Docker Compose Documentation](https://docs.docker.com/compose/)
-- [Model Context Protocol Specification](https://modelcontextprotocol.io)
-
-## License
-
-GPL-3.0 - see [LICENSE](../../LICENSE) for details.
-
----
-
-**Made with ❤️ for the Komodo community**

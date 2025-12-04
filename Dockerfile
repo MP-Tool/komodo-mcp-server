@@ -45,6 +45,9 @@ ARG VERSION
 # Environment variables
 ENV NODE_ENV=development
 ENV VERSION=${VERSION}
+ENV MCP_BIND_HOST=0.0.0.0
+ENV MCP_PORT=3000
+ENV MCP_TRANSPORT=sse
 
 # Default development command
 CMD ["npm", "run", "dev"]
@@ -53,7 +56,7 @@ CMD ["npm", "run", "dev"]
 FROM node:22-alpine AS production
 
 # Upgrade OS packages to fix vulnerabilities
-RUN apk upgrade --no-cache
+RUN apk upgrade --no-cache && apk add --no-cache curl
 
 # Set working directory  
 WORKDIR /app
@@ -80,11 +83,16 @@ ARG VERSION
 # Environment variables
 ENV NODE_ENV=production
 ENV VERSION=${VERSION}
+ENV MCP_BIND_HOST=0.0.0.0
+ENV MCP_PORT=3000
+ENV MCP_TRANSPORT=sse
+
+# Expose SSE port
+EXPOSE ${MCP_PORT}
 
 # Health check - verifies MCP server process is running
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD pgrep -f "node.*build/index.js" > /dev/null || exit 1
-
+  CMD curl -f http://localhost:${MCP_PORT}/health || exit 1
 # Container metadata labels (OCI standard)
 LABEL org.opencontainers.image.title="Komodo MCP Server"
 LABEL org.opencontainers.image.version="${VERSION}"

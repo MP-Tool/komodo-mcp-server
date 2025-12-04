@@ -16,11 +16,30 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
-  validate:
-    name: Validate Changes
+  # Check which files have changed to optimize workflow
+  changes:
     runs-on: ubuntu-latest
-    if: github.event.pull_request.draft == false
+    outputs:
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            docker:
+              - 'Dockerfile'
+              - '.dockerignore'
+              - 'package*.json'
+              - '.github/workflows/pr-check.yml'
+
+  quick-check:
+    name: Quick Check (Build)
+    runs-on: ubuntu-latest
+    # Run always, even on draft PRs
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -47,10 +66,24 @@ jobs:
           fi
           echo "✅ Version format valid: $VERSION"
 
-  docker-build-test:
-    name: Test Docker Build
+  dependency-review:
+    name: Dependency Review
     runs-on: ubuntu-latest
     if: github.event.pull_request.draft == false
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v6
+      - name: Dependency Review
+        uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high
+
+  docker-build-test:
+    name: Test Docker Build
+    needs: [changes, quick-check]
+    runs-on: ubuntu-latest
+    # Run only if not draft AND Docker files changed
+    if: github.event.pull_request.draft == false && needs.changes.outputs.docker == 'true'
     steps:
       - name: Checkout code
         uses: actions/checkout@v6

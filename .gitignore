@@ -45,3 +45,5 @@ coverage/
 
 # Jest
 jest_0
+
+*.code-workspace

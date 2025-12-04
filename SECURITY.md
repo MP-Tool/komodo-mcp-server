@@ -19,10 +19,25 @@ I release security updates for the latest version (main branch) only. Please kee
 
 ## Security Best Practices
 
-- Never commit credentials or `.env` files
-- Use dedicated Komodo users with minimal permissions
-- Run containers as non-root (default in our setup)
-- Use HTTPS for Komodo connections
+- **Never commit credentials** or `.env` files.
+- **Use dedicated Komodo users** with minimal permissions.
+- **Run containers as non-root** (default in our setup).
+- **Use HTTPS** for Komodo connections.
+
+## Security Measures
+
+We implement the following security measures in our development and release process:
+
+- **SAST Scanning**: CodeQL analysis runs on every pull request.
+- **Dependency Review**: Automated checks for vulnerable dependencies in PRs.
+- **Container Hardening**:
+  - Base images are regularly updated in build process.
+  - Containers run as a non-root user.
+- **Transport Security**:
+  - Strict `MCP-Protocol-Version` header validation.
+  - `Host` header validation to prevent DNS rebinding.
+  - Rate limiting on API endpoints.
+  - Input validation using Zod schemas.
 
 ---
 

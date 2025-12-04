@@ -8,7 +8,9 @@ Manage your Docker or Podman deployments through Komodo with AI assistants and a
 
 Komodo MCP Server enables seamless interaction between AI assistants (like Claude, GitHub Copilot) and Komodo (Container Management Platform) for efficient container management, server orchestration, and deployment operations. The MCP-Server gives you the ability to control your Komodo-managed infrastructure by using natural language or automated workflows.
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://github.com/MP-Tool/komodo-mcp-server/pkgs/container/komodo-mcp-server) [![MCP](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/releases) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://github.com/MP-Tool/komodo-mcp-server/pkgs/container/komodo-mcp-server) [![MCP](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
+
+[![Build Status](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml) [![CodeQL](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/MP-Tool/komodo-mcp-server/badge)](https://securityscorecards.dev/viewer/?uri=github.com/MP-Tool/komodo-mcp-server) [![GitHub Issues](https://img.shields.io/github/issues/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/issues)
 
 [Features](#features) • [Quick Start](#quick-start) • [Examples](#examples) • [Documentation](#documentation)
 
@@ -56,6 +58,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 - Claude Desktop ready
 - VS Code Copilot support
 - n8n automation compatible
+- Dual Transport (Stdio + SSE)
 
 </td>
 </tr>

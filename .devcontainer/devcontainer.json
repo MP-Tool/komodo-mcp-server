@@ -18,7 +18,7 @@
       }
     }
   },
-  // "forwardPorts": [3000], // Uncomment if you add an HTTP server
+  "forwardPorts": [3000],
   "postCreateCommand": "npm install && npm run build",
   "remoteUser": "node"
 }

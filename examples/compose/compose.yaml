@@ -6,12 +6,12 @@ services:
     # Environment variables
     environment:
       # Komodo Connection
-      KOMODO_URL: ${KOMODO_URL:-https://localhost:9120}
-      KOMODO_USERNAME: ${KOMODO_USERNAME:-komodo}
+      KOMODO_URL: ${KOMODO_URL:-https://komodo.example.com:9120}
+      KOMODO_USERNAME: ${KOMODO_USERNAME:-username}
       KOMODO_PASSWORD: ${KOMODO_PASSWORD:-password}
 
-    # ports:
-    #   - "${MCP_PORT:-3000}:${MCP_PORT:-3000}"
+    ports:
+      - 3000:${MCP_PORT:-3000}
     
     # Resource limits
     deploy:

@@ -18,4 +18,3 @@ services:
       # - KOMODO_URL=http://host.docker.internal:9120
       # - KOMODO_USERNAME=username
       # - KOMODO_PASSWORD=password
-    command: sleep infinity

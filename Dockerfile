@@ -45,6 +45,9 @@ ARG VERSION
 # Environment variables
 ENV NODE_ENV=development
 ENV VERSION=${VERSION}
+ENV MCP_BIND_HOST=0.0.0.0
+ENV MCP_PORT=3000
+ENV MCP_TRANSPORT=sse
 
 # Default development command
 CMD ["npm", "run", "dev"]
@@ -80,6 +83,7 @@ ARG VERSION
 # Environment variables
 ENV NODE_ENV=production
 ENV VERSION=${VERSION}
+ENV MCP_BIND_HOST=0.0.0.0
 ENV MCP_PORT=3000
 ENV MCP_TRANSPORT=sse
 

@@ -54,12 +54,14 @@ export function getAllowedHosts(): string[] {
     const defaults = [
         'localhost',
         '127.0.0.1',
+        '[::1]',
         `localhost:${port}`,
         `127.0.0.1:${port}`,
+        `[::1]:${port}`,
     ];
     
-    if (config.MCP_ALLOWED_HOSTS) {
-        return [...defaults, ...config.MCP_ALLOWED_HOSTS];
+    if (config.MCP_ALLOWED_HOSTS && config.MCP_ALLOWED_HOSTS.length > 0) {
+        return config.MCP_ALLOWED_HOSTS;
     }
     
     return defaults;
@@ -71,10 +73,28 @@ export function getAllowedHosts(): string[] {
  */
 export function getAllowedOrigins(): string[] {
     const port = config.MCP_PORT;
-    return [
+    const defaults = [
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`,
+        `http://[::1]:${port}`,
     ];
+
+    if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
+        return config.MCP_ALLOWED_ORIGINS;
+    }
+
+    return defaults;
+}
+
+/**
+ * Checks if a host is a local loopback address
+ * Allows any port on localhost/127.0.0.1/[::1]
+ */
+export function isLocalHost(host: string): boolean {
+    const cleanHost = host.trim();
+    return cleanHost.startsWith('localhost:') || cleanHost === 'localhost' || 
+           cleanHost.startsWith('127.0.0.1:') || cleanHost === '127.0.0.1' ||
+           cleanHost.startsWith('[::1]:') || cleanHost === '[::1]';
 }
 
 /**

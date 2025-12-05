@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.0.6-dev",
+  "version": "1.0.6",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",

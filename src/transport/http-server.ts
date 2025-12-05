@@ -42,6 +42,7 @@ import { logSecurityStatus } from './utils/logging.js';
  */
 export function createExpressApp(mcpServerFactory: () => McpServer): { app: express.Application, sessionManager: TransportSessionManager } {
     const app = express();
+    app.disable('x-powered-by'); // Disable X-Powered-By header for security
     const sessionManager = new TransportSessionManager();
     
     // ===== Global Middleware =====

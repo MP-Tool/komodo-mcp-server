@@ -4,7 +4,7 @@ export const envSchema = z.object({
   VERSION: z.string().default(process.env.npm_package_version || 'unknown'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   MCP_BIND_HOST: z.string().default('127.0.0.1'),
-  MCP_PORT: z.string().transform((val) => parseInt(val, 10)).default('3000'),
+  MCP_PORT: z.string().transform((val) => parseInt(val, 10)).refine((val) => !isNaN(val), { message: "Port must be a valid number" }).default('3000'),
   MCP_TRANSPORT: z.enum(['stdio', 'sse']).default('sse'),
   MCP_ALLOWED_ORIGINS: z.string().transform((val) => {
     const list = val.split(',').map(o => o.trim()).filter(o => o.length > 0);

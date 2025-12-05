@@ -55,6 +55,10 @@ jobs:
       - name: TypeScript compilation check
         run: npm run build
 
+      # - name: Run Unit & Fuzz Tests
+      #   run: |
+      #     npm test
+
       - name: Check version format
         run: |
           VERSION=$(node -p "require('./package.json').version")

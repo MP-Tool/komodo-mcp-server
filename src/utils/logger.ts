@@ -298,7 +298,7 @@ export class Logger {
 
     // 1. Known Secret Formats (High Confidence)
     // JWT: eyJ...
-    const jwtRegex = /eyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/g;
+    const jwtRegex = /\beyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/g;
     scrubbed = scrubbed.replace(jwtRegex, '**********');
 
     // 2. Common Auth Headers

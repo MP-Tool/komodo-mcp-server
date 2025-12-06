@@ -55,3 +55,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Workflow Optimization**: Optimized PR checks to skip heavy tasks (like Docker builds) on Draft PRs and only run when relevant files change.
 - **Dev Experience**: Generalized `.devcontainer` configuration for public use and added useful VS Code extensions.
 
+--------------------------------------------------------------
+
+## [1.0.6] (#26)
+
+### Added
+- **Advanced Logging System**:
+    - Implemented a robust `Logger` class with support for structured logging and log levels (`trace`, `debug`, `info`, `warn`, `error`).
+    - **Context Awareness**: Integrated `AsyncLocalStorage` to track Request IDs and Session IDs across the application lifecycle.
+    - **Security**: 
+        - Automatic redaction of sensitive keys (e.g., `password`, `apiKey`, `token`) in log output.
+        - **Secret Scrubbing**: Proactive detection and masking of JWTs and Bearer tokens.
+        - **Log Injection Prevention**: Mitigation for CWE-117 by escaping newlines to prevent log forging.
+    - **Formatting**: 
+        - Enhanced log format with precise timestamps (`YYYY-MM-DD HH:mm:ss.SSS`) and metadata support.
+        - Added support for LOGLEVEL and LOG_FORMAT configuration via environment variables.
+        - Added support for JSON log format via `LOG_FORMAT=json` environment variable.
+    - **File Logging**: Added support for writing logs to files via `LOG_DIR` environment variable.
+    - **Transport Awareness**: Automatically routes logs to `stderr` in Stdio mode (to preserve JSON-RPC integrity) and splits `stdout`/`stderr` in SSE mode.
+
+### Changed
+- **Refactoring**:
+    - Removed redundant `logSecurityStatus` function to simplify startup logic and reduce noise.
+    - Updated all transport layers to utilize the new centralized logger for consistent output.
+    - **Standardization**: Standardized log component tags and session management for consistent filtering.
+
+

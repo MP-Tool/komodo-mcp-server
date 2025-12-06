@@ -35,13 +35,16 @@ import { createHealthRouter } from './routes/health.js';
 import { createMcpRouter } from './routes/mcp.js';
 
 // Utilities
-import { logSecurityStatus } from './utils/logging.js';
+import { logger as baseLogger } from '../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'transport' });
 
 /**
  * Creates and configures the Express application
  */
 export function createExpressApp(mcpServerFactory: () => McpServer): { app: express.Application, sessionManager: TransportSessionManager } {
     const app = express();
+    app.disable('x-powered-by'); // Disable X-Powered-By header for security
     const sessionManager = new TransportSessionManager();
     
     // ===== Global Middleware =====
@@ -78,17 +81,17 @@ export async function startHttpServer(mcpServerFactory: () => McpServer): Promis
     const bindHost = config.MCP_BIND_HOST;
     
     const server = app.listen(port, bindHost, () => {
-        logSecurityStatus(bindHost, port);
+        logger.info('Server listening on %s:%d', bindHost, port);
     });
 
     // ===== Graceful Shutdown =====
     
     const shutdown = async () => {
-        console.error('[HTTP] Shutting down server...');
+        logger.info('Shutting down server...');
         await sessionManager.closeAll();
         
         server.close(() => {
-            console.error('[HTTP] Server closed');
+            logger.info('Server closed');
             process.exit(0);
         });
     };

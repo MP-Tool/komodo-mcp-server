@@ -71,11 +71,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
         - Enhanced log format with precise timestamps (`YYYY-MM-DD HH:mm:ss.SSS`) and metadata support.
         - Added support for LOGLEVEL and LOG_FORMAT configuration via environment variables.
         - Added support for JSON log format via `LOG_FORMAT=json` environment variable.
+    - **File Logging**: Added support for writing logs to files via `LOG_DIR` environment variable.
     - **Transport Awareness**: Automatically routes logs to `stderr` in Stdio mode (to preserve JSON-RPC integrity) and splits `stdout`/`stderr` in SSE mode.
 
 ### Changed
 - **Refactoring**:
     - Removed redundant `logSecurityStatus` function to simplify startup logic and reduce noise.
     - Updated all transport layers to utilize the new centralized logger for consistent output.
+    - **Standardization**: Standardized log component tags and session management for consistent filtering.
 
 

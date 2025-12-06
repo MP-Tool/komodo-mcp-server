@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { McpError, ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { logger } from '../../utils/logger.js';
 
 /**
  * Validates that the request body is a valid JSON-RPC 2.0 message
@@ -57,7 +58,7 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
         // Single message validation
         // Must have jsonrpc: "2.0"
         if (body.jsonrpc !== '2.0') {
-            console.error('[Middleware] Invalid JSON-RPC version:', JSON.stringify(body));
+            logger.warn('[Middleware] Invalid JSON-RPC version:', JSON.stringify(body));
             res.status(400).json({
                 jsonrpc: '2.0',
                 id: null,

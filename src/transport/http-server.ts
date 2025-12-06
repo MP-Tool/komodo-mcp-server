@@ -35,7 +35,7 @@ import { createHealthRouter } from './routes/health.js';
 import { createMcpRouter } from './routes/mcp.js';
 
 // Utilities
-import { logSecurityStatus } from './utils/logging.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Creates and configures the Express application
@@ -79,17 +79,17 @@ export async function startHttpServer(mcpServerFactory: () => McpServer): Promis
     const bindHost = config.MCP_BIND_HOST;
     
     const server = app.listen(port, bindHost, () => {
-        logSecurityStatus(bindHost, port);
+        logger.info('[HTTP] Server listening on %s:%d', bindHost, port);
     });
 
     // ===== Graceful Shutdown =====
     
     const shutdown = async () => {
-        console.error('[HTTP] Shutting down server...');
+        logger.info('[HTTP] Shutting down server...');
         await sessionManager.closeAll();
         
         server.close(() => {
-            console.error('[HTTP] Server closed');
+            logger.info('[HTTP] Server closed');
             process.exit(0);
         });
     };

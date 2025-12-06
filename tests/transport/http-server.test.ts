@@ -23,7 +23,8 @@ const mockApp = {
   use: vi.fn(),
   post: vi.fn(),
   get: vi.fn(),
-  listen: vi.fn().mockReturnValue(mockServer)
+  listen: vi.fn().mockReturnValue(mockServer),
+  disable: vi.fn()
 };
 
 // Mock express
@@ -61,12 +62,14 @@ describe('HTTP Server Lifecycle', () => {
   let processOnSpy: any;
   let processExitSpy: any;
   let consoleErrorSpy: any;
+  let consoleLogSpy: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
     processOnSpy = vi.spyOn(process, 'on').mockImplementation(() => process);
     processExitSpy = vi.spyOn(process, 'exit').mockImplementation(() => undefined as never);
     consoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
+    consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -83,10 +86,8 @@ describe('HTTP Server Lifecycle', () => {
     // Verify startup log
     const listenCallback = mockApp.listen.mock.calls[0][2];
     listenCallback();
-    expect(console.error).toHaveBeenCalledWith(
-      expect.stringContaining('Server listening'),
-      expect.anything(),
-      expect.anything()
+    expect(console.log).toHaveBeenCalledWith(
+      expect.stringContaining('Server listening')
     );
   });
 

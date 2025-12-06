@@ -10,6 +10,7 @@ import {
     SESSION_KEEP_ALIVE_INTERVAL_MS,
     SESSION_MAX_MISSED_HEARTBEATS
 } from './config/transport.config.js';
+import { logger } from '../utils/logger.js';
 
 /**
  * Session data with activity tracking for expiration
@@ -45,7 +46,7 @@ export class TransportSessionManager {
             this.sendKeepAlives();
         }, SESSION_KEEP_ALIVE_INTERVAL_MS);
         
-        console.error(`[SessionManager] Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
+        logger.info(`[SessionManager] Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
     }
 
     /**
@@ -57,7 +58,7 @@ export class TransportSessionManager {
             lastActivity: new Date(),
             missedHeartbeats: 0
         });
-        console.error(`[SessionManager] Session added: ${sessionId} (total: ${this.sessions.size})`);
+        logger.debug(`[SessionManager] Session added: ${sessionId} (total: ${this.sessions.size})`);
     }
 
     /**
@@ -99,7 +100,7 @@ export class TransportSessionManager {
     remove(sessionId: string): boolean {
         const deleted = this.sessions.delete(sessionId);
         if (deleted) {
-            console.error(`[SessionManager] Session removed: ${sessionId} (remaining: ${this.sessions.size})`);
+            logger.debug(`[SessionManager] Session removed: ${sessionId} (remaining: ${this.sessions.size})`);
         }
         return deleted;
     }
@@ -108,7 +109,7 @@ export class TransportSessionManager {
      * Closes all active transports gracefully
      */
     async closeAll(): Promise<void> {
-        console.error(`[SessionManager] Closing ${this.sessions.size} sessions...`);
+        logger.info(`[SessionManager] Closing ${this.sessions.size} sessions...`);
         
         // Stop intervals
         clearInterval(this.cleanupInterval);
@@ -120,17 +121,17 @@ export class TransportSessionManager {
             closePromises.push(
                 session.transport.close()
                     .then(() => {
-                        console.error(`[HTTP] Closed transport for session ${sessionId}`);
+                        logger.debug(`[HTTP] Closed transport for session ${sessionId}`);
                     })
                     .catch((error) => {
-                        console.error(`[HTTP] Error closing transport ${sessionId}:`, error);
+                        logger.error(`[HTTP] Error closing transport ${sessionId}:`, error);
                     })
             );
         }
 
         await Promise.all(closePromises);
         this.sessions.clear();
-        console.error('[SessionManager] All sessions closed');
+        logger.info('[SessionManager] All sessions closed');
     }
 
     /**
@@ -141,37 +142,38 @@ export class TransportSessionManager {
     }
 
     /**
-     * Cleans up expired sessions based on inactivity timeout
-     * MCP Spec: Server MAY terminate session at any time
+     * Removes sessions that haven't been active for the timeout period
      */
     private cleanupExpiredSessions(): void {
         const now = Date.now();
-        let expiredCount = 0;
+        let removedCount = 0;
 
         for (const [sessionId, session] of this.sessions.entries()) {
             const idleTime = now - session.lastActivity.getTime();
             
             if (idleTime > SESSION_TIMEOUT_MS) {
                 // Try to send heartbeat to keep active connections alive
+                // This handles cases where the client is listening but not sending requests
                 const transport = session.transport as any;
                 if (transport.sendHeartbeat && transport.sendHeartbeat()) {
                     // Connection is alive, extend session
-                    // We don't log this to avoid spamming logs
                     session.lastActivity = new Date(); 
                     continue;
                 }
 
-                console.error(`[SessionManager] Expiring idle session: ${sessionId} (idle: ${Math.round(idleTime / 60000)} min)`);
-                session.transport.close().catch(err => 
-                    console.error('[SessionManager] Error closing expired transport:', err)
-                );
+                logger.warn(`[SessionManager] Session ${sessionId} timed out (inactive for ${Math.round(idleTime / 1000)}s)`);
+                
+                session.transport.close().catch(err => {
+                    logger.error(`[SessionManager] Error closing timed out session ${sessionId}:`, err);
+                });
+                
                 this.sessions.delete(sessionId);
-                expiredCount++;
+                removedCount++;
             }
         }
 
-        if (expiredCount > 0) {
-            console.error(`[SessionManager] Cleaned up ${expiredCount} expired session(s). Active: ${this.sessions.size}`);
+        if (removedCount > 0) {
+            logger.info(`[SessionManager] Cleaned up ${removedCount} expired sessions (remaining: ${this.sessions.size})`);
         }
     }
 
@@ -195,7 +197,7 @@ export class TransportSessionManager {
                     
                     if (session.missedHeartbeats >= SESSION_MAX_MISSED_HEARTBEATS) {
                         // Threshold reached, clean up dead connection
-                        console.error(`[SessionManager] Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
+                        logger.error(`[SessionManager] Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
                         session.transport.close().catch(() => {});
                         this.sessions.delete(sessionId);
                     }

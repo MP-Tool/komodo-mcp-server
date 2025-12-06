@@ -17,6 +17,8 @@ export const envSchema = z.object({
   KOMODO_URL: z.string().url().optional(),
   KOMODO_USERNAME: z.string().optional(),
   KOMODO_PASSWORD: z.string().optional(),
+  LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
+  LOG_FORMAT: z.enum(['text', 'json']).default('text'),
 });
 
 export type Env = z.infer<typeof envSchema>;

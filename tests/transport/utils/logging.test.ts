@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { 
   sanitizeForLog, 
-  logSecurityStatus, 
   logSessionInitialized, 
   logSessionClosed, 
   logSecurityEvent 
@@ -10,6 +9,7 @@ import {
 describe('Logging Utils', () => {
   beforeEach(() => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
+    vi.spyOn(console, 'log').mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -32,44 +32,27 @@ describe('Logging Utils', () => {
     });
   });
 
-  describe('logSecurityStatus', () => {
-    it('should log localhost binding correctly', () => {
-      logSecurityStatus('localhost', 3000);
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Bound to localhost only'));
-    });
-
-    it('should log 127.0.0.1 binding correctly', () => {
-      logSecurityStatus('127.0.0.1', 3000);
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Bound to localhost only'));
-    });
-
-    it('should log external binding warning', () => {
-      logSecurityStatus('0.0.0.0', 3000);
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Warning: Bound to %s'), '0.0.0.0');
-    });
-  });
-
   describe('logSessionEvents', () => {
     it('should log session initialization', () => {
       logSessionInitialized('123');
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Session initialized'), '123');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [MCP] Session initialized: 123'));
     });
 
     it('should log session closure', () => {
       logSessionClosed('123');
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('Session closed'), '123');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [MCP] Session closed: 123'));
     });
   });
 
   describe('logSecurityEvent', () => {
     it('should log security event without details', () => {
       logSecurityEvent('Attack detected');
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Security] %s'), 'Attack detected', '');
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [Security] Attack detected'));
     });
 
     it('should log security event with details', () => {
       logSecurityEvent('Attack detected', { ip: '1.2.3.4' });
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[Security] %s'), 'Attack detected', { ip: '1.2.3.4' });
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [Security] Attack detected {"ip":"1.2.3.4"}'));
     });
   });
 });

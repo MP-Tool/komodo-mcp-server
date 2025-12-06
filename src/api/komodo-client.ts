@@ -1,4 +1,5 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
+import { logger } from '../utils/logger.js';
 
 // ===== Komodo API Types =====
 // Based on the official Komodo TypeScript client (v1.19.0+)
@@ -158,11 +159,11 @@ export class KomodoClient {
     // Add request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
-        console.error(`[Komodo API] ${config.method?.toUpperCase()} ${config.url}`);
+        logger.debug(`[Komodo API] ${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
-        console.error(`[Komodo API Request Error]`, error);
+        logger.error('[Komodo API Request Error]', error);
         return Promise.reject(error);
       }
     );
@@ -173,7 +174,7 @@ export class KomodoClient {
       (error: AxiosError) => {
         if (error.response) {
           const errorData = error.response.data as any;
-          console.error(`[Komodo API Error] ${error.response.status}: ${errorData?.message || error.message}`);
+          logger.error(`[Komodo API Error] ${error.response.status}: ${errorData?.message || error.message}`);
           
           // Create structured error
           const komodoError: KomodoApiError = {
@@ -184,13 +185,13 @@ export class KomodoClient {
           
           throw komodoError;
         } else if (error.request) {
-          console.error(`[Komodo API Network Error]`, error.message);
+          logger.error('[Komodo API Network Error]', error.message);
           throw {
             message: `Network error: ${error.message}. Please check if Komodo server is running at ${this.baseUrl}`,
             code: 0
           } as KomodoApiError;
         } else {
-          console.error(`[Komodo API Error]`, error);
+          logger.error('[Komodo API Error]', error);
           throw {
             message: error.message || 'Unknown error',
             code: -1
@@ -208,7 +209,7 @@ export class KomodoClient {
     const url = baseUrl.replace(/\/$/, '');
     
     try {
-      console.error(`[Komodo Client] Logging in as ${username} to ${url}`);
+      logger.debug(`[Komodo Client] Logging in as ${username} to ${url}`);
       
       // Login to get JWT token
       const response = await axios.post(`${url}/auth/LoginLocalUser`, {
@@ -226,7 +227,7 @@ export class KomodoClient {
       }
 
       const jwt = response.data.jwt;
-      console.error(`[Komodo Client] ✅ Login successful, JWT obtained`);
+      logger.debug('[Komodo Client] ✅ Login successful, JWT obtained');
       
       return new KomodoClient(url, jwt);
     } catch (error) {
@@ -234,7 +235,7 @@ export class KomodoClient {
         if (error.response) {
           const status = error.response.status;
           if (status === 401 || status === 403) {
-            throw new Error(`Login failed: Invalid username or password`);
+            throw new Error('Login failed: Invalid username or password');
           }
           throw new Error(`Login failed: HTTP ${status} - ${error.response.data?.error || error.message}`);
         } else if (error.request) {
@@ -269,7 +270,7 @@ export class KomodoClient {
     };
 
     try {
-      console.error(`[Komodo Health Check] Testing connection to ${this.baseUrl}`);
+      logger.debug(`[Komodo Health Check] Testing connection to ${this.baseUrl}`);
       
       // Try to get server summary as a connection test
       // Komodo API: POST /read/GetServersSummary with params as body
@@ -279,7 +280,7 @@ export class KomodoClient {
       details.reachable = true;
       details.authenticated = true;
       
-      console.error(`[Komodo Health Check] ✅ Healthy (${details.responseTime}ms)`);
+      logger.debug(`[Komodo Health Check] ✅ Healthy (${details.responseTime}ms)`);
       
       return {
         status: 'healthy',
@@ -299,7 +300,7 @@ export class KomodoClient {
         
         // Check specific error codes
         if (komodoError.code === 401 || komodoError.code === 403) {
-          console.error(`[Komodo Health Check] ❌ Authentication failed`);
+          logger.warn('[Komodo Health Check] ❌ Authentication failed');
           return {
             status: 'unhealthy',
             message: 'Authentication failed - check your KOMODO_JWT_SECRET',
@@ -313,7 +314,7 @@ export class KomodoClient {
         }
         
         if (komodoError.code === 0) {
-          console.error(`[Komodo Health Check] ❌ Server unreachable`);
+          logger.warn('[Komodo Health Check] ❌ Server unreachable');
           return {
             status: 'unhealthy',
             message: `Cannot reach Komodo server at ${this.baseUrl}`,
@@ -324,7 +325,7 @@ export class KomodoClient {
           };
         }
         
-        console.error(`[Komodo Health Check] ❌ API Error: ${komodoError.message}`);
+        logger.error(`[Komodo Health Check] ❌ API Error: ${komodoError.message}`);
         return {
           status: 'unhealthy',
           message: 'Komodo API returned an error',
@@ -336,7 +337,7 @@ export class KomodoClient {
         };
       }
       
-      console.error(`[Komodo Health Check] ❌ Unknown error:`, error);
+      logger.error('[Komodo Health Check] ❌ Unknown error:', error);
       return {
         status: 'unhealthy',
         message: 'Unknown error occurred',
@@ -358,7 +359,7 @@ export class KomodoClient {
       const response = await this.client.post('/read/ListServers', {});
       return response.data || [];
     } catch (error) {
-      console.error('Failed to list servers:', error);
+      logger.error('Failed to list servers:', error);
       return [];
     }
   }
@@ -371,7 +372,7 @@ export class KomodoClient {
       const response = await this.client.post('/read/GetServerState', { server: serverId });
       return response.data || { status: 'NotOk' };
     } catch (error) {
-      console.error(`Failed to get server state for ${serverId}:`, error);
+      logger.error(`Failed to get server state for ${serverId}:`, error);
       return { status: 'NotOk' };
     }
   }
@@ -386,7 +387,7 @@ export class KomodoClient {
       const response = await this.client.post('/read/ListDockerContainers', { server: serverId });
       return response.data || [];
     } catch (error) {
-      console.error(`Failed to list containers for server ${serverId}:`, error);
+      logger.error(`Failed to list containers for server ${serverId}:`, error);
       return [];
     }
   }
@@ -402,7 +403,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to start container ${containerName} on server ${serverId}:`, error);
+      logger.error(`Failed to start container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }
@@ -418,7 +419,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to stop container ${containerName} on server ${serverId}:`, error);
+      logger.error(`Failed to stop container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }
@@ -434,7 +435,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to restart container ${containerName} on server ${serverId}:`, error);
+      logger.error(`Failed to restart container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }
@@ -450,7 +451,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to pause container ${containerName} on server ${serverId}:`, error);
+      logger.error(`Failed to pause container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }
@@ -466,7 +467,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to unpause container ${containerName} on server ${serverId}:`, error);
+      logger.error(`Failed to unpause container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }
@@ -481,7 +482,7 @@ export class KomodoClient {
       const response = await this.client.post('/read/ListDeployments', {});
       return response.data || [];
     } catch (error) {
-      console.error('Failed to list deployments:', error);
+      logger.error('Failed to list deployments:', error);
       return [];
     }
   }
@@ -496,7 +497,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to deploy container ${deploymentId}:`, error);
+      logger.error(`Failed to deploy container ${deploymentId}:`, error);
       throw error;
     }
   }
@@ -511,7 +512,7 @@ export class KomodoClient {
       const response = await this.client.post('/read/ListStacks', {});
       return response.data || [];
     } catch (error) {
-      console.error('Failed to list stacks:', error);
+      logger.error('Failed to list stacks:', error);
       return [];
     }
   }
@@ -526,7 +527,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to deploy stack ${stackId}:`, error);
+      logger.error(`Failed to deploy stack ${stackId}:`, error);
       throw error;
     }
   }
@@ -541,7 +542,7 @@ export class KomodoClient {
       });
       return response.data;
     } catch (error) {
-      console.error(`Failed to stop stack ${stackId}:`, error);
+      logger.error(`Failed to stop stack ${stackId}:`, error);
       throw error;
     }
   }

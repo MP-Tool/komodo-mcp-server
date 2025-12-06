@@ -1,4 +1,6 @@
 import * as util from 'util';
+import * as fs from 'fs';
+import * as path from 'path';
 import { AsyncLocalStorage } from 'async_hooks';
 import { config } from '../config/env.js';
 
@@ -14,6 +16,7 @@ export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
 export interface LogContext {
   requestId?: string;
   sessionId?: string;
+  component?: string;
   sendMcpLog?: (level: LogLevel, message: string) => void;
 }
 
@@ -53,27 +56,62 @@ const SENSITIVE_KEYS = [
  */
 export class Logger {
   private level: number;
-  private contextStorage = new AsyncLocalStorage<LogContext>();
+  private static contextStorage = new AsyncLocalStorage<LogContext>();
+  private component: string = 'server';
+  private static streams: Map<string, fs.WriteStream> = new Map();
+  private static initialized = false;
 
   /**
    * Initialize the logger with the configured log level.
    */
-  constructor() {
+  constructor(component: string = 'server') {
     this.level = LOG_LEVELS[config.LOG_LEVEL];
+    this.component = component;
+    Logger.initStreams();
+  }
+
+  /**
+   * Initialize file streams if LOG_DIR is configured.
+   */
+  private static initStreams() {
+    if (Logger.initialized || !config.LOG_DIR) return;
+    
+    try {
+        if (!fs.existsSync(config.LOG_DIR)) {
+            fs.mkdirSync(config.LOG_DIR, { recursive: true });
+        }
+        
+        // Create streams for known components
+        ['server', 'api', 'transport'].forEach(comp => {
+            const stream = fs.createWriteStream(path.join(config.LOG_DIR!, `${comp}.log`), { flags: 'a' });
+            Logger.streams.set(comp, stream);
+        });
+        
+        Logger.initialized = true;
+    } catch (err) {
+        console.error('Failed to initialize log streams:', err);
+    }
+  }
+
+  /**
+   * Create a child logger with a specific component context.
+   */
+  public child(context: { component: string }): Logger {
+      return new Logger(context.component);
   }
 
   /**
    * Run a function within a logging context (e.g. with a Request ID or MCP Logger)
    */
   public runWithContext<T>(context: LogContext, fn: () => T): T {
-    return this.contextStorage.run(context, fn);
+    return Logger.contextStorage.run(context, fn);
   }
 
   /**
    * Get the current logging context
    */
   public getContext(): LogContext | undefined {
-    return this.contextStorage.getStore();
+    return Logger.contextStorage.getStore();
   }
 
   /**
@@ -148,23 +186,33 @@ export class Logger {
       }
     }
 
-    const timestamp = new Date().toISOString().replace('T', ' ').slice(0, -1); // YYYY-MM-DD HH:mm:ss.SSS
+    const timestamp = new Date().toISOString(); // ISO 8601
     const formattedMessage = util.format(message, ...formatArgs);
-    const context = this.contextStorage.getStore();
+    const context = Logger.contextStorage.getStore();
+    const component = context?.component || this.component;
 
     if (config.LOG_FORMAT === 'json') {
       const logEntry = {
         timestamp,
-        level,
+        level: level.toUpperCase(),
         message: formattedMessage,
-        requestId: context?.requestId,
-        sessionId: context?.sessionId,
+        service: {
+            name: 'komodo-mcp-server',
+            component: component
+        },
+        trace: {
+            id: context?.requestId
+        },
+        session: {
+            id: context?.sessionId
+        },
         ...meta
       };
-      this.write(level, JSON.stringify(logEntry));
+      this.write(level, JSON.stringify(logEntry), component);
     } else {
-      // Text format: [YYYY-MM-DD HH:mm:ss.SSS] [LEVEL] [SessionID:ReqID] Message {meta}
+      // Text format: [YYYY-MM-DD HH:mm:ss.SSS] [LEVEL] [Component] [SessionID:ReqID] Message {meta}
       const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
+      const displayTimestamp = timestamp.replace('T', ' ').slice(0, -1);
       
       let contextStr = '';
       if (context?.sessionId && context?.requestId) {
@@ -178,8 +226,8 @@ export class Logger {
       // Pad level to 5 chars for alignment
       const levelStr = level.toUpperCase().padEnd(5);
       
-      const output = `[${timestamp}] [${levelStr}]${contextStr} ${formattedMessage}${metaStr}`;
-      this.write(level, output);
+      const output = `[${displayTimestamp}] [${levelStr}] [${component}]${contextStr} ${formattedMessage}${metaStr}`;
+      this.write(level, output, component);
     }
 
     // Send to MCP Client if available in context
@@ -194,7 +242,7 @@ export class Logger {
    * Write the formatted log entry to the appropriate output stream.
    * Handles log injection prevention and final secret scrubbing.
    */
-  private write(level: LogLevel, output: string): void {
+  private write(level: LogLevel, output: string, component: string): void {
     // 1. Prevent Log Injection (CWE-117)
     // Replace newlines to ensure one log entry = one line.
     // This prevents attackers from forging log entries by injecting newlines.
@@ -203,6 +251,14 @@ export class Logger {
     // 2. Scrub secrets (like JWTs) from the final output string
     // This catches secrets in the message body, formatted args, and even metadata values if they leaked
     const safeOutput = this.scrubSecrets(singleLineOutput);
+
+    // Write to file if configured
+    if (config.LOG_DIR) {
+        const stream = Logger.streams.get(component) || Logger.streams.get('server');
+        if (stream) {
+            stream.write(safeOutput + '\n');
+        }
+    }
 
     // In Stdio mode, we MUST write to stderr to avoid corrupting JSON-RPC on stdout
     if (config.MCP_TRANSPORT === 'stdio') {

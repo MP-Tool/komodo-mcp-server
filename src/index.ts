@@ -47,7 +47,7 @@ class KomodoMCPServer {
     );
 
     server.server.onerror = (error) => {
-      logger.error('[MCP Error]', error);
+      logger.error('MCP Error:', error);
     };
 
     const tools = toolRegistry.getTools();

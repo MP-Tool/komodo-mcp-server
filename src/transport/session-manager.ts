@@ -10,7 +10,9 @@ import {
     SESSION_KEEP_ALIVE_INTERVAL_MS,
     SESSION_MAX_MISSED_HEARTBEATS
 } from './config/transport.config.js';
-import { logger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'transport' });
 
 /**
  * Session data with activity tracking for expiration
@@ -46,7 +48,7 @@ export class TransportSessionManager {
             this.sendKeepAlives();
         }, SESSION_KEEP_ALIVE_INTERVAL_MS);
         
-        logger.info(`[SessionManager] Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
+        logger.debug(`Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
     }
 
     /**
@@ -58,7 +60,7 @@ export class TransportSessionManager {
             lastActivity: new Date(),
             missedHeartbeats: 0
         });
-        logger.debug(`[SessionManager] Session added: ${sessionId} (total: ${this.sessions.size})`);
+        logger.debug(`Session added: ${sessionId} (total: ${this.sessions.size})`);
     }
 
     /**
@@ -100,7 +102,7 @@ export class TransportSessionManager {
     remove(sessionId: string): boolean {
         const deleted = this.sessions.delete(sessionId);
         if (deleted) {
-            logger.debug(`[SessionManager] Session removed: ${sessionId} (remaining: ${this.sessions.size})`);
+            logger.debug(`Session removed: ${sessionId} (remaining: ${this.sessions.size})`);
         }
         return deleted;
     }
@@ -109,7 +111,7 @@ export class TransportSessionManager {
      * Closes all active transports gracefully
      */
     async closeAll(): Promise<void> {
-        logger.info(`[SessionManager] Closing ${this.sessions.size} sessions...`);
+        logger.info(`Closing ${this.sessions.size} sessions...`);
         
         // Stop intervals
         clearInterval(this.cleanupInterval);
@@ -121,17 +123,17 @@ export class TransportSessionManager {
             closePromises.push(
                 session.transport.close()
                     .then(() => {
-                        logger.debug(`[HTTP] Closed transport for session ${sessionId}`);
+                        logger.debug(`Closed transport for session ${sessionId}`);
                     })
                     .catch((error) => {
-                        logger.error(`[HTTP] Error closing transport ${sessionId}:`, error);
+                        logger.error(`Error closing transport ${sessionId}:`, error);
                     })
             );
         }
 
         await Promise.all(closePromises);
         this.sessions.clear();
-        logger.info('[SessionManager] All sessions closed');
+        logger.info('All sessions closed');
     }
 
     /**
@@ -161,10 +163,10 @@ export class TransportSessionManager {
                     continue;
                 }
 
-                logger.warn(`[SessionManager] Session ${sessionId} timed out (inactive for ${Math.round(idleTime / 1000)}s)`);
+                logger.warn(`Session ${sessionId} timed out (inactive for ${Math.round(idleTime / 1000)}s)`);
                 
                 session.transport.close().catch(err => {
-                    logger.error(`[SessionManager] Error closing timed out session ${sessionId}:`, err);
+                    logger.error(`Error closing timed out session ${sessionId}:`, err);
                 });
                 
                 this.sessions.delete(sessionId);
@@ -173,7 +175,7 @@ export class TransportSessionManager {
         }
 
         if (removedCount > 0) {
-            logger.info(`[SessionManager] Cleaned up ${removedCount} expired sessions (remaining: ${this.sessions.size})`);
+            logger.info(`Cleaned up ${removedCount} expired sessions (remaining: ${this.sessions.size})`);
         }
     }
 
@@ -197,7 +199,7 @@ export class TransportSessionManager {
                     
                     if (session.missedHeartbeats >= SESSION_MAX_MISSED_HEARTBEATS) {
                         // Threshold reached, clean up dead connection
-                        logger.error(`[SessionManager] Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
+                        logger.error(`Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
                         session.transport.close().catch(() => {});
                         this.sessions.delete(sessionId);
                     }

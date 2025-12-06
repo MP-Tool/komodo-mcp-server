@@ -35,24 +35,24 @@ describe('Logging Utils', () => {
   describe('logSessionEvents', () => {
     it('should log session initialization', () => {
       logSessionInitialized('123');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [MCP] Session initialized: 123'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session initialized: 123'));
     });
 
     it('should log session closure', () => {
       logSessionClosed('123');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [MCP] Session closed: 123'));
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session closed: 123'));
     });
   });
 
   describe('logSecurityEvent', () => {
     it('should log security event without details', () => {
       logSecurityEvent('Attack detected');
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [Security] Attack detected'));
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [transport] Security: Attack detected'));
     });
 
     it('should log security event with details', () => {
       logSecurityEvent('Attack detected', { ip: '1.2.3.4' });
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [Security] Attack detected {"ip":"1.2.3.4"}'));
+      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [transport] Security: Attack detected {"ip":"1.2.3.4"}'));
     });
   });
 });

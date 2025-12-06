@@ -1,5 +1,7 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
-import { logger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'api' });
 
 // ===== Komodo API Types =====
 // Based on the official Komodo TypeScript client (v1.19.0+)
@@ -159,11 +161,11 @@ export class KomodoClient {
     // Add request interceptor for logging
     this.client.interceptors.request.use(
       (config) => {
-        logger.debug(`[Komodo API] ${config.method?.toUpperCase()} ${config.url}`);
+        logger.debug(`${config.method?.toUpperCase()} ${config.url}`);
         return config;
       },
       (error) => {
-        logger.error('[Komodo API Request Error]', error);
+        logger.error('Request Error:', error);
         return Promise.reject(error);
       }
     );
@@ -174,7 +176,7 @@ export class KomodoClient {
       (error: AxiosError) => {
         if (error.response) {
           const errorData = error.response.data as any;
-          logger.error(`[Komodo API Error] ${error.response.status}: ${errorData?.message || error.message}`);
+          logger.error(`API Error ${error.response.status}: ${errorData?.message || error.message}`);
           
           // Create structured error
           const komodoError: KomodoApiError = {
@@ -185,13 +187,13 @@ export class KomodoClient {
           
           throw komodoError;
         } else if (error.request) {
-          logger.error('[Komodo API Network Error]', error.message);
+          logger.error('Network Error:', error.message);
           throw {
             message: `Network error: ${error.message}. Please check if Komodo server is running at ${this.baseUrl}`,
             code: 0
           } as KomodoApiError;
         } else {
-          logger.error('[Komodo API Error]', error);
+          logger.error('API Error:', error);
           throw {
             message: error.message || 'Unknown error',
             code: -1
@@ -209,7 +211,7 @@ export class KomodoClient {
     const url = baseUrl.replace(/\/$/, '');
     
     try {
-      logger.debug(`[Komodo Client] Logging in as ${username} to ${url}`);
+      logger.debug(`Logging in as ${username} to ${url}`);
       
       // Login to get JWT token
       const response = await axios.post(`${url}/auth/LoginLocalUser`, {
@@ -227,7 +229,7 @@ export class KomodoClient {
       }
 
       const jwt = response.data.jwt;
-      logger.debug('[Komodo Client] ✅ Login successful, JWT obtained');
+      logger.debug('✅ Login successful, JWT obtained');
       
       return new KomodoClient(url, jwt);
     } catch (error) {
@@ -270,7 +272,7 @@ export class KomodoClient {
     };
 
     try {
-      logger.debug(`[Komodo Health Check] Testing connection to ${this.baseUrl}`);
+      logger.debug(`Testing connection to ${this.baseUrl}`);
       
       // Try to get server summary as a connection test
       // Komodo API: POST /read/GetServersSummary with params as body
@@ -280,7 +282,7 @@ export class KomodoClient {
       details.reachable = true;
       details.authenticated = true;
       
-      logger.debug(`[Komodo Health Check] ✅ Healthy (${details.responseTime}ms)`);
+      logger.debug(`✅ Healthy (${details.responseTime}ms)`);
       
       return {
         status: 'healthy',
@@ -300,7 +302,7 @@ export class KomodoClient {
         
         // Check specific error codes
         if (komodoError.code === 401 || komodoError.code === 403) {
-          logger.warn('[Komodo Health Check] ❌ Authentication failed');
+          logger.warn('❌ Authentication failed');
           return {
             status: 'unhealthy',
             message: 'Authentication failed - check your KOMODO_JWT_SECRET',
@@ -314,7 +316,7 @@ export class KomodoClient {
         }
         
         if (komodoError.code === 0) {
-          logger.warn('[Komodo Health Check] ❌ Server unreachable');
+          logger.warn('❌ Server unreachable');
           return {
             status: 'unhealthy',
             message: `Cannot reach Komodo server at ${this.baseUrl}`,
@@ -325,7 +327,7 @@ export class KomodoClient {
           };
         }
         
-        logger.error(`[Komodo Health Check] ❌ API Error: ${komodoError.message}`);
+        logger.error(`❌ API Error: ${komodoError.message}`);
         return {
           status: 'unhealthy',
           message: 'Komodo API returned an error',
@@ -337,7 +339,7 @@ export class KomodoClient {
         };
       }
       
-      logger.error('[Komodo Health Check] ❌ Unknown error:', error);
+      logger.error('❌ Unknown error:', error);
       return {
         status: 'unhealthy',
         message: 'Unknown error occurred',

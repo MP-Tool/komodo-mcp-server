@@ -1,4 +1,6 @@
-import { logger } from '../../utils/logger.js';
+import { logger as baseLogger } from '../../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'transport' });
 
 /**
  * Logging utilities for transport layer
@@ -20,18 +22,18 @@ export function sanitizeForLog(input: string | undefined | null): string {
  * Logs MCP session events
  */
 export function logSessionInitialized(sessionId: string): void {
-    logger.info('[MCP] Session initialized: %s', sessionId);
+    logger.info('Session initialized: %s', sessionId);
 }
 
 export function logSessionClosed(sessionId: string): void {
-    logger.info('[MCP] Session closed: %s', sessionId);
+    logger.info('Session closed: %s', sessionId);
 }
 
 /**
  * Logs security events
  */
 export function logSecurityEvent(event: string, details?: any): void {
-    logger.warn('[Security] %s', event, details || '');
+    logger.warn('Security: %s', event, details || '');
 }
 
 /**
@@ -39,5 +41,5 @@ export function logSecurityEvent(event: string, details?: any): void {
  */
 export function logProtocolEvent(event: string, details?: any): void {
     // Use %s to prevent format string injection (CWE-134)
-    logger.debug('[MCP] %s', event, details || '');
+    logger.debug('%s', event, details || '');
 }

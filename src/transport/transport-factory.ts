@@ -15,7 +15,9 @@ import {
 import { randomUUID } from 'node:crypto';
 import { getAllowedHosts, FALLBACK_PROTOCOL_VERSION } from './config/transport.config.js';
 import { IncomingMessage, ServerResponse } from 'node:http';
-import { logger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'transport' });
 
 /**
  * Internal interface to access private members of StreamableHTTPServerTransport
@@ -103,7 +105,7 @@ class KomodoStreamableTransport extends StreamableHTTPServerTransport {
                 const clientMode = isLegacy ? 'Legacy' : 'Modern';
                 const versionStr = protocolVersion ? `(v${protocolVersion})` : '(Implicit)';
                 
-                logger.info(`[Transport] New ${clientMode} connection established ${versionStr}. Session: ${sessionId}`);
+                logger.info(`New ${clientMode} connection established ${versionStr}.`);
                 
                 // Inject session ID into headers so validation passes
                 req.headers['mcp-session-id'] = sessionId;
@@ -173,13 +175,13 @@ class KomodoStreamableTransport extends StreamableHTTPServerTransport {
                 if (self.onmessage) {
                     await self.onmessage(message);
                 } else {
-                    logger.error('[Transport] No onmessage handler attached!');
+                    logger.error('No onmessage handler attached!');
                 }
                 
                 res.statusCode = 202;
                 res.end('Accepted');
             } catch (error) {
-                logger.error('[Transport] Error handling POST message:', error);
+                logger.error('Error handling POST message:', error);
                 res.statusCode = 500;
                 res.end('Internal Server Error');
             }

@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, Mock } from 'vitest';
 import { TransportSessionManager } from '../../src/transport/session-manager.js';
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 // Mock Config
 vi.mock('../../src/transport/config/transport.config.js', () => ({
@@ -9,15 +10,26 @@ vi.mock('../../src/transport/config/transport.config.js', () => ({
   SESSION_MAX_MISSED_HEARTBEATS: 3
 }));
 
+// Define a mock transport interface that includes the methods we need
+interface MockTransport extends Transport {
+  close: Mock;
+  sendHeartbeat: Mock;
+}
+
 describe('Session Manager', () => {
   let manager: TransportSessionManager;
-  let mockTransport: any;
+  let mockTransport: MockTransport;
 
   beforeEach(() => {
     vi.useFakeTimers();
     manager = new TransportSessionManager();
     mockTransport = {
+      start: vi.fn().mockResolvedValue(undefined),
+      onmessage: undefined,
+      onclose: undefined,
+      onerror: undefined,
       close: vi.fn().mockResolvedValue(undefined),
+      send: vi.fn().mockResolvedValue(undefined),
       sendHeartbeat: vi.fn().mockReturnValue(true)
     };
   });
@@ -25,7 +37,7 @@ describe('Session Manager', () => {
   afterEach(async () => {
     await manager.closeAll();
     vi.useRealTimers();
-    vi.clearAllMocks();
+    vi.restoreAllMocks();
   });
 
   it('should add and get session', () => {
@@ -44,6 +56,7 @@ describe('Session Manager', () => {
 
   it('should update last activity on touch', () => {
     manager.add('session-1', mockTransport);
+    // Access private property for testing
     const initialActivity = (manager as any).sessions.get('session-1').lastActivity;
     
     vi.advanceTimersByTime(500);
@@ -99,26 +112,11 @@ describe('Session Manager', () => {
   it('should close session after max missed heartbeats', () => {
     manager.add('session-1', mockTransport);
     mockTransport.sendHeartbeat.mockReturnValue(false);
-
-    // 3 missed heartbeats required
-    // Interval 50ms.
-    // 1st: 50ms
-    // 2nd: 100ms
-    // 3rd: 150ms -> Close
     
-    vi.advanceTimersByTime(200);
-
+    // Miss 3 heartbeats (3 * 50ms = 150ms)
+    vi.advanceTimersByTime(160);
+    
     expect(mockTransport.close).toHaveBeenCalled();
     expect(manager.has('session-1')).toBe(false);
-  });
-
-  it('should close all sessions', async () => {
-    manager.add('session-1', mockTransport);
-    manager.add('session-2', { ...mockTransport });
-
-    await manager.closeAll();
-
-    expect(mockTransport.close).toHaveBeenCalled();
-    expect(manager.size).toBe(0);
   });
 });

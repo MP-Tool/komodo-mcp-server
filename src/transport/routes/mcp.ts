@@ -10,7 +10,9 @@ import { TransportSessionManager } from '../session-manager.js';
 import { createSecureTransport } from '../transport-factory.js';
 import { createJsonRpcError } from '../utils/json-rpc.js';
 import { logSessionInitialized, logSessionClosed } from '../utils/logging.js';
-import { logger } from '../../utils/logger.js';
+import { logger as baseLogger } from '../../utils/logger.js';
+
+const logger = baseLogger.child({ component: 'transport' });
 
 /**
  * Creates the MCP router with injected dependencies
@@ -49,7 +51,7 @@ export function createMcpRouter(mcpServerFactory: () => McpServer, sessionManage
                 await transport.handleRequest(req, res);
                 
             } catch (error) {
-                logger.error('[MCP] Error initializing SSE connection:', error);
+                logger.error('Error initializing SSE connection:', error);
                 if (!res.headersSent) {
                     res.status(500).json(createJsonRpcError(-32603, 'Internal Error initializing transport'));
                 }
@@ -77,14 +79,16 @@ export function createMcpRouter(mcpServerFactory: () => McpServer, sessionManage
             return;
         }
 
-        try {
-            await transport.handleRequest(req, res, req.body);
-        } catch (error) {
-            logger.error('[MCP] Error handling POST message:', error);
-            if (!res.headersSent) {
-                res.status(500).json(createJsonRpcError(-32603, 'Internal Error handling message'));
+        await logger.runWithContext({ sessionId }, async () => {
+            try {
+                await transport.handleRequest(req, res, req.body);
+            } catch (error) {
+                logger.error('Error handling POST message:', error);
+                if (!res.headersSent) {
+                    res.status(500).json(createJsonRpcError(-32603, 'Internal Error handling message'));
+                }
             }
-        }
+        });
     });
 
     /**

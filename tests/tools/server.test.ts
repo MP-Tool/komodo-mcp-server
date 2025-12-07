@@ -1,12 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { listServersTool } from '../../src/tools/server/list.js';
 import { getServerStatsTool } from '../../src/tools/server/stats.js';
-import { KomodoClient } from '../../src/api/komodo-client.js';
+import { KomodoClient } from '../../src/api/index.js';
 
 // Mock KomodoClient
 const mockClient = {
-  listServers: vi.fn(),
-  getServerState: vi.fn()
+  servers: {
+    list: vi.fn(),
+    getState: vi.fn()
+  }
 } as unknown as KomodoClient;
 
 const mockContext = {
@@ -33,17 +35,17 @@ describe('Server Tools', () => {
           info: { state: 'NotOk', version: 'unknown' } 
         }
       ];
-      (mockClient.listServers as any).mockResolvedValue(mockServers);
+      (mockClient.servers.list as any).mockResolvedValue(mockServers);
 
       const result = await listServersTool.handler({}, mockContext);
 
-      expect(mockClient.listServers).toHaveBeenCalled();
+      expect(mockClient.servers.list).toHaveBeenCalled();
       expect(result.content[0].text).toContain('Main Server (server1) - Status: Ok | Version: 1.0.0 | Region: us-east');
       expect(result.content[0].text).toContain('Backup Server (server2) - Status: NotOk | Version: N/A');
     });
 
     it('should handle empty server list', async () => {
-      (mockClient.listServers as any).mockResolvedValue([]);
+      (mockClient.servers.list as any).mockResolvedValue([]);
 
       const result = await listServersTool.handler({}, mockContext);
 
@@ -59,11 +61,11 @@ describe('Server Tools', () => {
   describe('getServerStatsTool', () => {
     it('should get server stats correctly', async () => {
       const mockStats = { status: 'Ok' };
-      (mockClient.getServerState as any).mockResolvedValue(mockStats);
+      (mockClient.servers.getState as any).mockResolvedValue(mockStats);
 
       const result = await getServerStatsTool.handler({ server: 'server1' }, mockContext);
 
-      expect(mockClient.getServerState).toHaveBeenCalledWith('server1');
+      expect(mockClient.servers.getState).toHaveBeenCalledWith('server1');
       expect(result.content[0].text).toContain('Status: Ok');
     });
 

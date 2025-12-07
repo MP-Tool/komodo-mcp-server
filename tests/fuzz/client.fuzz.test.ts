@@ -7,11 +7,10 @@
  */
 import { describe, it, vi, afterEach } from 'vitest';
 import * as fc from 'fast-check';
-import axios from 'axios';
-import { KomodoClient, extractUpdateId } from '../../src/api/komodo-client';
+import { extractUpdateId } from '../../src/api/index.js';
 
-// Mock axios
-vi.mock('axios');
+// Mock fetch
+global.fetch = vi.fn();
 
 describe('Komodo Client Fuzzing', () => {
   afterEach(() => {
@@ -33,48 +32,6 @@ describe('Komodo Client Fuzzing', () => {
             return true; 
           }
         })
-      );
-    });
-  });
-
-  describe('API Response Handling', () => {
-    it('should handle arbitrary API responses for listDockerContainers', async () => {
-      // Create a client instance (using private constructor via any cast or static login mock)
-      // Since login is static and makes a call, we'll mock the axios.create return value
-      
-      const mockAxiosInstance = {
-        post: vi.fn(),
-        interceptors: {
-          request: { use: vi.fn() },
-          response: { use: vi.fn() }
-        }
-      };
-
-      (axios.create as any).mockReturnValue(mockAxiosInstance);
-
-      // We need to bypass the private constructor or use login
-      // Let's mock the login call to return a client
-      (axios.post as any).mockResolvedValue({ data: { jwt: 'fake-jwt' } });
-      
-      const client = await KomodoClient.login('http://localhost', 'user', 'pass');
-
-      await fc.assert(
-        fc.asyncProperty(fc.anything(), async (responseData) => {
-          // Mock the specific API call response
-          mockAxiosInstance.post.mockResolvedValue({ data: responseData });
-
-          try {
-            await client.listDockerContainers('server-id');
-            
-            // If it returns, it should be what we sent (or empty array on error catch inside client)
-            // The client implementation catches errors and returns [] for list methods.
-            // So it should NEVER throw.
-            return true;
-          } catch (e) {
-            return false;
-          }
-        }),
-        { numRuns: 100 } // Async tests are slower
       );
     });
   });

@@ -125,7 +125,7 @@ Comming soon: Pre-built n8n workflows for automated container health checks and 
 - **Komodo** v1.19.5 or later
 - **Docker** (for containerized deployment)
 - **Node.js 20+** (for local development)
-- Valid Komodo credentials (username/password)
+- **Valid Komodo credentials** (API Key/Secret or username/password)
 
 ### Integration Guides
 - **[Claude Desktop](examples/claude/)** - Direct MCP integration

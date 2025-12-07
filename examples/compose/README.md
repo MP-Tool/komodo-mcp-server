@@ -21,8 +21,14 @@ nano .env
 **Required settings:**
 ```dotenv
 KOMODO_URL=https://your-komodo-server.com:9120
-KOMODO_USERNAME=your-username
-KOMODO_PASSWORD=your-password
+
+# Option A: API Key (Recommended)
+KOMODO_API_KEY=your-api-key
+KOMODO_API_SECRET=your-api-secret
+
+# Option B: Username/Password
+# KOMODO_USERNAME=your-username
+# KOMODO_PASSWORD=your-password
 ```
 
 ### 3. Start Server

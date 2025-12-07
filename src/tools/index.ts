@@ -1,6 +1,12 @@
 import { toolRegistry } from './base.js';
 import { listContainersTool } from './container/list.js';
-import { startContainerTool, stopContainerTool, restartContainerTool, pauseContainerTool, unpauseContainerTool } from './container/manage.js';
+import {
+  startContainerTool,
+  stopContainerTool,
+  restartContainerTool,
+  pauseContainerTool,
+  unpauseContainerTool,
+} from './container/manage.js';
 import { listServersTool } from './server/list.js';
 import { getServerStatsTool } from './server/stats.js';
 import { listDeploymentsTool } from './deployment/list.js';

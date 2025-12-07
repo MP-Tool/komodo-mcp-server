@@ -10,17 +10,21 @@ export const listServersTool: Tool = {
     if (!client) throw new Error('Komodo client not initialized');
     const servers = await client.servers.list();
     return {
-      content: [{
-        type: 'text',
-        text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServerListItem) => {
-          const version = s.info.version && s.info.version.toLowerCase() !== 'unknown' 
-            ? s.info.version 
-            : 'N/A';
-          const region = s.info.region || '';
-          const regionStr = region ? ` | Region: ${region}` : '';
-          return `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${version}${regionStr}`;
-        }).join('\n') || 'No servers found.'}`
-      }]
+      content: [
+        {
+          type: 'text',
+          text: `🖥️ Available servers:\n\n${
+            servers
+              .map((s: KomodoServerListItem) => {
+                const version = s.info.version && s.info.version.toLowerCase() !== 'unknown' ? s.info.version : 'N/A';
+                const region = s.info.region || '';
+                const regionStr = region ? ` | Region: ${region}` : '';
+                return `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${version}${regionStr}`;
+              })
+              .join('\n') || 'No servers found.'
+          }`,
+        },
+      ],
     };
-  }
+  },
 };

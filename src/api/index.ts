@@ -13,7 +13,7 @@ export * from './utils.js';
 
 /**
  * Main client for interacting with the Komodo API.
- * 
+ *
  * This class acts as a facade, providing access to various resources
  * (servers, containers, stacks, deployments) through a unified interface.
  * It handles authentication and connection management.
@@ -41,7 +41,7 @@ export class KomodoClient {
 
   /**
    * Authenticates with the Komodo server using username and password.
-   * 
+   *
    * @param baseUrl - The base URL of the Komodo server (e.g., http://localhost:9120)
    * @param username - The username for authentication
    * @param password - The password for authentication
@@ -50,28 +50,28 @@ export class KomodoClient {
    */
   static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
     const url = baseUrl.replace(/\/$/, '');
-    
+
     try {
       logger.debug(`Logging in as ${username} to ${url}`);
-      
+
       const response = await fetch(`${url}/auth/LoginLocalUser`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
       });
 
       if (!response.ok) {
         throw new Error(`Login failed: ${response.status} ${response.statusText}`);
       }
 
-      const data = await response.json() as { jwt: string };
+      const data = (await response.json()) as { jwt: string };
       if (!data.jwt) {
         throw new Error('Login successful but no JWT token received');
       }
 
       const client = createKomodoClient(url, {
         type: 'jwt',
-        params: { jwt: data.jwt }
+        params: { jwt: data.jwt },
       });
 
       return new KomodoClient(url, client);
@@ -83,7 +83,7 @@ export class KomodoClient {
 
   /**
    * Connects to the Komodo server using an API Key and Secret.
-   * 
+   *
    * @param baseUrl - The base URL of the Komodo server
    * @param key - The API Key
    * @param secret - The API Secret
@@ -91,12 +91,12 @@ export class KomodoClient {
    */
   static connectWithApiKey(baseUrl: string, key: string, secret: string): KomodoClient {
     const url = baseUrl.replace(/\/$/, '');
-    
+
     logger.debug(`Connecting with API Key to ${url}`);
-    
+
     const client = createKomodoClient(url, {
       type: 'api-key',
-      params: { key, secret }
+      params: { key, secret },
     });
 
     return new KomodoClient(url, client);
@@ -104,7 +104,7 @@ export class KomodoClient {
 
   /**
    * Performs a health check on the connection to the Komodo server.
-   * 
+   *
    * @returns A HealthCheckResult object containing status and details
    */
   async healthCheck(): Promise<HealthCheckResult> {
@@ -119,8 +119,8 @@ export class KomodoClient {
           reachable: true,
           authenticated: true,
           responseTime: Date.now() - startTime,
-          apiVersion: versionRes.version
-        }
+          apiVersion: versionRes.version,
+        },
       };
     } catch (error) {
       return {
@@ -131,8 +131,8 @@ export class KomodoClient {
           reachable: false,
           authenticated: false,
           responseTime: Date.now() - startTime,
-          error: String(error)
-        }
+          error: String(error),
+        },
       };
     }
   }

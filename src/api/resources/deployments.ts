@@ -7,7 +7,7 @@ import { KomodoDeploymentListItem, KomodoUpdate } from '../types.js';
 export class DeploymentResource extends BaseResource {
   /**
    * Lists all configured deployments.
-   * 
+   *
    * @returns A list of deployment items
    */
   async list(): Promise<KomodoDeploymentListItem[]> {
@@ -22,14 +22,14 @@ export class DeploymentResource extends BaseResource {
 
   /**
    * Triggers a deployment.
-   * 
+   *
    * @param deploymentId - The ID or name of the deployment to trigger
    * @returns The update status
    */
   async deploy(deploymentId: string): Promise<KomodoUpdate> {
     try {
       const response = await this.client.execute('Deploy', {
-        deployment: deploymentId
+        deployment: deploymentId,
       });
       return response;
     } catch (error) {

@@ -11,9 +11,9 @@ import { config } from '../../config/env.js';
  * Current version: 2025-06-18 (but 2024-11-05 is still widely used)
  */
 export const SUPPORTED_PROTOCOL_VERSIONS = [
-    '2025-11-25',  // Newest release
-    '2025-06-18',  // Previous spec version
-    '2024-11-05',  // Legacy stable version
+  '2025-11-25', // Newest release
+  '2025-06-18', // Previous spec version
+  '2024-11-05', // Legacy stable version
 ] as const;
 
 /**
@@ -50,7 +50,7 @@ export const SESSION_MAX_MISSED_HEARTBEATS = 3;
  * Generates allowed hosts list for DNS rebinding protection
  */
 export function getAllowedHosts(): string[] {
-    const port = config.MCP_PORT;
+  const port = config.MCP_PORT;
     const defaults = [
         'localhost',
         '127.0.0.1',
@@ -59,12 +59,12 @@ export function getAllowedHosts(): string[] {
         `127.0.0.1:${port}`,
         `[::1]:${port}`,
     ];
-    
-    if (config.MCP_ALLOWED_HOSTS && config.MCP_ALLOWED_HOSTS.length > 0) {
-        return config.MCP_ALLOWED_HOSTS;
-    }
-    
-    return defaults;
+
+  if (config.MCP_ALLOWED_HOSTS && config.MCP_ALLOWED_HOSTS.length > 0) {
+    return config.MCP_ALLOWED_HOSTS;
+  }
+
+  return defaults;
 }
 
 /**
@@ -72,18 +72,18 @@ export function getAllowedHosts(): string[] {
  * Only used when server is bound to non-localhost addresses
  */
 export function getAllowedOrigins(): string[] {
-    const port = config.MCP_PORT;
+  const port = config.MCP_PORT;
     const defaults = [
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`,
         `http://[::1]:${port}`,
     ];
 
-    if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
-        return config.MCP_ALLOWED_ORIGINS;
-    }
+  if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
+    return config.MCP_ALLOWED_ORIGINS;
+  }
 
-    return defaults;
+  return defaults;
 }
 
 /**
@@ -91,10 +91,15 @@ export function getAllowedOrigins(): string[] {
  * Allows any port on localhost/127.0.0.1/[::1]
  */
 export function isLocalHost(host: string): boolean {
-    const cleanHost = host.trim();
-    return cleanHost.startsWith('localhost:') || cleanHost === 'localhost' || 
-           cleanHost.startsWith('127.0.0.1:') || cleanHost === '127.0.0.1' ||
-           cleanHost.startsWith('[::1]:') || cleanHost === '[::1]';
+  const cleanHost = host.trim();
+  return (
+    cleanHost.startsWith('localhost:') ||
+    cleanHost === 'localhost' ||
+    cleanHost.startsWith('127.0.0.1:') ||
+    cleanHost === '127.0.0.1' ||
+    cleanHost.startsWith('[::1]:') ||
+    cleanHost === '[::1]'
+  );
 }
 
 /**
@@ -102,12 +107,12 @@ export function isLocalHost(host: string): boolean {
  * Spec: https://www.jsonrpc.org/specification#error_object
  */
 export const JSON_RPC_ERROR_CODES = {
-    PARSE_ERROR: -32700,
-    INVALID_REQUEST: -32600,
-    METHOD_NOT_FOUND: -32601,
-    INVALID_PARAMS: -32602,
-    INTERNAL_ERROR: -32603,
-    // MCP-specific error codes
-    SESSION_NOT_FOUND: -32001,
-    FORBIDDEN: -32000,
+  PARSE_ERROR: -32700,
+  INVALID_REQUEST: -32600,
+  METHOD_NOT_FOUND: -32601,
+  INVALID_PARAMS: -32602,
+  INTERNAL_ERROR: -32603,
+  // MCP-specific error codes
+  SESSION_NOT_FOUND: -32001,
+  FORBIDDEN: -32000,
 } as const;

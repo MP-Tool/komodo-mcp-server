@@ -7,7 +7,7 @@ import { KomodoContainer, KomodoContainerListItem, KomodoUpdate } from '../types
 export class ContainerResource extends BaseResource {
   /**
    * Lists all containers on a specific server.
-   * 
+   *
    * @param serverId - The ID of the server to list containers from
    * @returns A list of container items
    */
@@ -23,7 +23,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Inspects a specific container to get detailed information.
-   * 
+   *
    * @param serverId - The ID of the server where the container is running
    * @param containerId - The ID or name of the container
    * @returns Detailed container information
@@ -32,7 +32,7 @@ export class ContainerResource extends BaseResource {
     try {
       const response = await this.client.read('InspectDockerContainer', {
         server: serverId,
-        container: containerId
+        container: containerId,
       });
       return response;
     } catch (error) {
@@ -43,7 +43,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Starts a container.
-   * 
+   *
    * @param serverId - The ID of the server
    * @param containerName - The name of the container
    * @returns The update status
@@ -54,7 +54,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Stops a container.
-   * 
+   *
    * @param serverId - The ID of the server
    * @param containerName - The name of the container
    * @returns The update status
@@ -65,7 +65,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Restarts a container.
-   * 
+   *
    * @param serverId - The ID of the server
    * @param containerName - The name of the container
    * @returns The update status
@@ -76,7 +76,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Pauses a container.
-   * 
+   *
    * @param serverId - The ID of the server
    * @param containerName - The name of the container
    * @returns The update status
@@ -87,7 +87,7 @@ export class ContainerResource extends BaseResource {
 
   /**
    * Unpauses a container.
-   * 
+   *
    * @param serverId - The ID of the server
    * @param containerName - The name of the container
    * @returns The update status
@@ -96,11 +96,12 @@ export class ContainerResource extends BaseResource {
     return this.executeAction('UnpauseContainer', serverId, containerName);
   }
 
-  private async executeAction(action: any, serverId: string, containerName: string): Promise<KomodoUpdate> {
+  private async executeAction(action: string, serverId: string, containerName: string): Promise<KomodoUpdate> {
     try {
-      const response = await this.client.execute(action, {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const response = await this.client.execute(action as any, {
         server: serverId,
-        container: containerName
+        container: containerName,
       });
       return response as KomodoUpdate;
     } catch (error) {

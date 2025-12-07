@@ -46,7 +46,7 @@ const SENSITIVE_KEYS = [
   'access_token',
   'refresh_token',
   'jwt',
-  'bearer'
+  'bearer',
 ];
 
 /**
@@ -75,21 +75,21 @@ export class Logger {
    */
   private static initStreams() {
     if (Logger.initialized || !config.LOG_DIR) return;
-    
+
     try {
-        if (!fs.existsSync(config.LOG_DIR)) {
-            fs.mkdirSync(config.LOG_DIR, { recursive: true });
-        }
-        
-        // Create streams for known components
-        ['server', 'api', 'transport'].forEach(comp => {
-            const stream = fs.createWriteStream(path.join(config.LOG_DIR!, `${comp}.log`), { flags: 'a' });
-            Logger.streams.set(comp, stream);
-        });
-        
-        Logger.initialized = true;
+      if (!fs.existsSync(config.LOG_DIR)) {
+        fs.mkdirSync(config.LOG_DIR, { recursive: true });
+      }
+
+      // Create streams for known components
+      ['server', 'api', 'transport'].forEach((comp) => {
+        const stream = fs.createWriteStream(path.join(config.LOG_DIR!, `${comp}.log`), { flags: 'a' });
+        Logger.streams.set(comp, stream);
+      });
+
+      Logger.initialized = true;
     } catch (err) {
-        console.error('Failed to initialize log streams:', err);
+      console.error('Failed to initialize log streams:', err);
     }
   }
 
@@ -97,7 +97,7 @@ export class Logger {
    * Create a child logger with a specific component context.
    */
   public child(context: { component: string }): Logger {
-      return new Logger(context.component);
+    return new Logger(context.component);
   }
 
   /**
@@ -119,7 +119,7 @@ export class Logger {
    * @param message The message to log (supports printf-style formatting)
    * @param args Additional arguments for formatting or metadata
    */
-  public trace(message: string, ...args: any[]): void {
+  public trace(message: string, ...args: unknown[]): void {
     this.log('trace', message, ...args);
   }
 
@@ -128,7 +128,7 @@ export class Logger {
    * @param message The message to log (supports printf-style formatting)
    * @param args Additional arguments for formatting or metadata
    */
-  public debug(message: string, ...args: any[]): void {
+  public debug(message: string, ...args: unknown[]): void {
     this.log('debug', message, ...args);
   }
 
@@ -137,7 +137,7 @@ export class Logger {
    * @param message The message to log (supports printf-style formatting)
    * @param args Additional arguments for formatting or metadata
    */
-  public info(message: string, ...args: any[]): void {
+  public info(message: string, ...args: unknown[]): void {
     this.log('info', message, ...args);
   }
 
@@ -146,7 +146,7 @@ export class Logger {
    * @param message The message to log (supports printf-style formatting)
    * @param args Additional arguments for formatting or metadata
    */
-  public warn(message: string, ...args: any[]): void {
+  public warn(message: string, ...args: unknown[]): void {
     this.log('warn', message, ...args);
   }
 
@@ -155,7 +155,7 @@ export class Logger {
    * @param message The message to log (supports printf-style formatting)
    * @param args Additional arguments for formatting or metadata
    */
-  public error(message: string, ...args: any[]): void {
+  public error(message: string, ...args: unknown[]): void {
     this.log('error', message, ...args);
   }
 
@@ -163,26 +163,26 @@ export class Logger {
    * Internal log handler.
    * Formats the message, adds context, scrubs secrets, and writes to output.
    */
-  private log(level: LogLevel, message: string, ...args: any[]): void {
+  private log(level: LogLevel, message: string, ...args: unknown[]): void {
     if (LOG_LEVELS[level] < this.level) {
       return;
     }
 
     // Separate metadata from format args
-    let meta: Record<string, any> = {};
+    let meta: Record<string, unknown> = {};
     let formatArgs = args;
 
     if (args.length > 0 && typeof args[args.length - 1] === 'object' && args[args.length - 1] !== null) {
       // Check if the last arg is intended as metadata
       // If the message has fewer placeholders than args, the last one might be metadata
       // Simple heuristic: if it's an object and not an Error (unless explicitly passed as meta), treat as meta
-      // However, standard Node.js console.log behavior treats objects as part of formatting if %o/%O is used, 
+      // However, standard Node.js console.log behavior treats objects as part of formatting if %o/%O is used,
       // or just appends them.
       // To support `logger.info('msg', { meta: 1 })`, we check if the last arg is an object.
       const lastArg = args[args.length - 1];
       if (!util.types.isNativeError(lastArg)) {
-         meta = this.redact(lastArg);
-         formatArgs = args.slice(0, -1);
+        meta = this.redact(lastArg) as Record<string, unknown>;
+        formatArgs = args.slice(0, -1);
       }
     }
 
@@ -197,23 +197,23 @@ export class Logger {
         level: level.toUpperCase(),
         message: formattedMessage,
         service: {
-            name: 'komodo-mcp-server',
-            component: component
+          name: 'komodo-mcp-server',
+          component: component,
         },
         trace: {
-            id: context?.requestId
+          id: context?.requestId,
         },
         session: {
-            id: context?.sessionId
+          id: context?.sessionId,
         },
-        ...meta
+        ...meta,
       };
       this.write(level, JSON.stringify(logEntry), component);
     } else {
       // Text format: [YYYY-MM-DD HH:mm:ss.SSS] [LEVEL] [Component] [SessionID:ReqID] Message {meta}
       const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
       const displayTimestamp = timestamp.replace('T', ' ').slice(0, -1);
-      
+
       let contextStr = '';
       if (context?.sessionId && context?.requestId) {
         contextStr = ` [${context.sessionId.slice(0, 8)}:${context.requestId.slice(0, 8)}]`;
@@ -222,10 +222,10 @@ export class Logger {
       } else if (context?.requestId) {
         contextStr = ` [Req:${context.requestId.slice(0, 8)}]`;
       }
-      
+
       // Pad level to 5 chars for alignment
       const levelStr = level.toUpperCase().padEnd(5);
-      
+
       const output = `[${displayTimestamp}] [${levelStr}] [${component}]${contextStr} ${formattedMessage}${metaStr}`;
       this.write(level, output, component);
     }
@@ -254,10 +254,10 @@ export class Logger {
 
     // Write to file if configured
     if (config.LOG_DIR) {
-        const stream = Logger.streams.get(component) || Logger.streams.get('server');
-        if (stream) {
-            stream.write(safeOutput + '\n');
-        }
+      const stream = Logger.streams.get(component) || Logger.streams.get('server');
+      if (stream) {
+        stream.write(safeOutput + '\n');
+      }
     }
 
     // In Stdio mode, we MUST write to stderr to avoid corrupting JSON-RPC on stdout
@@ -282,9 +282,12 @@ export class Logger {
   private preventLogInjection(text: string): string {
     return text.replace(/[\n\r]/g, (match) => {
       switch (match) {
-        case '\n': return '\\n';
-        case '\r': return '\\r';
-        default: return match;
+        case '\n':
+          return '\\n';
+        case '\r':
+          return '\\r';
+        default:
+          return match;
       }
     });
   }
@@ -313,8 +316,8 @@ export class Logger {
     // We construct the regex dynamically from SENSITIVE_KEYS
     // We filter out 'bearer' and 'authorization' from keysPattern because we handled it specifically above,
     // and we don't want "Authorization: Bearer **********" to become "Authorization: ********** **********"
-    const keysPattern = SENSITIVE_KEYS.filter(k => !['bearer', 'authorization'].includes(k.toLowerCase())).join('|');
-    
+    const keysPattern = SENSITIVE_KEYS.filter((k) => !['bearer', 'authorization'].includes(k.toLowerCase())).join('|');
+
     // Regex explanation:
     // \b(${keysPattern})\b : Match one of the sensitive keys as a whole word (Group 1)
     // (\s*[:=]\s*)         : Match separator (: or =) with optional whitespace (Group 2)
@@ -322,7 +325,7 @@ export class Logger {
     // ([^\s"']+)           : The value (no spaces, no quotes) (Group 4)
     // \3                   : Match the closing quote if one was opened
     const kvRegex = new RegExp(`\\b(${keysPattern})\\b(\\s*[:=]\\s*)(["']?)([^\\s"']+)\\3`, 'gi');
-    
+
     scrubbed = scrubbed.replace(kvRegex, (match, key, sep, quote, value) => {
       // Don't redact if it's already redacted (e.g. by Bearer scrubber)
       if (value.includes('**********')) return match;
@@ -335,24 +338,26 @@ export class Logger {
   /**
    * Recursively redact sensitive keys in an object.
    */
-  private redact(obj: any): any {
+  private redact(obj: unknown): unknown {
     if (typeof obj !== 'object' || obj === null) {
       return obj;
     }
 
     if (Array.isArray(obj)) {
-      return obj.map(item => this.redact(item));
+      return obj.map((item) => this.redact(item));
     }
 
-    const redacted: any = {};
-    for (const key in obj) {
-      if (Object.prototype.hasOwnProperty.call(obj, key)) {
-        if (SENSITIVE_KEYS.some(k => key.toLowerCase().includes(k.toLowerCase()))) {
+    const redacted: Record<string, unknown> = {};
+    const objRecord = obj as Record<string, unknown>;
+
+    for (const key in objRecord) {
+      if (Object.prototype.hasOwnProperty.call(objRecord, key)) {
+        if (SENSITIVE_KEYS.some((k) => key.toLowerCase().includes(k.toLowerCase()))) {
           redacted[key] = '**********';
-        } else if (typeof obj[key] === 'object') {
-          redacted[key] = this.redact(obj[key]);
+        } else if (typeof objRecord[key] === 'object') {
+          redacted[key] = this.redact(objRecord[key]);
         } else {
-          redacted[key] = obj[key];
+          redacted[key] = objRecord[key];
         }
       }
     }

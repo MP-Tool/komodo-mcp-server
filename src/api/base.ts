@@ -3,7 +3,7 @@ import { logger as baseLogger } from '../utils/logger.js';
 
 /**
  * Abstract base class for API resources.
- * 
+ *
  * Provides access to the core Komodo client and a scoped logger.
  */
 export abstract class BaseResource {

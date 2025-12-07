@@ -1,12 +1,12 @@
 /**
  * HTTP Server for MCP Streamable HTTP Transport
- * 
+ *
  * Architecture:
  * - Express.js application
  * - Modular middleware stack
  * - Session management
  * - Separate route handlers
- * 
+ *
  * Security features (MCP Specification 2025-06-18):
  * - DNS Rebinding Protection
  * - Rate Limiting
@@ -39,63 +39,58 @@ import { logger as baseLogger } from '../utils/logger.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 
+import { Server } from 'node:http';
+
 /**
  * Creates and configures the Express application
  */
-export function createExpressApp(mcpServerFactory: () => McpServer): { app: express.Application, sessionManager: TransportSessionManager } {
-    const app = express();
-    app.disable('x-powered-by'); // Disable X-Powered-By header for security
-    const sessionManager = new TransportSessionManager();
-    
-    // ===== Global Middleware =====
-    app.use(express.json());
+export function createExpressApp(mcpServerFactory: () => McpServer): {
+  app: express.Application;
+  sessionManager: TransportSessionManager;
+} {
+  const app = express();
+  app.disable('x-powered-by'); // Disable X-Powered-By header for security
+  const sessionManager = new TransportSessionManager();
 
-    // ===== Routes =====
-    
-    // Health check endpoint (no rate limiting or security middleware)
-    app.use(createHealthRouter(sessionManager));
+  // ===== Global Middleware =====
+  app.use(express.json());
 
-    // MCP endpoint with security middleware stack
+  // ===== Routes =====
+
+  // Health check endpoint (no rate limiting or security middleware)
+  app.use(createHealthRouter(sessionManager));
+
+  // MCP endpoint with security middleware stack
     app.use('/mcp', dnsRebindingProtection);      // 1. DNS Rebinding Protection (MUST) - Check first!
     app.use('/mcp', mcpRateLimiter);              // 2. Rate Limiting
     app.use('/mcp', validateProtocolVersion);     // 3. Protocol Version (MUST)
     app.use('/mcp', validateAcceptHeader);        // 4. Accept Header (MUST)
     app.use('/mcp', validateContentType);         // 5. Content-Type (MUST for POST)
     app.use('/mcp', validateJsonRpc);             // 6. JSON-RPC Validation (MUST for POST)
-    
-    // MCP route handler
-    app.use('/mcp', createMcpRouter(mcpServerFactory, sessionManager));
 
-    return { app, sessionManager };
+  // MCP route handler
+  app.use('/mcp', createMcpRouter(mcpServerFactory, sessionManager));
+
+  return { app, sessionManager };
 }
 
 /**
  * Starts the HTTP server
  */
-export async function startHttpServer(mcpServerFactory: () => McpServer): Promise<void> {
-    const { app, sessionManager } = createExpressApp(mcpServerFactory);
+export function startHttpServer(mcpServerFactory: () => McpServer): {
+  server: Server;
+  sessionManager: TransportSessionManager;
+} {
+  const { app, sessionManager } = createExpressApp(mcpServerFactory);
 
-    // ===== Server Startup =====
-    
-    const port = config.MCP_PORT;
-    const bindHost = config.MCP_BIND_HOST;
-    
-    const server = app.listen(port, bindHost, () => {
-        logger.info('Server listening on %s:%d', bindHost, port);
-    });
+  // ===== Server Startup =====
 
-    // ===== Graceful Shutdown =====
-    
-    const shutdown = async () => {
-        logger.info('Shutting down server...');
-        await sessionManager.closeAll();
-        
-        server.close(() => {
-            logger.info('Server closed');
-            process.exit(0);
-        });
-    };
+  const port = config.MCP_PORT;
+  const bindHost = config.MCP_BIND_HOST;
 
-    process.on('SIGTERM', shutdown);
-    process.on('SIGINT', shutdown);
+  const server = app.listen(port, bindHost, () => {
+    logger.info('Server listening on %s:%d', bindHost, port);
+  });
+
+  return { server, sessionManager };
 }

@@ -7,7 +7,7 @@ import { KomodoServerListItem } from '../types.js';
 export class ServerResource extends BaseResource {
   /**
    * Lists all registered servers.
-   * 
+   *
    * @returns A list of server items
    */
   async list(): Promise<KomodoServerListItem[]> {
@@ -22,11 +22,11 @@ export class ServerResource extends BaseResource {
 
   /**
    * Gets the current state of a server.
-   * 
+   *
    * @param serverId - The ID of the server
    * @returns The server state object
    */
-  async getState(serverId: string): Promise<any> {
+  async getState(serverId: string): Promise<unknown> {
     try {
       const response = await this.client.read('GetServerState', { server: serverId });
       return response || { status: 'NotOk' };

@@ -12,6 +12,8 @@
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build, node_modules ",
+    "lint": "eslint 'src/**/*.ts'",
+    "format": "prettier --write 'src/**/*.ts'",
     "test": "vitest run",
     "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version ."
@@ -49,6 +51,12 @@
     "zod-to-json-schema": "^3.25.0"
   },
   "devDependencies": {
+    "eslint": "^8.57.1",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.4",
+    "prettier": "^3.7.4",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.25",
     "@types/supertest": "^6.0.3",

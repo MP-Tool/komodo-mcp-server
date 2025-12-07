@@ -80,4 +80,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - Updated all transport layers to utilize the new centralized logger for consistent output.
     - **Standardization**: Standardized log component tags and session management for consistent filtering.
 
+--------------------------------------------------------------
 
+## [1.0.7] (#29)
+
+### Added
+- **Security**: Integrated `helmet` middleware to enhance HTTP security headers for the SSE transport.
+- **Authentication**: Added support for API Key authentication (`KOMODO_API_KEY`, `KOMODO_API_SECRET`) as an alternative to username/password login.
+
+### Changed
+- **Documentation**: Added comprehensive JSDoc documentation for the core `KomodoMCPServer` class, environment configuration schemas, and all tool definitions.
+- **Refactoring**: Modularized the API client structure for better maintainability.
+- **Stability**: Improved graceful shutdown handling for both Stdio and SSE transports to ensure clean resource release.
+
+### Fixed
+- **Tests**: Resolved issues in the test suite and improved logger mocking for tests.

@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoStackListItem } from '../../api/index.js';
 
+/**
+ * Tool to list all Docker Compose stacks.
+ */
 export const listStacksTool: Tool = {
   name: 'komodo_list_stacks',
   description: 'List all Docker Compose stacks',

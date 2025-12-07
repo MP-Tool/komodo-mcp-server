@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/utils.js';
 
+/**
+ * Tool to stop a Docker Compose stack.
+ */
 export const stopStackTool: Tool = {
   name: 'komodo_stop_stack',
   description: 'Stop a Docker Compose stack',
@@ -22,6 +25,9 @@ export const stopStackTool: Tool = {
   },
 };
 
+/**
+ * Tool to deploy a Docker Compose stack.
+ */
 export const deployStackTool: Tool = {
   name: 'komodo_deploy_stack',
   description: 'Deploy a Docker Compose stack',

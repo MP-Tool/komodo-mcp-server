@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/utils.js';
 
+/**
+ * Tool to deploy a container.
+ */
 export const deployContainerTool: Tool = {
   name: 'komodo_deploy_container',
   description: 'Deploy a container',

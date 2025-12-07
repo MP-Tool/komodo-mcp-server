@@ -7,6 +7,9 @@ const containerActionSchema = z.object({
   container: z.string().describe('Container name'),
 });
 
+/**
+ * Tool to start a Docker container.
+ */
 export const startContainerTool: Tool = {
   name: 'komodo_start_container',
   description: 'Start a Docker container',
@@ -25,6 +28,9 @@ export const startContainerTool: Tool = {
   },
 };
 
+/**
+ * Tool to stop a Docker container.
+ */
 export const stopContainerTool: Tool = {
   name: 'komodo_stop_container',
   description: 'Stop a Docker container',
@@ -43,6 +49,9 @@ export const stopContainerTool: Tool = {
   },
 };
 
+/**
+ * Tool to restart a Docker container.
+ */
 export const restartContainerTool: Tool = {
   name: 'komodo_restart_container',
   description: 'Restart a Docker container',
@@ -61,6 +70,9 @@ export const restartContainerTool: Tool = {
   },
 };
 
+/**
+ * Tool to pause a Docker container.
+ */
 export const pauseContainerTool: Tool = {
   name: 'komodo_pause_container',
   description: 'Pause a Docker container',
@@ -79,6 +91,9 @@ export const pauseContainerTool: Tool = {
   },
 };
 
+/**
+ * Tool to unpause a Docker container.
+ */
 export const unpauseContainerTool: Tool = {
   name: 'komodo_unpause_container',
   description: 'Unpause a Docker container',

@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoServerListItem } from '../../api/index.js';
 
+/**
+ * Tool to list all available servers.
+ */
 export const listServersTool: Tool = {
   name: 'komodo_list_servers',
   description: 'List all available servers',

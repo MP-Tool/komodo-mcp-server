@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoClient } from '../../api/index.js';
 
+/**
+ * Tool to configure the Komodo client connection.
+ */
 export const configureTool: Tool = {
   name: 'komodo_configure',
   description: 'Configure connection to Komodo server with username and password',

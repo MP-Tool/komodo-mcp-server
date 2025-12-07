@@ -10,6 +10,10 @@ import { startHttpServer } from './transport/http-server.js';
 import { logger, LogLevel } from './utils/logger.js';
 
 // Komodo MCP server - Container Management Server
+/**
+ * Main application class for the Komodo MCP Server.
+ * Manages the MCP server instance, tool registration, and Komodo client state.
+ */
 class KomodoMCPServer {
   private komodoClient: KomodoClient | null = null;
 
@@ -24,6 +28,12 @@ class KomodoMCPServer {
     });
   }
 
+  /**
+   * Maps internal log levels to MCP logging levels.
+   *
+   * @param level - The internal log level
+   * @returns The corresponding MCP log level
+   */
   private mapLogLevel(
     level: LogLevel,
   ): 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency' {
@@ -43,6 +53,12 @@ class KomodoMCPServer {
     }
   }
 
+  /**
+   * Creates and configures the MCP server instance.
+   * Registers all tools and sets up logging.
+   *
+   * @returns The configured McpServer instance
+   */
   private createMcpServer(): McpServer {
     const server = new McpServer({
       name: 'komodo-mcp-gateway',
@@ -111,6 +127,9 @@ class KomodoMCPServer {
     return server;
   }
 
+  /**
+   * Starts the server using the configured transport (Stdio or SSE).
+   */
   async run(): Promise<void> {
     if (config.MCP_TRANSPORT === 'sse') {
       // Pass factory function to create a new server instance per connection

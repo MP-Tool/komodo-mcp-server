@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 
+/**
+ * Tool to check the health of the Komodo server connection.
+ */
 export const healthCheckTool: Tool = {
   name: 'komodo_health_check',
   description: 'Check connection to Komodo server and return detailed diagnostic information',

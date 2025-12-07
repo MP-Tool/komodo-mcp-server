@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoDeploymentListItem } from '../../api/index.js';
 
+/**
+ * Tool to list all deployments.
+ */
 export const listDeploymentsTool: Tool = {
   name: 'komodo_list_deployments',
   description: 'List all deployments',

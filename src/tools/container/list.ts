@@ -2,6 +2,9 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoContainerListItem } from '../../api/index.js';
 
+/**
+ * Tool to list all Docker containers on a server.
+ */
 export const listContainersTool: Tool = {
   name: 'komodo_list_containers',
   description: 'List all Docker containers on a server',

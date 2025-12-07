@@ -1,6 +1,9 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 
+/**
+ * Tool to get statistics and status for a specific server.
+ */
 export const getServerStatsTool: Tool = {
   name: 'komodo_get_server_stats',
   description: 'Get server statistics and status',

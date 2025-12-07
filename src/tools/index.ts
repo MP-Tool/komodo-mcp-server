@@ -16,6 +16,10 @@ import { stopStackTool, deployStackTool } from './stack/actions.js';
 import { configureTool } from './config/configure.js';
 import { healthCheckTool } from './config/health.js';
 
+/**
+ * Registers all available tools with the tool registry.
+ * This function should be called during server initialization.
+ */
 export function registerTools() {
   toolRegistry.register(listContainersTool);
   toolRegistry.register(startContainerTool);

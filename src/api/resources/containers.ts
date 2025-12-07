@@ -96,6 +96,51 @@ export class ContainerResource extends BaseResource {
     return this.executeAction('UnpauseContainer', serverId, containerName);
   }
 
+  /**
+   * Prunes unused resources on a server.
+   *
+   * @param serverId - The ID of the server
+   * @param type - The type of resource to prune (containers, images, volumes, networks, system)
+   * @returns The update status
+   */
+  async prune(
+    serverId: string,
+    type: 'containers' | 'images' | 'volumes' | 'networks' | 'system' | 'all',
+  ): Promise<KomodoUpdate> {
+    let action: string;
+    switch (type) {
+      case 'containers':
+        action = 'PruneContainers';
+        break;
+      case 'images':
+        action = 'PruneImages';
+        break;
+      case 'volumes':
+        action = 'PruneVolumes';
+        break;
+      case 'networks':
+        action = 'PruneNetworks';
+        break;
+      case 'system':
+      case 'all':
+        action = 'PruneSystem';
+        break;
+      default:
+        throw new Error(`Invalid prune type: ${type}`);
+    }
+
+    try {
+      // @ts-ignore - Prune actions are valid
+      const response = await this.client.execute(action, {
+        server: serverId,
+      });
+      return response as KomodoUpdate;
+    } catch (error) {
+      this.logger.error(`Failed to prune ${type} on server ${serverId}:`, error);
+      throw error;
+    }
+  }
+
   private async executeAction(action: string, serverId: string, containerName: string): Promise<KomodoUpdate> {
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any

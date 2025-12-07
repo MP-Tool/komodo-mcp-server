@@ -8,8 +8,8 @@
         "-i",
         "-e", "MCP_TRANSPORT=stdio",
         "-e", "KOMODO_URL=https://komodo.example.com:9120",
-        "-e", "KOMODO_USERNAME=username",
-        "-e", "KOMODO_PASSWORD=password",
+        "-e", "KOMODO_API_KEY=your-api-key",
+        "-e", "KOMODO_API_SECRET=your-api-secret",
         "ghcr.io/mp-tool/komodo-mcp-server:latest"
       ]
     }

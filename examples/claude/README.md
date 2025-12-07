@@ -30,14 +30,15 @@ Copy the following configuration into the file. You can also download our [templ
     "-i",
     "-e", "MCP_TRANSPORT=stdio",
     "-e", "KOMODO_URL=https://your-komodo-server.com:9120",
-    "-e", "KOMODO_USERNAME=your-username",
-    "-e", "KOMODO_PASSWORD=your-password",
+    "-e", "KOMODO_API_KEY=your-api-key",
+    "-e", "KOMODO_API_SECRET=your-api-secret",
     "ghcr.io/mp-tool/komodo-mcp-server:latest"
   ]
 }
 ```
 
-**Important:** Replace `KOMODO_URL`, `KOMODO_USERNAME`, and `KOMODO_PASSWORD` with your actual Komodo credentials.
+**Important:** Replace `KOMODO_URL`, `KOMODO_API_KEY`, and `KOMODO_API_SECRET` with your actual Komodo credentials.
+*Note: You can alternatively use `KOMODO_USERNAME` and `KOMODO_PASSWORD` if you prefer.*
 
 ### 3. Restart Claude
 Completely quit and restart Claude Desktop. You should now see in the tool's list, below the websearch toggle, the `Komodo MCP Server` and its available tools.

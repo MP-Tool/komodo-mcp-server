@@ -16,6 +16,7 @@
  */
 
 import express from 'express';
+import helmet from 'helmet';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { config } from '../config/env.js';
 
@@ -53,6 +54,11 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   const sessionManager = new TransportSessionManager();
 
   // ===== Global Middleware =====
+  app.use(
+    helmet({
+      strictTransportSecurity: false, // Disable HSTS for now
+    }),
+  );
   app.use(express.json());
 
   // ===== Routes =====
@@ -61,12 +67,12 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   app.use(createHealthRouter(sessionManager));
 
   // MCP endpoint with security middleware stack
-    app.use('/mcp', dnsRebindingProtection);      // 1. DNS Rebinding Protection (MUST) - Check first!
-    app.use('/mcp', mcpRateLimiter);              // 2. Rate Limiting
-    app.use('/mcp', validateProtocolVersion);     // 3. Protocol Version (MUST)
-    app.use('/mcp', validateAcceptHeader);        // 4. Accept Header (MUST)
-    app.use('/mcp', validateContentType);         // 5. Content-Type (MUST for POST)
-    app.use('/mcp', validateJsonRpc);             // 6. JSON-RPC Validation (MUST for POST)
+  app.use('/mcp', dnsRebindingProtection); // 1. DNS Rebinding Protection (MUST) - Check first!
+  app.use('/mcp', mcpRateLimiter); // 2. Rate Limiting
+  app.use('/mcp', validateProtocolVersion); // 3. Protocol Version (MUST)
+  app.use('/mcp', validateAcceptHeader); // 4. Accept Header (MUST)
+  app.use('/mcp', validateContentType); // 5. Content-Type (MUST for POST)
+  app.use('/mcp', validateJsonRpc); // 6. JSON-RPC Validation (MUST for POST)
 
   // MCP route handler
   app.use('/mcp', createMcpRouter(mcpServerFactory, sessionManager));

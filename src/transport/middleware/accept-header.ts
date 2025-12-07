@@ -34,6 +34,7 @@ export function validateAcceptHeader(req: Request, res: Response, next: NextFunc
   // At least one valid content type must be accepted
   if (!hasJson && !hasSSE && !acceptsAll) {
     logProtocolEvent(`Invalid Accept header: ${sanitizeForLog(accept)}`);
+    // prettier-ignore
     res
       .status(400)
       .json(

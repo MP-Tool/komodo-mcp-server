@@ -13,6 +13,7 @@ export interface ToolContext {
 /**
  * Definition of an MCP Tool.
  */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 export interface Tool<T = any> {
   /** Unique name of the tool (e.g., 'komodo_list_servers') */
   name: string;
@@ -23,6 +24,7 @@ export interface Tool<T = any> {
   /** Whether the tool requires an authenticated client (default: true) */
   requiresClient?: boolean;
   /** The function that executes the tool logic */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   handler: (args: T, context: ToolContext) => Promise<any>;
 }
 

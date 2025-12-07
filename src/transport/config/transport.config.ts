@@ -51,7 +51,8 @@ export const SESSION_MAX_MISSED_HEARTBEATS = 3;
  */
 export function getAllowedHosts(): string[] {
   const port = config.MCP_PORT;
-    const defaults = [
+  // prettier-ignore
+  const defaults = [
         'localhost',
         '127.0.0.1',
         '[::1]',
@@ -73,7 +74,8 @@ export function getAllowedHosts(): string[] {
  */
 export function getAllowedOrigins(): string[] {
   const port = config.MCP_PORT;
-    const defaults = [
+  // prettier-ignore
+  const defaults = [
         `http://localhost:${port}`,
         `http://127.0.0.1:${port}`,
         `http://[::1]:${port}`,

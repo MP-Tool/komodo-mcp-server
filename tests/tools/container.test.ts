@@ -7,16 +7,18 @@ import {
   pauseContainerTool, 
   unpauseContainerTool 
 } from '../../src/tools/container/manage.js';
-import { KomodoClient } from '../../src/api/komodo-client.js';
+import { KomodoClient } from '../../src/api/index.js';
 
 // Mock KomodoClient
 const mockClient = {
-  listDockerContainers: vi.fn(),
-  startContainer: vi.fn(),
-  stopContainer: vi.fn(),
-  restartContainer: vi.fn(),
-  pauseContainer: vi.fn(),
-  unpauseContainer: vi.fn()
+  containers: {
+    list: vi.fn(),
+    start: vi.fn(),
+    stop: vi.fn(),
+    restart: vi.fn(),
+    pause: vi.fn(),
+    unpause: vi.fn()
+  }
 } as unknown as KomodoClient;
 
 const mockContext = {
@@ -35,17 +37,17 @@ describe('Container Tools', () => {
         { name: 'container1', state: 'running', image: 'nginx:latest' },
         { name: 'container2', state: 'exited', image: 'redis:alpine' }
       ];
-      (mockClient.listDockerContainers as any).mockResolvedValue(mockContainers);
+      (mockClient.containers.list as any).mockResolvedValue(mockContainers);
 
       const result = await listContainersTool.handler({ server: 'server1' }, mockContext);
 
-      expect(mockClient.listDockerContainers).toHaveBeenCalledWith('server1');
+      expect(mockClient.containers.list).toHaveBeenCalledWith('server1');
       expect(result.content[0].text).toContain('container1 (running) - nginx:latest');
       expect(result.content[0].text).toContain('container2 (exited) - redis:alpine');
     });
 
     it('should handle empty container list', async () => {
-      (mockClient.listDockerContainers as any).mockResolvedValue([]);
+      (mockClient.containers.list as any).mockResolvedValue([]);
 
       const result = await listContainersTool.handler({ server: 'server1' }, mockContext);
 
@@ -61,11 +63,11 @@ describe('Container Tools', () => {
   describe('startContainerTool', () => {
     it('should start container and return success message', async () => {
       const mockResponse = { status: 'Queued', _id: { $oid: '123' } };
-      (mockClient.startContainer as any).mockResolvedValue(mockResponse);
+      (mockClient.containers.start as any).mockResolvedValue(mockResponse);
 
       const result = await startContainerTool.handler({ server: 'server1', container: 'c1' }, mockContext);
 
-      expect(mockClient.startContainer).toHaveBeenCalledWith('server1', 'c1');
+      expect(mockClient.containers.start).toHaveBeenCalledWith('server1', 'c1');
       expect(result.content[0].text).toContain('started');
       expect(result.content[0].text).toContain('123');
     });
@@ -74,11 +76,11 @@ describe('Container Tools', () => {
   describe('stopContainerTool', () => {
     it('should stop container and return success message', async () => {
       const mockResponse = { status: 'Queued', _id: { $oid: '456' } };
-      (mockClient.stopContainer as any).mockResolvedValue(mockResponse);
+      (mockClient.containers.stop as any).mockResolvedValue(mockResponse);
 
       const result = await stopContainerTool.handler({ server: 'server1', container: 'c1' }, mockContext);
 
-      expect(mockClient.stopContainer).toHaveBeenCalledWith('server1', 'c1');
+      expect(mockClient.containers.stop).toHaveBeenCalledWith('server1', 'c1');
       expect(result.content[0].text).toContain('stopped');
       expect(result.content[0].text).toContain('456');
     });
@@ -87,11 +89,11 @@ describe('Container Tools', () => {
   describe('restartContainerTool', () => {
     it('should restart container and return success message', async () => {
       const mockResponse = { status: 'Queued', _id: { $oid: '789' } };
-      (mockClient.restartContainer as any).mockResolvedValue(mockResponse);
+      (mockClient.containers.restart as any).mockResolvedValue(mockResponse);
 
       const result = await restartContainerTool.handler({ server: 'server1', container: 'c1' }, mockContext);
 
-      expect(mockClient.restartContainer).toHaveBeenCalledWith('server1', 'c1');
+      expect(mockClient.containers.restart).toHaveBeenCalledWith('server1', 'c1');
       expect(result.content[0].text).toContain('restarted');
       expect(result.content[0].text).toContain('789');
     });
@@ -100,11 +102,11 @@ describe('Container Tools', () => {
   describe('pauseContainerTool', () => {
     it('should pause container and return success message', async () => {
       const mockResponse = { status: 'Queued', _id: { $oid: 'abc' } };
-      (mockClient.pauseContainer as any).mockResolvedValue(mockResponse);
+      (mockClient.containers.pause as any).mockResolvedValue(mockResponse);
 
       const result = await pauseContainerTool.handler({ server: 'server1', container: 'c1' }, mockContext);
 
-      expect(mockClient.pauseContainer).toHaveBeenCalledWith('server1', 'c1');
+      expect(mockClient.containers.pause).toHaveBeenCalledWith('server1', 'c1');
       expect(result.content[0].text).toContain('paused');
       expect(result.content[0].text).toContain('abc');
     });
@@ -113,11 +115,11 @@ describe('Container Tools', () => {
   describe('unpauseContainerTool', () => {
     it('should unpause container and return success message', async () => {
       const mockResponse = { status: 'Queued', _id: { $oid: 'def' } };
-      (mockClient.unpauseContainer as any).mockResolvedValue(mockResponse);
+      (mockClient.containers.unpause as any).mockResolvedValue(mockResponse);
 
       const result = await unpauseContainerTool.handler({ server: 'server1', container: 'c1' }, mockContext);
 
-      expect(mockClient.unpauseContainer).toHaveBeenCalledWith('server1', 'c1');
+      expect(mockClient.containers.unpause).toHaveBeenCalledWith('server1', 'c1');
       expect(result.content[0].text).toContain('resumed');
       expect(result.content[0].text).toContain('def');
     });

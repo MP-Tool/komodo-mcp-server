@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { configureTool } from '../../src/tools/config/configure.js';
 import { healthCheckTool } from '../../src/tools/config/health.js';
-import { KomodoClient } from '../../src/api/komodo-client.js';
+import { KomodoClient } from '../../src/api/index.js';
 
 // Mock KomodoClient class and instance
 const mockClientInstance = {
@@ -9,7 +9,7 @@ const mockClientInstance = {
 };
 
 // Mock the static login method
-vi.mock('../../src/api/komodo-client.js', () => {
+vi.mock('../../src/api/index.js', () => {
   return {
     KomodoClient: {
       login: vi.fn()

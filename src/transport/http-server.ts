@@ -98,5 +98,18 @@ export function startHttpServer(mcpServerFactory: () => McpServer): {
     logger.info('Server listening on %s:%d', bindHost, port);
   });
 
+  // Graceful shutdown
+  const shutdown = async () => {
+    logger.info('Shutting down HTTP server...');
+    await sessionManager.closeAll();
+    server.close(() => {
+      logger.info('HTTP server closed');
+      process.exit(0);
+    });
+  };
+
+  process.on('SIGTERM', shutdown);
+  process.on('SIGINT', shutdown);
+
   return { server, sessionManager };
 }

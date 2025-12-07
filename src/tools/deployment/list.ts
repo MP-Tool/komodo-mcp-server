@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoDeployment } from '../../api/komodo-client.js';
+import { KomodoDeploymentListItem } from '../../api/index.js';
 
 export const listDeploymentsTool: Tool = {
   name: 'komodo_list_deployments',
@@ -8,12 +8,12 @@ export const listDeploymentsTool: Tool = {
   schema: z.object({}),
   handler: async (_args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const deployments = await client.listDeployments();
+    const deployments = await client.deployments.list();
     return {
       content: [{
         type: 'text',
-        text: `🚢 Deployments:\n\n${deployments.map((d: KomodoDeployment) => 
-          `• ${d.name} (${d.id}) - State: ${d.state || 'Unknown'}`
+        text: `🚢 Deployments:\n\n${deployments.map((d: KomodoDeploymentListItem) => 
+          `• ${d.name} (${d.id}) - State: ${d.info.state || 'Unknown'}`
         ).join('\n') || 'No deployments found.'}`
       }]
     };

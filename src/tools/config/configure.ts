@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoClient } from '../../api/komodo-client.js';
+import { KomodoClient } from '../../api/index.js';
 
 export const configureTool: Tool = {
   name: 'komodo_configure',

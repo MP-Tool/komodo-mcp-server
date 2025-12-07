@@ -1,5 +1,9 @@
 import { z } from 'zod';
 
+/**
+ * Zod schema for environment variable validation.
+ * Ensures that the application starts with a valid configuration.
+ */
 export const envSchema = z.object({
   VERSION: z.string().default(process.env.npm_package_version || 'unknown'),
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
@@ -17,6 +21,8 @@ export const envSchema = z.object({
   KOMODO_URL: z.string().url().optional(),
   KOMODO_USERNAME: z.string().optional(),
   KOMODO_PASSWORD: z.string().optional(),
+  KOMODO_API_KEY: z.string().optional(),
+  KOMODO_API_SECRET: z.string().optional(),
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   LOG_FORMAT: z.enum(['text', 'json']).default('text'),
   LOG_DIR: z.string().optional(),
@@ -24,4 +30,8 @@ export const envSchema = z.object({
 
 export type Env = z.infer<typeof envSchema>;
 
+/**
+ * Global configuration object parsed from environment variables.
+ * Throws an error if validation fails.
+ */
 export const config = envSchema.parse(process.env);

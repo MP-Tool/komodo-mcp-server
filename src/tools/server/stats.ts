@@ -9,7 +9,7 @@ export const getServerStatsTool: Tool = {
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const stats = await client.getServerState(args.server);
+    const stats = await client.servers.getState(args.server);
     return {
       content: [{
         type: 'text',

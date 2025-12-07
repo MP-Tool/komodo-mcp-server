@@ -6,7 +6,7 @@ import {
   ErrorCode,
   McpError,
 } from '@modelcontextprotocol/sdk/types.js';
-import { KomodoClient } from './api/komodo-client.js';
+import { KomodoClient } from './api/index.js';
 import { registerTools, toolRegistry } from './tools/index.js';
 import { config } from './config/env.js';
 import { startHttpServer } from './transport/http-server.js';
@@ -121,17 +121,34 @@ class KomodoMCPServer {
     }
 
     // Try to initialize client from environment variables
-    if (config.KOMODO_URL && config.KOMODO_USERNAME && config.KOMODO_PASSWORD) {
+    if (config.KOMODO_URL) {
       try {
-        logger.info(`Attempting auto-configuration for ${config.KOMODO_URL}...`);
-        this.komodoClient = await KomodoClient.login(
-          config.KOMODO_URL,
-          config.KOMODO_USERNAME,
-          config.KOMODO_PASSWORD
-        );
-        logger.info('✅ Auto-configuration successful');
+        if (config.KOMODO_API_KEY && config.KOMODO_API_SECRET) {
+          logger.info(`Attempting API Key configuration for ${config.KOMODO_URL}...`);
+          this.komodoClient = KomodoClient.connectWithApiKey(
+            config.KOMODO_URL,
+            config.KOMODO_API_KEY,
+            config.KOMODO_API_SECRET
+          );
+          
+          // Verify connection
+          const health = await this.komodoClient.healthCheck();
+          if (health.status !== 'healthy') {
+            throw new Error(`Health check failed: ${health.message}`);
+          }
+          logger.info('✅ API Key configuration successful');
+        } else if (config.KOMODO_USERNAME && config.KOMODO_PASSWORD) {
+          logger.info(`Attempting auto-configuration for ${config.KOMODO_URL}...`);
+          this.komodoClient = await KomodoClient.login(
+            config.KOMODO_URL,
+            config.KOMODO_USERNAME,
+            config.KOMODO_PASSWORD
+          );
+          logger.info('✅ Auto-configuration successful');
+        }
       } catch (error) {
         logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
+        this.komodoClient = null;
       }
     }
   }

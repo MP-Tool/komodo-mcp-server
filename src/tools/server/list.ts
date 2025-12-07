@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoServer } from '../../api/komodo-client.js';
+import { KomodoServerListItem } from '../../api/index.js';
 
 export const listServersTool: Tool = {
   name: 'komodo_list_servers',
@@ -8,11 +8,11 @@ export const listServersTool: Tool = {
   schema: z.object({}),
   handler: async (_args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const servers = await client.listServers();
+    const servers = await client.servers.list();
     return {
       content: [{
         type: 'text',
-        text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServer) => {
+        text: `🖥️ Available servers:\n\n${servers.map((s: KomodoServerListItem) => {
           const version = s.info.version && s.info.version.toLowerCase() !== 'unknown' 
             ? s.info.version 
             : 'N/A';

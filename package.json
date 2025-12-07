@@ -41,8 +41,8 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
+    "komodo_client": "^1.19.5",
     "@modelcontextprotocol/sdk": "^1.24.0",
-    "axios": "^1.13.2",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "zod": "^3.23.8",

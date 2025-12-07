@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { extractUpdateId } from '../../api/komodo-client.js';
+import { extractUpdateId } from '../../api/utils.js';
 
 export const stopStackTool: Tool = {
   name: 'komodo_stop_stack',
@@ -10,7 +10,7 @@ export const stopStackTool: Tool = {
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.stopStack(args.stack);
+    const result = await client.stacks.stop(args.stack);
     return {
       content: [{
         type: 'text',
@@ -28,7 +28,7 @@ export const deployStackTool: Tool = {
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.deployStack(args.stack);
+    const result = await client.stacks.deploy(args.stack);
     return {
       content: [{
         type: 'text',

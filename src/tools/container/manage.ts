@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { extractUpdateId } from '../../api/komodo-client.js';
+import { extractUpdateId } from '../../api/index.js';
 
 const containerActionSchema = z.object({
   server: z.string().describe('Server ID or name'),
@@ -8,12 +8,13 @@ const containerActionSchema = z.object({
 });
 
 export const startContainerTool: Tool = {
+
   name: 'komodo_start_container',
   description: 'Start a Docker container',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.startContainer(args.server, args.container);
+    const result = await client.containers.start(args.server, args.container);
     return {
       content: [{
         type: 'text',
@@ -29,7 +30,7 @@ export const stopContainerTool: Tool = {
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.stopContainer(args.server, args.container);
+    const result = await client.containers.stop(args.server, args.container);
     return {
       content: [{
         type: 'text',
@@ -45,7 +46,7 @@ export const restartContainerTool: Tool = {
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.restartContainer(args.server, args.container);
+    const result = await client.containers.restart(args.server, args.container);
     return {
       content: [{
         type: 'text',
@@ -61,7 +62,7 @@ export const pauseContainerTool: Tool = {
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.pauseContainer(args.server, args.container);
+    const result = await client.containers.pause(args.server, args.container);
     return {
       content: [{
         type: 'text',
@@ -77,7 +78,7 @@ export const unpauseContainerTool: Tool = {
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.unpauseContainer(args.server, args.container);
+    const result = await client.containers.unpause(args.server, args.container);
     return {
       content: [{
         type: 'text',

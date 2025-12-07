@@ -61,7 +61,7 @@ class KomodoMCPServer {
    */
   private createMcpServer(): McpServer {
     const server = new McpServer({
-      name: 'komodo-mcp-gateway',
+      name: 'komodo-mcp-server',
       version: config.VERSION,
     });
 

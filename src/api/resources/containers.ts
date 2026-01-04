@@ -130,13 +130,43 @@ export class ContainerResource extends BaseResource {
     }
 
     try {
-      // @ts-ignore - Prune actions are valid
+      // @ts-expect-error - Prune actions are valid
       const response = await this.client.execute(action, {
         server: serverId,
       });
       return response as KomodoUpdate;
     } catch (error) {
       this.logger.error(`Failed to prune ${type} on server ${serverId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get logs for a container.
+   *
+   * @param serverId - The ID of the server
+   * @param containerName - The name of the container
+   * @param tail - Number of lines to show
+   * @param timestamps - Show timestamps
+   * @returns The log object
+   */
+  async logs(
+    serverId: string,
+    containerName: string,
+    tail: number = 100,
+    timestamps: boolean = false,
+  ): Promise<{ content: string }> {
+    try {
+      // @ts-expect-error - GetContainerLog might not be in the types definition yet
+      const response = (await this.client.read('GetContainerLog', {
+        server: serverId,
+        container: containerName,
+        tail,
+        timestamps,
+      })) as { content: string };
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to get logs for container ${containerName} on server ${serverId}:`, error);
       throw error;
     }
   }

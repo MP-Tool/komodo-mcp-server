@@ -104,6 +104,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Container Logs Management**:
   - `komodo_get_container_logs` - Retrieve container logs with configurable tail and timestamps (stdout/stderr separated)
   - `komodo_search_logs` - Search container logs with client-side filtering (case-sensitive/insensitive)
+- **Deployment Lifecycle Operations** (for Komodo-managed deployments):
+  - `komodo_pull_deployment_image` - Pull the latest image without recreating the container
+  - `komodo_start_deployment` - Start a stopped deployment
+  - `komodo_restart_deployment` - Restart a deployment (without image pull)
+  - `komodo_pause_deployment` - Pause/suspend a running deployment
+  - `komodo_unpause_deployment` - Resume a paused deployment
+  - `komodo_stop_deployment` - Stop a running deployment
+  - `komodo_destroy_deployment` - Remove the container (deployment config preserved)
+- **Stack Lifecycle Operations** (for Komodo-managed Docker Compose stacks):
+  - `komodo_pull_stack` - Pull the latest images for all services (`docker compose pull`)
+  - `komodo_start_stack` - Start a stopped stack (`docker compose start`)
+  - `komodo_restart_stack` - Restart all services (`docker compose restart`)
+  - `komodo_pause_stack` - Pause all containers (`docker compose pause`)
+  - `komodo_unpause_stack` - Resume paused containers (`docker compose unpause`)
+  - `komodo_destroy_stack` - Remove all containers (`docker compose down`, config preserved)
 - **Configuration Module**:
   - Added `src/config/constants.ts` for centralized configuration constants
   - Added `src/config/index.ts` for unified config exports

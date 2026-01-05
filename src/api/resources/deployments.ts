@@ -109,4 +109,130 @@ export class DeploymentResource extends BaseResource {
       throw error;
     }
   }
+
+  /**
+   * Pulls the latest image for a deployment.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async pull(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('PullDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to pull image for deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Starts a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async start(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('StartDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to start deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Restarts a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async restart(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('RestartDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to restart deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Pauses a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async pause(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('PauseDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to pause deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Unpauses a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async unpause(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('UnpauseDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to unpause deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Stops a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async stop(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('StopDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to stop deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Destroys (removes) a deployment container.
+   *
+   * @param deploymentId - The ID or name of the deployment
+   * @returns The update status
+   */
+  async destroy(deploymentId: string): Promise<KomodoUpdate> {
+    try {
+      const response = await this.client.execute('DestroyDeployment', {
+        deployment: deploymentId,
+      });
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to destroy deployment ${deploymentId}:`, error);
+      throw error;
+    }
+  }
 }

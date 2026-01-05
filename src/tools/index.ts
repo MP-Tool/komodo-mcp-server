@@ -15,7 +15,16 @@ import { listServersTool } from './server/list.js';
 import { getServerStatsTool } from './server/stats.js';
 import { getServerInfoTool, createServerTool, updateServerTool, deleteServerTool } from './server/manage.js';
 import { listDeploymentsTool } from './deployment/list.js';
-import { deployContainerTool } from './deployment/actions.js';
+import {
+  deployContainerTool,
+  pullDeploymentImageTool,
+  startDeploymentTool,
+  restartDeploymentTool,
+  pauseDeploymentTool,
+  unpauseDeploymentTool,
+  stopDeploymentTool,
+  destroyDeploymentTool,
+} from './deployment/actions.js';
 import {
   getDeploymentInfoTool,
   createDeploymentTool,
@@ -23,7 +32,16 @@ import {
   deleteDeploymentTool,
 } from './deployment/manage.js';
 import { listStacksTool } from './stack/list.js';
-import { stopStackTool, deployStackTool } from './stack/actions.js';
+import {
+  deployStackTool,
+  pullStackTool,
+  startStackTool,
+  restartStackTool,
+  pauseStackTool,
+  unpauseStackTool,
+  stopStackTool,
+  destroyStackTool,
+} from './stack/actions.js';
 import { getStackInfoTool, createStackTool, updateStackTool, deleteStackTool } from './stack/manage.js';
 import { configureTool } from './config/configure.js';
 import { healthCheckTool } from './config/health.js';
@@ -56,6 +74,13 @@ export function registerTools() {
   // Deployment Tools
   toolRegistry.register(listDeploymentsTool);
   toolRegistry.register(deployContainerTool);
+  toolRegistry.register(pullDeploymentImageTool);
+  toolRegistry.register(startDeploymentTool);
+  toolRegistry.register(restartDeploymentTool);
+  toolRegistry.register(pauseDeploymentTool);
+  toolRegistry.register(unpauseDeploymentTool);
+  toolRegistry.register(stopDeploymentTool);
+  toolRegistry.register(destroyDeploymentTool);
   toolRegistry.register(getDeploymentInfoTool);
   toolRegistry.register(createDeploymentTool);
   toolRegistry.register(updateDeploymentTool);
@@ -63,8 +88,14 @@ export function registerTools() {
 
   // Stack Tools
   toolRegistry.register(listStacksTool);
-  toolRegistry.register(stopStackTool);
   toolRegistry.register(deployStackTool);
+  toolRegistry.register(pullStackTool);
+  toolRegistry.register(startStackTool);
+  toolRegistry.register(restartStackTool);
+  toolRegistry.register(pauseStackTool);
+  toolRegistry.register(unpauseStackTool);
+  toolRegistry.register(stopStackTool);
+  toolRegistry.register(destroyStackTool);
   toolRegistry.register(getStackInfoTool);
   toolRegistry.register(createStackTool);
   toolRegistry.register(updateStackTool);

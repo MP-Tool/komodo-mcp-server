@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to get detailed information about a server.
@@ -11,7 +12,7 @@ export const getServerInfoTool: Tool = {
     server: z.string().describe('Server ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.servers.get(args.server);
     return {
       content: [
@@ -32,21 +33,26 @@ export const createServerTool: Tool = {
   description: 'Register a new server in Komodo',
   schema: z.object({
     name: z.string().describe('Name of the server'),
-    address: z.string().describe('Address of the server (e.g., http://1.2.3.4:2375)'),
+    address: z.string().optional().describe('Address of the server (e.g., http://1.2.3.4:8120)'),
     config: z.record(z.any()).optional().describe('Additional server configuration'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.servers.create({
-      name: args.name,
-      address: args.address,
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+
+    // Build the config object with address if provided
+    const serverConfig: Record<string, unknown> = {
       ...args.config,
-    });
+    };
+    if (args.address) {
+      serverConfig.address = args.address;
+    }
+
+    const result = await client.servers.create(args.name, serverConfig);
     return {
       content: [
         {
           type: 'text',
-          text: `Server "${args.name}" created successfully.\n\nResult: ${JSON.stringify(result, null, 2)}`,
+          text: `Server "${args.name}" created successfully.\n\nServer Name: ${result.name}\n\nFull Result:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -64,7 +70,7 @@ export const updateServerTool: Tool = {
     config: z.record(z.any()).describe('New server configuration'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.servers.update(args.server, args.config);
     return {
       content: [
@@ -87,13 +93,13 @@ export const deleteServerTool: Tool = {
     server: z.string().describe('Server ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    await client.servers.delete(args.server);
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const result = await client.servers.delete(args.server);
     return {
       content: [
         {
           type: 'text',
-          text: `Server "${args.server}" deleted successfully.`,
+          text: `Server "${args.server}" deleted successfully.\n\nDeleted Server:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

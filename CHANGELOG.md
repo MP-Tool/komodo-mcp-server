@@ -95,3 +95,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Tests**: Resolved issues in the test suite and improved logger mocking for tests.
+
+--------------------------------------------------------------
+
+## [1.1.0] (#31)
+
+### Added - Feature Parity Release
+- **Container Logs Management**:
+  - `komodo_get_container_logs` - Retrieve container logs with configurable tail and timestamps (stdout/stderr separated)
+  - `komodo_search_logs` - Search container logs with client-side filtering (case-sensitive/insensitive)
+- **Configuration Module**:
+  - Added `src/config/constants.ts` for centralized configuration constants
+  - Added `src/config/index.ts` for unified config exports
+  - Centralized error messages and default values for better maintainability
+
+### Changed
+- **Type Safety Improvements**:
+  - Replaced `any` types with proper Komodo types (`KomodoServer`, `KomodoDeployment`, `KomodoStack`, `KomodoLog`)
+  - Added `KomodoLog` type export for container log operations
+  - Removed `@ts-ignore` / `@ts-expect-error` comments in favor of proper typing
+- **Deployment Tool Enhancement**:
+  - `image` parameter now accepts both string format (`"nginx:latest"`) and object format (`{ type: "Image", params: { image: "..." } }`)
+  - `server_id` and `image` are now optional parameters
+- **Delete Tools Enhancement**:
+  - All delete operations now return and display the deleted resource object
+- **Error Handling**:
+  - Standardized error messages across all tools using centralized constants

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/utils.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to stop a Docker Compose stack.
@@ -12,7 +13,7 @@ export const stopStackTool: Tool = {
     stack: z.string().describe('Stack ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.stacks.stop(args.stack);
     return {
       content: [
@@ -35,7 +36,7 @@ export const deployStackTool: Tool = {
     stack: z.string().describe('Stack ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.stacks.deploy(args.stack);
     return {
       content: [

@@ -1,5 +1,5 @@
 import { BaseResource } from '../base.js';
-import { KomodoDeploymentListItem, KomodoUpdate } from '../types.js';
+import { KomodoDeployment, KomodoDeploymentListItem, KomodoUpdate } from '../types.js';
 
 /**
  * Resource for managing Deployments.
@@ -26,7 +26,7 @@ export class DeploymentResource extends BaseResource {
    * @param deploymentId - The ID or name of the deployment
    * @returns The deployment details
    */
-  async get(deploymentId: string): Promise<any> {
+  async get(deploymentId: string): Promise<KomodoDeployment> {
     try {
       const response = await this.client.read('GetDeployment', { deployment: deploymentId });
       return response;
@@ -39,14 +39,17 @@ export class DeploymentResource extends BaseResource {
   /**
    * Creates a new deployment.
    *
-   * @param config - The deployment configuration
+   * @param name - The name for the new deployment
+   * @param config - Optional partial deployment configuration
    * @returns The created deployment
    */
-  async create(config: any): Promise<any> {
+  async create(name: string, config?: Record<string, unknown>): Promise<KomodoDeployment> {
     try {
-      // @ts-ignore - CreateDeployment is valid but types might be desynced
-      const response = await this.client.execute('CreateDeployment', config);
-      return response;
+      const response = await this.client.write('CreateDeployment', {
+        name,
+        config,
+      });
+      return response as KomodoDeployment;
     } catch (error) {
       this.logger.error('Failed to create deployment:', error);
       throw error;
@@ -57,17 +60,16 @@ export class DeploymentResource extends BaseResource {
    * Updates an existing deployment.
    *
    * @param deploymentId - The ID or name of the deployment
-   * @param config - The new deployment configuration
+   * @param config - The partial deployment configuration to apply
    * @returns The updated deployment
    */
-  async update(deploymentId: string, config: any): Promise<any> {
+  async update(deploymentId: string, config: Record<string, unknown>): Promise<KomodoDeployment> {
     try {
-      // @ts-ignore - UpdateDeployment is valid but types might be desynced
-      const response = await this.client.execute('UpdateDeployment', {
-        deployment: deploymentId,
-        ...config,
+      const response = await this.client.write('UpdateDeployment', {
+        id: deploymentId,
+        config,
       });
-      return response;
+      return response as KomodoDeployment;
     } catch (error) {
       this.logger.error(`Failed to update deployment ${deploymentId}:`, error);
       throw error;
@@ -78,12 +80,12 @@ export class DeploymentResource extends BaseResource {
    * Deletes a deployment.
    *
    * @param deploymentId - The ID or name of the deployment
-   * @returns The result of the deletion
+   * @returns The deleted deployment
    */
-  async delete(deploymentId: string): Promise<void> {
+  async delete(deploymentId: string): Promise<KomodoDeployment> {
     try {
-      // @ts-ignore - DeleteDeployment is valid but types might be desynced
-      await this.client.execute('DeleteDeployment', { deployment: deploymentId });
+      const response = await this.client.write('DeleteDeployment', { id: deploymentId });
+      return response as KomodoDeployment;
     } catch (error) {
       this.logger.error(`Failed to delete deployment ${deploymentId}:`, error);
       throw error;

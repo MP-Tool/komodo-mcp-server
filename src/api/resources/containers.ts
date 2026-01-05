@@ -1,5 +1,5 @@
 import { BaseResource } from '../base.js';
-import { KomodoContainer, KomodoContainerListItem, KomodoUpdate } from '../types.js';
+import { KomodoContainer, KomodoContainerListItem, KomodoUpdate, KomodoLog } from '../types.js';
 
 /**
  * Resource for managing Docker containers.
@@ -155,15 +155,14 @@ export class ContainerResource extends BaseResource {
     containerName: string,
     tail: number = 100,
     timestamps: boolean = false,
-  ): Promise<{ content: string }> {
+  ): Promise<KomodoLog> {
     try {
-      // @ts-expect-error - GetContainerLog might not be in the types definition yet
       const response = (await this.client.read('GetContainerLog', {
         server: serverId,
         container: containerName,
         tail,
         timestamps,
-      })) as { content: string };
+      })) as KomodoLog;
       return response;
     } catch (error) {
       this.logger.error(`Failed to get logs for container ${containerName} on server ${serverId}:`, error);

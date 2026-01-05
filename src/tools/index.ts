@@ -8,6 +8,8 @@ import {
   unpauseContainerTool,
 } from './container/manage.js';
 import { inspectContainerTool } from './container/info.js';
+import { getContainerLogsTool } from './container/logs.js';
+import { searchContainerLogsTool } from './container/search-logs.js';
 import { pruneResourcesTool } from './container/prune.js';
 import { listServersTool } from './server/list.js';
 import { getServerStatsTool } from './server/stats.js';
@@ -39,6 +41,8 @@ export function registerTools() {
   toolRegistry.register(pauseContainerTool);
   toolRegistry.register(unpauseContainerTool);
   toolRegistry.register(inspectContainerTool);
+  toolRegistry.register(getContainerLogsTool);
+  toolRegistry.register(searchContainerLogsTool);
   toolRegistry.register(pruneResourcesTool);
 
   // Server Tools

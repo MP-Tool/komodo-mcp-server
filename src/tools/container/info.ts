@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to inspect a container.
@@ -12,7 +13,7 @@ export const inspectContainerTool: Tool = {
     container: z.string().describe('Container name or ID'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.containers.inspect(args.server, args.container);
     return {
       content: [

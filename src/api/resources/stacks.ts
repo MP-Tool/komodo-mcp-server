@@ -1,5 +1,5 @@
 import { BaseResource } from '../base.js';
-import { KomodoStackListItem, KomodoUpdate } from '../types.js';
+import { KomodoStack, KomodoStackListItem, KomodoUpdate } from '../types.js';
 
 /**
  * Resource for managing Docker Compose Stacks.
@@ -26,7 +26,7 @@ export class StackResource extends BaseResource {
    * @param stackId - The ID or name of the stack
    * @returns The stack details
    */
-  async get(stackId: string): Promise<any> {
+  async get(stackId: string): Promise<KomodoStack> {
     try {
       const response = await this.client.read('GetStack', { stack: stackId });
       return response;
@@ -39,14 +39,17 @@ export class StackResource extends BaseResource {
   /**
    * Creates a new stack.
    *
-   * @param config - The stack configuration
+   * @param name - The name for the new stack
+   * @param config - Optional partial stack configuration
    * @returns The created stack
    */
-  async create(config: any): Promise<any> {
+  async create(name: string, config?: Record<string, unknown>): Promise<KomodoStack> {
     try {
-      // @ts-ignore - CreateStack is valid but types might be desynced
-      const response = await this.client.execute('CreateStack', config);
-      return response;
+      const response = await this.client.write('CreateStack', {
+        name,
+        config,
+      });
+      return response as KomodoStack;
     } catch (error) {
       this.logger.error('Failed to create stack:', error);
       throw error;
@@ -57,17 +60,16 @@ export class StackResource extends BaseResource {
    * Updates an existing stack.
    *
    * @param stackId - The ID or name of the stack
-   * @param config - The new stack configuration
+   * @param config - The partial stack configuration to apply
    * @returns The updated stack
    */
-  async update(stackId: string, config: any): Promise<any> {
+  async update(stackId: string, config: Record<string, unknown>): Promise<KomodoStack> {
     try {
-      // @ts-ignore - UpdateStack is valid but types might be desynced
-      const response = await this.client.execute('UpdateStack', {
-        stack: stackId,
-        ...config,
+      const response = await this.client.write('UpdateStack', {
+        id: stackId,
+        config,
       });
-      return response;
+      return response as KomodoStack;
     } catch (error) {
       this.logger.error(`Failed to update stack ${stackId}:`, error);
       throw error;
@@ -78,12 +80,12 @@ export class StackResource extends BaseResource {
    * Deletes a stack.
    *
    * @param stackId - The ID or name of the stack
-   * @returns The result of the deletion
+   * @returns The deleted stack
    */
-  async delete(stackId: string): Promise<void> {
+  async delete(stackId: string): Promise<KomodoStack> {
     try {
-      // @ts-ignore - DeleteStack is valid but types might be desynced
-      await this.client.execute('DeleteStack', { stack: stackId });
+      const response = await this.client.write('DeleteStack', { id: stackId });
+      return response as KomodoStack;
     } catch (error) {
       this.logger.error(`Failed to delete stack ${stackId}:`, error);
       throw error;

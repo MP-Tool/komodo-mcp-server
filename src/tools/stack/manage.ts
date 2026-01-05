@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/index.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to get detailed information about a stack.
@@ -12,7 +13,7 @@ export const getStackInfoTool: Tool = {
     stack: z.string().describe('Stack ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.stacks.get(args.stack);
     return {
       content: [
@@ -33,21 +34,26 @@ export const createStackTool: Tool = {
   description: 'Create a new Docker Compose stack',
   schema: z.object({
     name: z.string().describe('Name of the stack'),
-    server_id: z.string().describe('ID of the server to deploy to'),
-    config: z.record(z.any()).describe('Stack configuration (compose file content, env vars, etc.)'),
+    server_id: z.string().optional().describe('ID of the server to deploy to'),
+    config: z.record(z.any()).optional().describe('Stack configuration (compose file content, env vars, etc.)'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.stacks.create({
-      name: args.name,
-      server_id: args.server_id,
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+
+    // Build the config object
+    const stackConfig: Record<string, unknown> = {
       ...args.config,
-    });
+    };
+    if (args.server_id) {
+      stackConfig.server_id = args.server_id;
+    }
+
+    const result = await client.stacks.create(args.name, stackConfig);
     return {
       content: [
         {
           type: 'text',
-          text: `Stack "${args.name}" created successfully.\n\nResult: ${JSON.stringify(result, null, 2)}`,
+          text: `Stack "${args.name}" created successfully.\n\nStack Name: ${result.name}\n\nFull Result:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -65,7 +71,7 @@ export const updateStackTool: Tool = {
     config: z.record(z.any()).describe('New stack configuration'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.stacks.update(args.stack, args.config);
     return {
       content: [
@@ -88,13 +94,13 @@ export const deleteStackTool: Tool = {
     stack: z.string().describe('Stack ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    await client.stacks.delete(args.stack);
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const result = await client.stacks.delete(args.stack);
     return {
       content: [
         {
           type: 'text',
-          text: `Stack "${args.stack}" deleted successfully.`,
+          text: `Stack "${args.stack}" deleted successfully.\n\nDeleted Stack:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to get statistics and status for a specific server.
@@ -11,7 +12,7 @@ export const getServerStatsTool: Tool = {
     server: z.string().describe('Server ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const stats = (await client.servers.getState(args.server)) as any;
     return {

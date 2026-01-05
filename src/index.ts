@@ -70,8 +70,10 @@ class KomodoMCPServer {
     };
 
     const tools = toolRegistry.getTools();
+    logger.info(`Registering ${tools.length} tools with MCP server`);
 
     for (const tool of tools) {
+      logger.debug(`Registering tool: ${tool.name}`);
       server.registerTool(
         tool.name,
         {

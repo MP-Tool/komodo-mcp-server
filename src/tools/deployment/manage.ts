@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { extractUpdateId } from '../../api/index.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to get detailed information about a deployment.
@@ -12,7 +12,7 @@ export const getDeploymentInfoTool: Tool = {
     deployment: z.string().describe('Deployment ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.deployments.get(args.deployment);
     return {
       content: [
@@ -30,26 +30,58 @@ export const getDeploymentInfoTool: Tool = {
  */
 export const createDeploymentTool: Tool = {
   name: 'komodo_create_deployment',
-  description: 'Create a new deployment',
+  description:
+    'Create a new deployment. The image can be specified as a simple string (e.g., "nginx:latest") or as an object with type and params.',
   schema: z.object({
     name: z.string().describe('Name of the deployment'),
-    server_id: z.string().describe('ID of the server to deploy to'),
-    image: z.record(z.any()).describe('Image configuration'),
+    server_id: z.string().optional().describe('ID or name of the server to deploy to'),
+    image: z
+      .union([
+        z.string().describe('Docker image to deploy (e.g., nginx:latest)'),
+        z
+          .object({
+            type: z.string().optional(),
+            params: z
+              .object({
+                image: z.string(),
+              })
+              .optional(),
+          })
+          .describe('Image configuration object'),
+      ])
+      .optional()
+      .describe('Docker image - either a string like "nginx:latest" or an object with type/params'),
     config: z.record(z.any()).optional().describe('Additional deployment configuration (env, volumes, etc.)'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    const result = await client.deployments.create({
-      name: args.name,
-      server_id: args.server_id,
-      image: args.image,
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+
+    // Build the config object
+    const deploymentConfig: Record<string, unknown> = {
       ...args.config,
-    });
+    };
+
+    if (args.server_id) {
+      deploymentConfig.server_id = args.server_id;
+    }
+
+    // Handle image - can be string or object
+    if (args.image) {
+      if (typeof args.image === 'string') {
+        // Simple string format: "nginx:latest"
+        deploymentConfig.image = { type: 'Image', params: { image: args.image } };
+      } else if (typeof args.image === 'object') {
+        // Object format: { type: 'Image', params: { image: 'nginx:latest' } }
+        deploymentConfig.image = args.image;
+      }
+    }
+
+    const result = await client.deployments.create(args.name, deploymentConfig);
     return {
       content: [
         {
           type: 'text',
-          text: `Deployment "${args.name}" created successfully.\n\nResult: ${JSON.stringify(result, null, 2)}`,
+          text: `Deployment "${args.name}" created successfully.\n\nDeployment Name: ${result.name}\n\nFull Result:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };
@@ -67,7 +99,7 @@ export const updateDeploymentTool: Tool = {
     config: z.record(z.any()).describe('New deployment configuration'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const result = await client.deployments.update(args.deployment, args.config);
     return {
       content: [
@@ -90,13 +122,13 @@ export const deleteDeploymentTool: Tool = {
     deployment: z.string().describe('Deployment ID or name'),
   }),
   handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    await client.deployments.delete(args.deployment);
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const result = await client.deployments.delete(args.deployment);
     return {
       content: [
         {
           type: 'text',
-          text: `Deployment "${args.deployment}" deleted successfully.`,
+          text: `Deployment "${args.deployment}" deleted successfully.\n\nDeleted Deployment:\n${JSON.stringify(result, null, 2)}`,
         },
       ],
     };

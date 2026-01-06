@@ -49,7 +49,7 @@ describe('MCP Transport Layer - Session Management', () => {
       .send({ jsonrpc: '2.0', method: 'ping', id: 1 });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toContain('Missing sessionId');
+    expect(res.body.error.message).toContain('Missing session ID');
   });
 
   it('should reject invalid sessionId', async () => {

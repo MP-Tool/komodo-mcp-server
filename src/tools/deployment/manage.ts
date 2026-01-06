@@ -1,6 +1,11 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import {
+  PartialDeploymentConfigSchema,
+  CreateDeploymentConfigSchema,
+  DeploymentImageSchema,
+} from '../schemas/index.js';
 
 /**
  * Tool to get detailed information about a deployment.
@@ -27,31 +32,40 @@ export const getDeploymentInfoTool: Tool = {
 
 /**
  * Tool to create a new deployment.
+ *
+ * Provides detailed schema information for AI agents to construct correct payloads.
+ * Supports both simple image strings and full Komodo configuration objects.
  */
 export const createDeploymentTool: Tool = {
   name: 'komodo_create_deployment',
-  description:
-    'Create a new deployment. The image can be specified as a simple string (e.g., "nginx:latest") or as an object with type and params.',
+  description: `Create a new Komodo deployment (Docker container).
+
+REQUIRED: name
+RECOMMENDED: server_id (target server) and image (what to deploy)
+
+IMAGE FORMATS:
+- Simple string: "nginx:latest", "ghcr.io/owner/repo:v1.0"
+- Object format: { type: "Image", params: { image: "nginx:latest" } }
+- Komodo Build: { type: "Build", params: { build_id: "..." } }
+
+COMMON CONFIG OPTIONS:
+- network: Docker network (default: "host")
+- ports: Port mappings like "8080:80\\n443:443"
+- volumes: Volume mappings like "/host:/container"
+- environment: Env vars like "KEY=value\\nKEY2=value2"
+- restart: "no" | "on-failure" | "always" | "unless-stopped"
+- labels: Docker labels like "traefik.enable=true"`,
   schema: z.object({
-    name: z.string().describe('Name of the deployment'),
-    server_id: z.string().optional().describe('ID or name of the server to deploy to'),
+    name: z.string().describe('Unique name for the deployment'),
+    server_id: z.string().optional().describe('Server ID or name to deploy on'),
     image: z
       .union([
-        z.string().describe('Docker image to deploy (e.g., nginx:latest)'),
-        z
-          .object({
-            type: z.string().optional(),
-            params: z
-              .object({
-                image: z.string(),
-              })
-              .optional(),
-          })
-          .describe('Image configuration object'),
+        z.string().describe('Docker image (e.g., "nginx:latest")'),
+        DeploymentImageSchema,
       ])
       .optional()
-      .describe('Docker image - either a string like "nginx:latest" or an object with type/params'),
-    config: z.record(z.any()).optional().describe('Additional deployment configuration (env, volumes, etc.)'),
+      .describe('Docker image to deploy'),
+    config: CreateDeploymentConfigSchema.optional().describe('Full deployment configuration'),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -90,13 +104,27 @@ export const createDeploymentTool: Tool = {
 
 /**
  * Tool to update a deployment.
+ *
+ * Uses PATCH-style updates - only specify fields you want to change.
+ * Provides detailed schema information for AI agents.
  */
 export const updateDeploymentTool: Tool = {
   name: 'komodo_update_deployment',
-  description: 'Update an existing deployment configuration',
+  description: `Update an existing Komodo deployment configuration.
+
+PATCH-STYLE UPDATE: Only specify fields you want to change.
+
+COMMON UPDATE SCENARIOS:
+- Change image: { image: { type: "Image", params: { image: "nginx:1.25" } } }
+- Update env vars: { environment: "NODE_ENV=production\\nPORT=3000" }
+- Change ports: { ports: "8080:80\\n443:443" }
+- Update volumes: { volumes: "/data:/app/data" }
+- Change restart policy: { restart: "always" }
+- Move to different server: { server_id: "new-server-id" }
+- Enable auto-update: { auto_update: true }`,
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
-    config: z.record(z.any()).describe('New deployment configuration'),
+    deployment: z.string().describe('Deployment ID or name to update'),
+    config: PartialDeploymentConfigSchema.describe('Configuration fields to update (only specify what you want to change)'),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

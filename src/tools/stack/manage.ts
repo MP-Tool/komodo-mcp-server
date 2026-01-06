@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/index.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import { PartialStackConfigSchema, CreateStackConfigSchema } from '../schemas/index.js';
 
 /**
  * Tool to get detailed information about a stack.
@@ -31,11 +32,30 @@ export const getStackInfoTool: Tool = {
  */
 export const createStackTool: Tool = {
   name: 'komodo_create_stack',
-  description: 'Create a new Docker Compose stack',
+  description: `Create a new Docker Compose stack in Komodo.
+
+REQUIRED: name
+RECOMMENDED: server_id (target server)
+
+STACK MODES:
+- Compose Mode: Set server_id for single-server docker compose
+- Swarm Mode: Set swarm_id to deploy as Docker Swarm stack
+
+FILE SOURCES (choose one):
+1. file_contents: Define compose YAML directly in the config
+2. repo + branch: Clone from git repository
+3. files_on_host: Use existing files on the server
+
+COMMON CONFIG OPTIONS:
+- file_contents: Docker Compose YAML content
+- environment: Env vars written to .env file
+- auto_pull: Pull images before deploying
+- destroy_before_deploy: Run 'down' before 'up'
+- extra_args: Additional docker compose arguments`,
   schema: z.object({
-    name: z.string().describe('Name of the stack'),
-    server_id: z.string().optional().describe('ID of the server to deploy to'),
-    config: z.record(z.any()).optional().describe('Stack configuration (compose file content, env vars, etc.)'),
+    name: z.string().describe('Unique name for the stack'),
+    server_id: z.string().optional().describe('Server ID or name for Compose mode'),
+    config: CreateStackConfigSchema.optional().describe('Full stack configuration'),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -65,10 +85,22 @@ export const createStackTool: Tool = {
  */
 export const updateStackTool: Tool = {
   name: 'komodo_update_stack',
-  description: 'Update an existing stack configuration',
+  description: `Update an existing Docker Compose stack configuration.
+
+PATCH-STYLE UPDATE: Only specify fields you want to change.
+
+COMMON UPDATE SCENARIOS:
+- Update compose file: { file_contents: "version: '3'\\nservices:..." }
+- Change env vars: { environment: "DB_HOST=localhost\\nDB_PORT=5432" }
+- Enable auto-pull: { auto_pull: true }
+- Switch git branch: { branch: "develop" }
+- Move to different server: { server_id: "new-server-id" }
+- Enable auto-updates: { auto_update: true }
+- Add extra args: { extra_args: ["--remove-orphans"] }
+- Configure webhooks: { webhook_enabled: true }`,
   schema: z.object({
-    stack: z.string().describe('Stack ID or name'),
-    config: z.record(z.any()).describe('New stack configuration'),
+    stack: z.string().describe('Stack ID or name to update'),
+    config: PartialStackConfigSchema.describe('Configuration fields to update (only specify what you want to change)'),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

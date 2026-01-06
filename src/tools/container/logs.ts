@@ -1,28 +1,30 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { CONTAINER_LOGS_DEFAULTS, ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/descriptions.js';
 
 /**
  * Tool to get logs from a container.
  */
 export const getContainerLogsTool: Tool = {
   name: 'komodo_get_container_logs',
-  description: 'Get logs from a specific container with optional tail and timestamp parameters',
+  description:
+    'Get stdout and stderr logs from a container. Useful for debugging, monitoring application output, and troubleshooting issues.',
   schema: z.object({
-    server: z.string().describe('Server ID or name'),
-    container: z.string().describe('Container name or ID'),
+    server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+    container: z.string().describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_LOGS),
     tail: z
       .number()
       .int()
       .positive()
       .optional()
       .default(CONTAINER_LOGS_DEFAULTS.TAIL)
-      .describe(`Number of lines to show from the end of logs (default: ${CONTAINER_LOGS_DEFAULTS.TAIL})`),
+      .describe(LOG_DESCRIPTIONS.TAIL_LINES(CONTAINER_LOGS_DEFAULTS.TAIL)),
     timestamps: z
       .boolean()
       .optional()
       .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
-      .describe(`Show timestamps in log output (default: ${CONTAINER_LOGS_DEFAULTS.TIMESTAMPS})`),
+      .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/utils.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS } from '../../config/descriptions.js';
 
 /**
  * Tool to deploy a Komodo-managed deployment.
@@ -11,7 +12,7 @@ export const deployContainerTool: Tool = {
   description:
     'Deploy or redeploy a Komodo-managed deployment. This pulls the configured image and (re)creates the container based on the deployment configuration.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -35,7 +36,7 @@ export const pullDeploymentImageTool: Tool = {
   description:
     'Pull the latest image for a Komodo-managed deployment without recreating the container. Useful to pre-pull images before a scheduled deployment.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -59,7 +60,7 @@ export const startDeploymentTool: Tool = {
   description:
     'Start a stopped Komodo-managed deployment. Use this to resume a deployment that was previously stopped.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -82,7 +83,7 @@ export const restartDeploymentTool: Tool = {
   name: 'komodo_restart_deployment',
   description: 'Restart a Komodo-managed deployment. Stops and starts the container without pulling a new image.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -106,7 +107,7 @@ export const pauseDeploymentTool: Tool = {
   description:
     'Pause a running Komodo-managed deployment. Suspends all processes in the container without stopping it.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -129,7 +130,7 @@ export const unpauseDeploymentTool: Tool = {
   name: 'komodo_unpause_deployment',
   description: 'Unpause a paused Komodo-managed deployment. Resumes all suspended processes in the container.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -153,7 +154,7 @@ export const stopDeploymentTool: Tool = {
   description:
     'Stop a running Komodo-managed deployment. The container is stopped but can be started again with start_deployment.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -177,7 +178,7 @@ export const destroyDeploymentTool: Tool = {
   description:
     'Destroy (remove) the container of a Komodo-managed deployment. The deployment configuration in Komodo is preserved and can be redeployed later.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

@@ -3,11 +3,10 @@
  *
  * This file defines the Zod schema for Komodo Stack (Docker Compose) configuration.
  * Based on the official Komodo types: StackConfig and _PartialStackConfig
- *
- * @see https://docs.komo.do
  */
 
 import { z } from 'zod';
+import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/descriptions.js';
 
 /**
  * System command configuration for pre/post deploy hooks
@@ -52,11 +51,11 @@ export const StackFileDependencySchema = z
 export const PartialStackConfigSchema = z
   .object({
     // === Server/Swarm Assignment ===
-    server_id: z.string().optional().describe('Server ID or name for Compose mode deployment'),
+    server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_COMPOSE),
     swarm_id: z
       .string()
       .optional()
-      .describe('Swarm ID for Swarm mode deployment. If both are set, swarm_id takes precedence.'),
+      .describe(`${PARAM_DESCRIPTIONS.SWARM_ID}. If both are set, swarm_id takes precedence.`),
 
     // === Quick Links ===
     links: z.array(z.string()).optional().describe('Quick links displayed in the resource header (URLs)'),
@@ -65,19 +64,14 @@ export const PartialStackConfigSchema = z
     project_name: z
       .string()
       .optional()
-      .describe(
-        'Custom project name for docker compose -p. Defaults to stack name. Use to import existing stacks.',
-      ),
+      .describe('Custom project name for docker compose -p. Defaults to stack name. Use to import existing stacks.'),
 
     // === Deployment Behavior ===
     auto_pull: z
       .boolean()
       .optional()
       .describe('Automatically run "docker compose pull" before deploying (Compose mode only)'),
-    run_build: z
-      .boolean()
-      .optional()
-      .describe('Run "docker compose build" before deploying (Compose mode only)'),
+    run_build: z.boolean().optional().describe('Run "docker compose build" before deploying (Compose mode only)'),
     poll_for_updates: z.boolean().optional().describe('Poll for newer image versions'),
     auto_update: z
       .boolean()
@@ -104,16 +98,10 @@ export const PartialStackConfigSchema = z
     // === Webhook Configuration ===
     webhook_enabled: z.boolean().optional().describe('Enable incoming webhooks to trigger deployments'),
     webhook_secret: z.string().optional().describe('Custom webhook secret (empty = use default from config)'),
-    webhook_force_deploy: z
-      .boolean()
-      .optional()
-      .describe('Force deploy on webhook (vs DeployStackIfChanged)'),
+    webhook_force_deploy: z.boolean().optional().describe('Force deploy on webhook (vs DeployStackIfChanged)'),
 
     // === File Configuration ===
-    files_on_host: z
-      .boolean()
-      .optional()
-      .describe('Source compose files from host filesystem instead of UI/git'),
+    files_on_host: z.boolean().optional().describe('Source compose files from host filesystem instead of UI/git'),
     run_directory: z.string().optional().describe('Working directory for docker compose commands'),
     file_paths: z
       .array(z.string())
@@ -168,17 +156,13 @@ export const PartialStackConfigSchema = z
     file_contents: z
       .string()
       .optional()
-      .describe(
-        'Docker Compose file contents (YAML). Define directly in UI instead of git. Supports variable/secret interpolation.',
-      ),
+      .describe(`${FIELD_DESCRIPTIONS.FILE_CONTENTS} Supports variable/secret interpolation.`),
 
     // === Environment Variables ===
     environment: z
       .string()
       .optional()
-      .describe(
-        'Environment variables written to env_file_path before compose up. Format: KEY=VALUE per line. (Compose mode only)',
-      ),
+      .describe(`${FIELD_DESCRIPTIONS.ENVIRONMENT} Written to env_file_path before compose up. (Compose mode only)`),
   })
   .describe('Partial stack configuration - only specify fields you want to update');
 
@@ -186,7 +170,7 @@ export const PartialStackConfigSchema = z
  * Schema for creating a new stack
  */
 export const CreateStackConfigSchema = PartialStackConfigSchema.extend({
-  server_id: z.string().optional().describe('Server ID or name for deployment (required unless using swarm_id)'),
+  server_id: z.string().optional().describe(`${PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY}`),
 });
 
 /**

@@ -4,11 +4,12 @@ import { KomodoStackListItem } from '../../api/index.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
- * Tool to list all Docker Compose stacks.
+ * Tool to list all Compose stacks.
  */
 export const listStacksTool: Tool = {
   name: 'komodo_list_stacks',
-  description: 'List all Docker Compose stacks',
+  description:
+    'List all Komodo-managed Compose stacks. Stacks are multi-container applications defined by compose files. Shows stack name, ID, and current state.',
   schema: z.object({}),
   handler: async (_args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

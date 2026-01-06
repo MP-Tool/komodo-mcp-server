@@ -8,6 +8,7 @@
  */
 
 import { z } from 'zod';
+import { PARAM_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/descriptions.js';
 
 /**
  * Restart mode options for Docker containers
@@ -15,7 +16,7 @@ import { z } from 'zod';
 export const RestartModeSchema = z
   .enum(['no', 'on-failure', 'always', 'unless-stopped'])
   .describe(
-    'Container restart policy: "no" (never restart), "on-failure" (restart on non-zero exit), "always" (always restart), "unless-stopped" (restart unless manually stopped)',
+    `Container restart policy: "no" (${RESTART_MODE_DESCRIPTIONS.NO}), "on-failure" (${RESTART_MODE_DESCRIPTIONS.ON_FAILURE}), "always" (${RESTART_MODE_DESCRIPTIONS.ALWAYS}), "unless-stopped" (${RESTART_MODE_DESCRIPTIONS.UNLESS_STOPPED})`,
   );
 
 /**
@@ -37,7 +38,10 @@ export const DeploymentImageSchema = z
     z.object({
       type: z.literal('Image').describe('Deploy an external Docker image'),
       params: z.object({
-        image: z.string().optional().describe('Docker image with tag (e.g., "nginx:latest", "ghcr.io/owner/repo:v1.0")'),
+        image: z
+          .string()
+          .optional()
+          .describe('Container image with tag (e.g., "nginx:latest", "ghcr.io/owner/repo:v1.0")'),
       }),
     }),
     z.object({
@@ -69,13 +73,11 @@ export const PartialDeploymentConfigSchema = z
     server_id: z
       .string()
       .optional()
-      .describe('Server ID or name to deploy the container on. Use this for single-server deployments.'),
+      .describe(`${PARAM_DESCRIPTIONS.SERVER_ID} to deploy the container on. Use this for single-server deployments.`),
     swarm_id: z
       .string()
       .optional()
-      .describe(
-        'Swarm ID to deploy as a Swarm Service. If both swarm_id and server_id are set, swarm_id takes precedence.',
-      ),
+      .describe(`${PARAM_DESCRIPTIONS.SWARM_ID}. If both swarm_id and server_id are set, swarm_id takes precedence.`),
 
     // === Image Configuration ===
     image: DeploymentImageSchema.optional(),
@@ -98,7 +100,7 @@ export const PartialDeploymentConfigSchema = z
     links: z.array(z.string()).optional().describe('Quick links displayed in the resource header (URLs)'),
 
     // === Container Configuration ===
-    network: z.string().optional().describe('Docker network to attach. Default: "host"'),
+    network: z.string().optional().describe(FIELD_DESCRIPTIONS.NETWORK_DEFAULT_HOST),
     restart: RestartModeSchema.optional(),
     command: z
       .string()
@@ -108,7 +110,12 @@ export const PartialDeploymentConfigSchema = z
       ),
     replicas: z.number().int().min(0).optional().describe('Number of replicas (Swarm mode only). Default: 1'),
     termination_signal: TerminationSignalSchema.optional(),
-    termination_timeout: z.number().int().min(0).optional().describe('Timeout in seconds before force-killing container'),
+    termination_timeout: z
+      .number()
+      .int()
+      .min(0)
+      .optional()
+      .describe('Timeout in seconds before force-killing container'),
     extra_args: z
       .array(z.string())
       .optional()
@@ -119,19 +126,16 @@ export const PartialDeploymentConfigSchema = z
       .describe('Labels for termination signal options (different shutdown behavior per signal)'),
 
     // === Port Mapping ===
-    ports: z.string().optional().describe('Port mappings in docker format. Example: "8080:80\\n443:443"'),
+    ports: z.string().optional().describe(FIELD_DESCRIPTIONS.PORTS),
 
     // === Volume Mapping ===
-    volumes: z.string().optional().describe('Volume mappings in docker format. Example: "/host/data:/container/data\\n./config:/app/config:ro"'),
+    volumes: z.string().optional().describe(FIELD_DESCRIPTIONS.VOLUMES),
 
     // === Environment Variables ===
-    environment: z
-      .string()
-      .optional()
-      .describe('Environment variables in KEY=VALUE format, one per line. Example: "NODE_ENV=production\\nPORT=3000"'),
+    environment: z.string().optional().describe(FIELD_DESCRIPTIONS.ENVIRONMENT),
 
     // === Container Labels ===
-    labels: z.string().optional().describe('Docker labels in KEY=VALUE format, one per line. Example: "traefik.enable=true\\ncom.example.version=1.0"'),
+    labels: z.string().optional().describe(FIELD_DESCRIPTIONS.LABELS),
   })
   .describe('Partial deployment configuration - only specify fields you want to update');
 
@@ -141,7 +145,7 @@ export const PartialDeploymentConfigSchema = z
  */
 export const CreateDeploymentConfigSchema = PartialDeploymentConfigSchema.extend({
   // server_id is typically required for new deployments
-  server_id: z.string().optional().describe('Server ID or name to deploy on (required unless using swarm_id)'),
+  server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
 });
 
 /**

@@ -1,19 +1,15 @@
-import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/index.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
-
-const containerActionSchema = z.object({
-  server: z.string().describe('Server ID or name'),
-  container: z.string().describe('Container name'),
-});
+import { containerActionSchema } from '../schemas/index.js';
 
 /**
- * Tool to start a Docker container.
+ * Tool to start a container.
  */
 export const startContainerTool: Tool = {
   name: 'komodo_start_container',
-  description: 'Start a Docker container',
+  description:
+    'Start a stopped or paused container. The container must exist and be in a stopped or paused state. Returns an update ID to track the operation.',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -30,11 +26,12 @@ export const startContainerTool: Tool = {
 };
 
 /**
- * Tool to stop a Docker container.
+ * Tool to stop a container.
  */
 export const stopContainerTool: Tool = {
   name: 'komodo_stop_container',
-  description: 'Stop a Docker container',
+  description:
+    'Stop a running container gracefully. Sends SIGTERM first, then SIGKILL after timeout. Returns an update ID to track the operation.',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -51,11 +48,12 @@ export const stopContainerTool: Tool = {
 };
 
 /**
- * Tool to restart a Docker container.
+ * Tool to restart a container.
  */
 export const restartContainerTool: Tool = {
   name: 'komodo_restart_container',
-  description: 'Restart a Docker container',
+  description:
+    'Restart a container. Stops the container if running, then starts it again. Useful for applying configuration changes.',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -72,11 +70,12 @@ export const restartContainerTool: Tool = {
 };
 
 /**
- * Tool to pause a Docker container.
+ * Tool to pause a container.
  */
 export const pauseContainerTool: Tool = {
   name: 'komodo_pause_container',
-  description: 'Pause a Docker container',
+  description:
+    'Pause all processes in a running container using cgroups freezer. The container remains in memory but consumes no CPU cycles.',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -93,11 +92,13 @@ export const pauseContainerTool: Tool = {
 };
 
 /**
- * Tool to unpause a Docker container.
+ * Tool to unpause a container.
+ *
+ * TODO: check if doubles with container start tool
  */
 export const unpauseContainerTool: Tool = {
   name: 'komodo_unpause_container',
-  description: 'Unpause a Docker container',
+  description: 'Resume a paused container. All processes that were frozen will continue execution.',
   schema: containerActionSchema,
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

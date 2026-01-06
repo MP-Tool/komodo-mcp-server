@@ -1,29 +1,31 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { LOG_SEARCH_DEFAULTS, ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/descriptions.js';
 
 /**
  * Tool to search container logs with client-side filtering.
  */
 export const searchContainerLogsTool: Tool = {
   name: 'komodo_search_logs',
-  description: 'Search container logs for specific patterns or keywords with client-side filtering',
+  description:
+    'Search container logs for specific patterns or keywords. Retrieves logs and filters them client-side. Returns matching lines with a count of matches.',
   schema: z.object({
-    server: z.string().describe('Server ID or name'),
-    container: z.string().describe('Container name or ID'),
-    query: z.string().describe('Search query or pattern to filter logs'),
+    server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+    container: z.string().describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_SEARCH),
+    query: z.string().describe(LOG_DESCRIPTIONS.SEARCH_QUERY),
     tail: z
       .number()
       .int()
       .positive()
       .optional()
       .default(LOG_SEARCH_DEFAULTS.TAIL)
-      .describe(`Number of lines to retrieve before filtering (default: ${LOG_SEARCH_DEFAULTS.TAIL})`),
+      .describe(LOG_DESCRIPTIONS.TAIL_LINES_FOR_SEARCH(LOG_SEARCH_DEFAULTS.TAIL)),
     caseSensitive: z
       .boolean()
       .optional()
       .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
-      .describe(`Perform case-sensitive search (default: ${LOG_SEARCH_DEFAULTS.CASE_SENSITIVE})`),
+      .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

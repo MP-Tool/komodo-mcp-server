@@ -6,7 +6,8 @@ import { Tool } from '../base.js';
  */
 export const healthCheckTool: Tool = {
   name: 'komodo_health_check',
-  description: 'Check connection to Komodo server and return detailed diagnostic information',
+  description:
+    'Check connection to Komodo Core server. Returns health status, response time, authentication status, and Komodo-API version. Use this to verify the connection is working properly.',
   schema: z.object({}),
   requiresClient: false,
   handler: async (_args, { client }) => {
@@ -19,7 +20,7 @@ export const healthCheckTool: Tool = {
               `⚠️ Komodo Client not configured\n\n` +
               `Please use 'komodo_configure' first to establish a connection.\n\n` +
               `Required parameters:\n` +
-              `• url: Komodo server URL (e.g. http://localhost:9121)\n` +
+              `• url: Komodo server URL (e.g. http://localhost:9120)\n` +
               `• username: Your Komodo username\n` +
               `• password: Your Komodo password`,
           },

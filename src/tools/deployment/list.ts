@@ -8,7 +8,8 @@ import { ERROR_MESSAGES } from '../../config/constants.js';
  */
 export const listDeploymentsTool: Tool = {
   name: 'komodo_list_deployments',
-  description: 'List all deployments',
+  description:
+    'List all Komodo-managed deployments. Deployments are single-container applications managed by Komodo. Shows deployment name, ID, and current state (running, stopped, etc.).',
   schema: z.object({}),
   handler: async (_args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

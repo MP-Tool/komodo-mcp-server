@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { extractUpdateId } from '../../api/index.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../config/descriptions.js';
 import { PartialStackConfigSchema, CreateStackConfigSchema } from '../schemas/index.js';
 
 /**
@@ -9,9 +9,10 @@ import { PartialStackConfigSchema, CreateStackConfigSchema } from '../schemas/in
  */
 export const getStackInfoTool: Tool = {
   name: 'komodo_get_stack_info',
-  description: 'Get detailed information about a specific stack',
+  description:
+    'Get detailed information about a Compose stack including configuration, current state, compose file contents, services, and environment variables.',
   schema: z.object({
-    stack: z.string().describe('Stack ID or name'),
+    stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -53,9 +54,9 @@ COMMON CONFIG OPTIONS:
 - destroy_before_deploy: Run 'down' before 'up'
 - extra_args: Additional docker compose arguments`,
   schema: z.object({
-    name: z.string().describe('Unique name for the stack'),
-    server_id: z.string().optional().describe('Server ID or name for Compose mode'),
-    config: CreateStackConfigSchema.optional().describe('Full stack configuration'),
+    name: z.string().describe(PARAM_DESCRIPTIONS.STACK_NAME),
+    server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_COMPOSE),
+    config: CreateStackConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_CREATE),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -99,8 +100,8 @@ COMMON UPDATE SCENARIOS:
 - Add extra args: { extra_args: ["--remove-orphans"] }
 - Configure webhooks: { webhook_enabled: true }`,
   schema: z.object({
-    stack: z.string().describe('Stack ID or name to update'),
-    config: PartialStackConfigSchema.describe('Configuration fields to update (only specify what you want to change)'),
+    stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_UPDATE),
+    config: PartialStackConfigSchema.describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_PARTIAL),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -123,7 +124,7 @@ export const deleteStackTool: Tool = {
   name: 'komodo_delete_stack',
   description: 'Delete a stack',
   schema: z.object({
-    stack: z.string().describe('Stack ID or name'),
+    stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

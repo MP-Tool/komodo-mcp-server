@@ -8,7 +8,8 @@ import { ERROR_MESSAGES } from '../../config/constants.js';
  */
 export const listServersTool: Tool = {
   name: 'komodo_list_servers',
-  description: 'List all available servers',
+  description:
+    'List all servers registered in Komodo. Shows server name, ID, status (healthy/unhealthy/disabled), Periphery version, and region. Use this to discover available servers before performing container or deployment operations.',
   schema: z.object({}),
   handler: async (_args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

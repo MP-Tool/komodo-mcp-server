@@ -2,18 +2,19 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/index.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS } from '../../config/descriptions.js';
+import { pruneTargetSchema } from '../schemas/index.js';
 
 /**
  * Tool to prune unused resources.
  */
 export const pruneResourcesTool: Tool = {
   name: 'komodo_prune',
-  description: 'Prune unused container resources (containers, images, volumes, networks, system)',
+  description:
+    'Prune unused resources on a server. This permanently removes stopped containers, unused images, volumes, or networks to free up resources.',
   schema: z.object({
-    server: z.string().describe('Server ID or name'),
-    pruneTarget: z
-      .enum(['containers', 'images', 'volumes', 'networks', 'system', 'all'])
-      .describe('The type of resource to prune'),
+    server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
+    pruneTarget: pruneTargetSchema,
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

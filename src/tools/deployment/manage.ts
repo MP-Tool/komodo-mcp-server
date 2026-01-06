@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { ERROR_MESSAGES } from '../../config/constants.js';
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../config/descriptions.js';
 import {
   PartialDeploymentConfigSchema,
   CreateDeploymentConfigSchema,
@@ -12,9 +13,10 @@ import {
  */
 export const getDeploymentInfoTool: Tool = {
   name: 'komodo_get_deployment_info',
-  description: 'Get detailed information about a specific deployment',
+  description:
+    'Get detailed information about a Komodo deployment including configuration, current state, container status, image, ports, volumes, and environment variables.',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -56,16 +58,13 @@ COMMON CONFIG OPTIONS:
 - restart: "no" | "on-failure" | "always" | "unless-stopped"
 - labels: Docker labels like "traefik.enable=true"`,
   schema: z.object({
-    name: z.string().describe('Unique name for the deployment'),
-    server_id: z.string().optional().describe('Server ID or name to deploy on'),
+    name: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_NAME),
+    server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
     image: z
-      .union([
-        z.string().describe('Docker image (e.g., "nginx:latest")'),
-        DeploymentImageSchema,
-      ])
+      .union([z.string().describe('Docker image (e.g., "nginx:latest")'), DeploymentImageSchema])
       .optional()
       .describe('Docker image to deploy'),
-    config: CreateDeploymentConfigSchema.optional().describe('Full deployment configuration'),
+    config: CreateDeploymentConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_CREATE),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -123,8 +122,8 @@ COMMON UPDATE SCENARIOS:
 - Move to different server: { server_id: "new-server-id" }
 - Enable auto-update: { auto_update: true }`,
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name to update'),
-    config: PartialDeploymentConfigSchema.describe('Configuration fields to update (only specify what you want to change)'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_UPDATE),
+    config: PartialDeploymentConfigSchema.describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_PARTIAL),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
@@ -147,7 +146,7 @@ export const deleteDeploymentTool: Tool = {
   name: 'komodo_delete_deployment',
   description: 'Delete a deployment',
   schema: z.object({
-    deployment: z.string().describe('Deployment ID or name'),
+    deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);

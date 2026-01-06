@@ -44,8 +44,8 @@ docker compose up -d
 Claude Desktop requires the server to be managed directly via `stdio`.
 👉 **Please use the [Claude Desktop Guide](../claude/README.md)** for the correct setup.
 
-### Other MCP Clients (SSE)
-For clients that support remote connections via Server-Sent Events (SSE) (e.g. generic MCP inspectors or other tools):
+### Other MCP Clients (HTTP/SSE)
+For clients that support remote connections via HTTP or legacy Server-Sent Events (SSE) (e.g. generic MCP inspectors or other tools):
 
 1.  **Start Server:**
     ```bash

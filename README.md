@@ -58,7 +58,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 - Claude Desktop ready
 - VS Code Copilot support
 - n8n automation compatible
-- Dual Transport (Stdio + SSE)
+- Dual Transport (Stdio + HTTP/SSE)
 
 </td>
 </tr>

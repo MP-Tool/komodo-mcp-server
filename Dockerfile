@@ -47,7 +47,7 @@ ENV NODE_ENV=development
 ENV VERSION=${VERSION}
 ENV MCP_BIND_HOST=0.0.0.0
 ENV MCP_PORT=3000
-ENV MCP_TRANSPORT=sse
+ENV MCP_TRANSPORT=http
 
 # Default development command
 CMD ["npm", "run", "dev"]
@@ -85,9 +85,9 @@ ENV NODE_ENV=production
 ENV VERSION=${VERSION}
 ENV MCP_BIND_HOST=0.0.0.0
 ENV MCP_PORT=3000
-ENV MCP_TRANSPORT=sse
+ENV MCP_TRANSPORT=http
 
-# Expose SSE port
+# Expose MCP port
 EXPOSE ${MCP_PORT}
 
 # Health check - verifies MCP server process is running

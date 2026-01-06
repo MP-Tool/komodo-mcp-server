@@ -26,7 +26,7 @@ services:
       - KOMODO_URL=https://komodo.example.com:9120
       - KOMODO_USERNAME=username
       - KOMODO_PASSWORD=password
-      - MCP_TRANSPORT=sse
+      - MCP_TRANSPORT=http
       - MCP_PORT=3000
       - MCP_BIND_HOST=0.0.0.0
 

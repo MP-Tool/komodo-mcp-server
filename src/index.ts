@@ -130,13 +130,13 @@ class KomodoMCPServer {
   }
 
   /**
-   * Starts the server using the configured transport (Stdio or SSE).
+   * Starts the server using the configured transport (Stdio or HTTP/SSE).
    */
   async run(): Promise<void> {
-    if (config.MCP_TRANSPORT === 'sse') {
+    if (config.MCP_TRANSPORT === 'http') {
       // Pass factory function to create a new server instance per connection
       const { server, sessionManager } = startHttpServer(() => this.createMcpServer());
-      logger.info(`Komodo MCP server started (SSE Mode) on port ${config.MCP_PORT}`);
+      logger.info(`Komodo MCP server started (HTTP Mode) on port ${config.MCP_PORT}`);
 
       // Graceful shutdown
       const shutdown = async () => {

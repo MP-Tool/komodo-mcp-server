@@ -95,3 +95,43 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - **Tests**: Resolved issues in the test suite and improved logger mocking for tests.
+
+--------------------------------------------------------------
+
+## [1.1.0] (#31)
+
+### Added
+- **New MCP Tools** (Feature Parity Release):
+  - **Container Logs**: `komodo_get_container_logs` (stdout/stderr with tail/timestamps), `komodo_search_logs` (client-side filtering)
+  - **Deployment Lifecycle**: `pull_deployment_image`, `start/stop/restart_deployment`, `pause/unpause_deployment`, `destroy_deployment`
+  - **Stack Lifecycle**: `pull_stack`, `start/stop/restart_stack`, `pause/unpause_stack`, `destroy_stack`
+- **Centralized Schema System** (`src/config/descriptions.ts`):
+  - Single source of truth for all Zod schema descriptions across 40+ tools
+  - Organized descriptions: PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, LOG_DESCRIPTIONS, FIELD_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS, PRUNE_TARGET_DESCRIPTIONS, ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS
+  - Reusable schemas in `src/tools/schemas/` (container-operations, server-config, deployment-config, stack-config)
+- **Configuration Module**: `src/config/constants.ts` and `src/config/index.ts` for centralized constants and error messages
+
+### Changed
+- **Transport Layer Modernization**:
+  - Removed `transport-factory.ts` with custom `KomodoStreamableTransport` wrapper
+  - Simplified to native `StreamableHTTPServerTransport` from `@modelcontextprotocol/sdk` (removed ~450 lines of custom code)
+  - Eliminated dual-transport pattern (`createSecureTransport`/`createModernTransport`)
+  - Removed GET-first legacy flow and endpoint events
+  - Streamlined POST/GET/DELETE handlers to delegate directly to SDK
+  - Enhanced middleware: Accept header validation, removed verbose logging
+  - Updated MCP Spec reference to 2025-03-26
+- **Type Safety**: Replaced `any` types with proper Komodo types (`KomodoServer`, `KomodoDeployment`, `KomodoStack`, `KomodoLog`), removed `@ts-ignore`/`@ts-expect-error`
+- **Tool Enhancements**:
+  - Deployment `image` parameter accepts both string (`"nginx:latest"`) and object format
+  - Delete operations now return deleted resource objects
+  - Improved AI-agent-friendly descriptions for all 44 tools
+  - Standardized error messages via centralized constants
+- **Logging Improvements**:
+  - Shortened session IDs (8 chars), format specifiers (`%s`, `%d`) instead of templates
+  - Compact logs: `timeout=30m, cleanup=60s`, `user=admin url=http://...`, `Tool [name] executing`
+  - Removed redundant per-tool registration and middleware logs
+- **Examples**: VS Code integration updated to use `type: "http"` (Modern Streamable HTTP)
+
+### Removed
+- **Legacy Transport Code**: `transport-factory.ts`, `logProtocolEvent`, `logSessionInitialized`, `logSessionClosed` helpers
+- **Complexity**: custom transport abstraction removed

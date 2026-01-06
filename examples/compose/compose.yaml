@@ -1,8 +1,11 @@
 services:
   komodo-mcp-server:
-    image: ghcr.io/mp-tool/komodo-mcp-server:latest
+    image: ghcr.io/mp-tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
     restart: unless-stopped
-    
+
+    env_file:
+      - .env
+  
     # Environment variables
     environment:
       # Komodo Connection
@@ -14,7 +17,7 @@ services:
       # KOMODO_PASSWORD: ${KOMODO_PASSWORD:-password}
 
     ports:
-      - 3000:${MCP_PORT:-3000}
+      - ${MCP_PORT:-3000}:3000
     
     # Resource limits
     deploy:

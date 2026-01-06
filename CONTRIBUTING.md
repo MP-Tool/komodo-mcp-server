@@ -60,10 +60,10 @@ The project follows a modular architecture:
 
 - `src/api/` - Komodo API client and type definitions
 - `src/config/` - Configuration and environment validation (Zod)
-- `src/transport/` - MCP Transport Layer (Stdio & SSE)
+- `src/transport/` - MCP Transport Layer (Stdio & HTTP/SSE)
   - `config/` - Transport configuration
   - `middleware/` - Express middleware (Auth, Rate Limit)
-  - `routes/` - SSE and Message routes
+  - `routes/` - HTTP/SSE and Message routes
 - `src/tools/` - MCP tool definitions (Controllers)
   - `base.ts` - Tool interface and registry
   - `container/` - Container management tools

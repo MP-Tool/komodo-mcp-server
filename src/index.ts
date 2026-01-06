@@ -70,8 +70,10 @@ class KomodoMCPServer {
     };
 
     const tools = toolRegistry.getTools();
+    logger.info('Registering %d tools with MCP server', tools.length);
 
     for (const tool of tools) {
+      // logger.debug(`Registering tool: ${tool.name}`);
       server.registerTool(
         tool.name,
         {
@@ -100,14 +102,13 @@ class KomodoMCPServer {
 
           return logger.runWithContext(context, async () => {
             try {
-              logger.info(`Executing tool: ${tool.name}`, args);
+              logger.info('Tool [%s] executing', tool.name);
               const result = await tool.handler(args, {
                 client: this.komodoClient,
                 setClient: (client: KomodoClient) => {
                   this.komodoClient = client;
                 },
               });
-              logger.debug(`Tool execution successful: ${tool.name}`);
               return result;
             } catch (error) {
               logger.error(`Error executing ${tool.name}:`, error);
@@ -128,13 +129,13 @@ class KomodoMCPServer {
   }
 
   /**
-   * Starts the server using the configured transport (Stdio or SSE).
+   * Starts the server using the configured transport (Stdio or HTTP/SSE).
    */
   async run(): Promise<void> {
-    if (config.MCP_TRANSPORT === 'sse') {
+    if (config.MCP_TRANSPORT === 'http') {
       // Pass factory function to create a new server instance per connection
       const { server, sessionManager } = startHttpServer(() => this.createMcpServer());
-      logger.info(`Komodo MCP server started (SSE Mode) on port ${config.MCP_PORT}`);
+      logger.info(`Komodo MCP server started (HTTP Mode) on port ${config.MCP_PORT}`);
 
       // Graceful shutdown
       const shutdown = async () => {

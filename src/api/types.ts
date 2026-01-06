@@ -10,6 +10,7 @@ export type KomodoStackListItem = Types.StackListItem;
 export type KomodoDeployment = Types.Deployment;
 export type KomodoDeploymentListItem = Types.DeploymentListItem;
 export type KomodoUpdate = Types.Update;
+export type KomodoLog = Types.Log;
 
 export interface HealthCheckResult {
   status: 'healthy' | 'unhealthy';

@@ -7,11 +7,15 @@ import { KomodoClient } from '../../api/index.js';
  */
 export const configureTool: Tool = {
   name: 'komodo_configure',
-  description: 'Configure connection to Komodo server with username and password',
+  description:
+    'Configure connection to Komodo Core server. A valid connection MUST be established before using any other Komodo tools. Authenticates with username/password and establishes a session.',
   schema: z.object({
-    url: z.string().url(),
-    username: z.string().min(1),
-    password: z.string().min(1),
+    url: z
+      .string()
+      .url()
+      .describe('Komodo Core server URL (e.g., http://localhost:9120 or https://komodo.example.com)'),
+    username: z.string().min(1).describe('Komodo username for authentication'),
+    password: z.string().min(1).describe('Komodo password for authentication'),
   }),
   requiresClient: false,
   handler: async (args, context) => {

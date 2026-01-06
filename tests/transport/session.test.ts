@@ -45,19 +45,23 @@ describe('MCP Transport Layer - Session Management', () => {
       .post('/mcp')
       .set('Host', 'localhost:3000')
       .set('MCP-Protocol-Version', LATEST_PROTOCOL_VERSION)
-      .set('Accept', 'application/json')
+      .set('Accept', 'application/json, text/event-stream')
+      .set('Content-Type', 'application/json')
       .send({ jsonrpc: '2.0', method: 'ping', id: 1 });
 
     expect(res.status).toBe(400);
-    expect(res.body.error.message).toContain('Missing sessionId');
+    // Updated error message from modern transport
+    expect(res.body.error.message).toContain('Mcp-Session-Id');
   });
 
   it('should reject invalid sessionId', async () => {
     const res = await request(app)
-      .post('/mcp?sessionId=non-existent-session')
+      .post('/mcp')
       .set('Host', 'localhost:3000')
+      .set('Mcp-Session-Id', 'non-existent-session')
       .set('MCP-Protocol-Version', LATEST_PROTOCOL_VERSION)
-      .set('Accept', 'application/json')
+      .set('Accept', 'application/json, text/event-stream')
+      .set('Content-Type', 'application/json')
       .send({ jsonrpc: '2.0', method: 'ping', id: 1 });
 
     expect(res.status).toBe(404);

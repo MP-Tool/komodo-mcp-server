@@ -1,5 +1,5 @@
 import { BaseResource } from '../base.js';
-import { KomodoContainer, KomodoContainerListItem, KomodoUpdate } from '../types.js';
+import { KomodoContainer, KomodoContainerListItem, KomodoUpdate, KomodoLog } from '../types.js';
 
 /**
  * Resource for managing Docker containers.
@@ -94,6 +94,80 @@ export class ContainerResource extends BaseResource {
    */
   async unpause(serverId: string, containerName: string): Promise<KomodoUpdate> {
     return this.executeAction('UnpauseContainer', serverId, containerName);
+  }
+
+  /**
+   * Prunes unused resources on a server.
+   *
+   * @param serverId - The ID of the server
+   * @param type - The type of resource to prune (containers, images, volumes, networks, system)
+   * @returns The update status
+   */
+  async prune(
+    serverId: string,
+    type: 'containers' | 'images' | 'volumes' | 'networks' | 'system' | 'all',
+  ): Promise<KomodoUpdate> {
+    let action: string;
+    switch (type) {
+      case 'containers':
+        action = 'PruneContainers';
+        break;
+      case 'images':
+        action = 'PruneImages';
+        break;
+      case 'volumes':
+        action = 'PruneVolumes';
+        break;
+      case 'networks':
+        action = 'PruneNetworks';
+        break;
+      case 'system':
+      case 'all':
+        action = 'PruneSystem';
+        break;
+      default:
+        throw new Error(`Invalid prune type: ${type}`);
+    }
+
+    try {
+      // @ts-expect-error - Prune actions are valid
+      const response = await this.client.execute(action, {
+        server: serverId,
+      });
+      return response as KomodoUpdate;
+    } catch (error) {
+      this.logger.error(`Failed to prune ${type} on server ${serverId}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get logs for a container.
+   *
+   * @param serverId - The ID of the server
+   * @param containerName - The name of the container
+   * @param tail - Number of lines to show
+   * @param timestamps - Show timestamps
+   * @returns The log object
+   */
+  async logs(
+    serverId: string,
+    containerName: string,
+    tail: number = 100,
+    timestamps: boolean = false,
+  ): Promise<KomodoLog> {
+    try {
+      const response = (await this.client.read('GetContainerLog', {
+        server: serverId,
+        container: containerName,
+        tail,
+        timestamps,
+      })) as KomodoLog;
+      return response;
+    } catch (error) {
+      this.logger.error(`Failed to get logs for container ${containerName} on server ${serverId}:`, error);
+      throw error;
+    }
   }
 
   private async executeAction(action: string, serverId: string, containerName: string): Promise<KomodoUpdate> {

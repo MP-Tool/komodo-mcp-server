@@ -35,6 +35,7 @@ vi.mock('express', () => {
     use: vi.fn(),
     get: vi.fn(),
     post: vi.fn(),
+    delete: vi.fn(),
     all: vi.fn()
   };
   express.Router = vi.fn().mockReturnValue(router);

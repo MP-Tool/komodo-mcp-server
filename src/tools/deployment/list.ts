@@ -1,16 +1,18 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoDeploymentListItem } from '../../api/index.js';
+import { ERROR_MESSAGES } from '../../config/constants.js';
 
 /**
  * Tool to list all deployments.
  */
 export const listDeploymentsTool: Tool = {
   name: 'komodo_list_deployments',
-  description: 'List all deployments',
+  description:
+    'List all Komodo-managed deployments. Deployments are single-container applications managed by Komodo. Shows deployment name, ID, and current state (running, stopped, etc.).',
   schema: z.object({}),
   handler: async (_args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
+    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
     const deployments = await client.deployments.list();
     return {
       content: [

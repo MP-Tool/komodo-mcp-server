@@ -1,5 +1,4 @@
 # Sponsorship configuration
 # https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/displaying-a-sponsor-button-in-your-repository
 
-# Uncomment and configure when sponsorship platforms are set up:
-# github: MP-Tool
+github: MP-Tool

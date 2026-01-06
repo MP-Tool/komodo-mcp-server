@@ -80,7 +80,7 @@ Komodo is an open-source container management platform similar to Portainer, wit
 - **Deployments**: Automated container deployments.
 
 ### Komodo API Architecture
-- **Core API**: REST API on Core server (default port 9121).
+- **Core API**: REST API on Core server (default port 9120).
 - **Authentication**: Hybrid approach (Session + API Key support).
 - **API Endpoints**: 
   - `/user/login` - Authentication

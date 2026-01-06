@@ -17,8 +17,8 @@ export const envSchema = z.object({
     .transform((val) => parseInt(val, 10))
     .refine((val) => !isNaN(val), { message: 'Port must be a valid number' })
     .default('3000'),
-  /** Transport mode: 'stdio' for CLI, 'sse' for HTTP (default: sse) */
-  MCP_TRANSPORT: z.enum(['stdio', 'sse']).default('sse'),
+  /** Transport mode: 'stdio' for CLI, 'http' for HTTP (default: http) */
+  MCP_TRANSPORT: z.enum(['stdio', 'http']).default('http'),
   /** Allowed origins for CORS (comma-separated) */
   MCP_ALLOWED_ORIGINS: z
     .string()

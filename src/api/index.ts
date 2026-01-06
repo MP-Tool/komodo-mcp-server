@@ -52,7 +52,7 @@ export class KomodoClient {
     const url = baseUrl.replace(/\/$/, '');
 
     try {
-      logger.debug(`Logging in as ${username} to ${url}`);
+      logger.debug('Authenticating user=%s url=%s', username, url);
 
       const response = await fetch(`${url}/auth/LoginLocalUser`, {
         method: 'POST',
@@ -92,7 +92,7 @@ export class KomodoClient {
   static connectWithApiKey(baseUrl: string, key: string, secret: string): KomodoClient {
     const url = baseUrl.replace(/\/$/, '');
 
-    logger.debug(`Connecting with API Key to ${url}`);
+    logger.debug('Connecting with API-Key to %s', url);
 
     const client = createKomodoClient(url, {
       type: 'api-key',

@@ -1,13 +1,20 @@
 /**
- * HTTP Server for MCP Streamable HTTP Transport
+ * HTTP Server for MCP Transport
+ *
+ * Implements MCP Streamable HTTP Transport (2025-03-26 Specification)
+ *
+ * Endpoints:
+ * - POST /mcp with InitializeRequest → Creates session
+ * - POST /mcp with Mcp-Session-Id header → Reuses session
+ * - GET /mcp with Mcp-Session-Id header → SSE notifications
+ * - DELETE /mcp with Mcp-Session-Id header → Terminates session
  *
  * Architecture:
  * - Express.js application
  * - Modular middleware stack
- * - Session management
- * - Separate route handlers
+ * - Session management with automatic expiration
  *
- * Security features (MCP Specification 2025-06-18):
+ * Security features (MCP Specification 2025-03-26):
  * - DNS Rebinding Protection
  * - Rate Limiting
  * - Protocol Version Validation
@@ -65,8 +72,9 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   // Health check endpoint (no rate limiting or security middleware)
   app.use(createHealthRouter(sessionManager));
 
+  // ===== MCP Transport Routes =====
   // MCP endpoint with security middleware stack
-  app.use('/mcp', dnsRebindingProtection); // 1. DNS Rebinding Protection (MUST) - Check first!
+  app.use('/mcp', dnsRebindingProtection); // 1. DNS Rebinding Protection (MUST)
   app.use('/mcp', mcpRateLimiter); // 2. Rate Limiting
   app.use('/mcp', validateProtocolVersion); // 3. Protocol Version (MUST)
   app.use('/mcp', validateAcceptHeader); // 4. Accept Header (MUST)

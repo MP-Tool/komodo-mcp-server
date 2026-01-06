@@ -48,7 +48,12 @@ export class TransportSessionManager {
       this.sendKeepAlives();
     }, SESSION_KEEP_ALIVE_INTERVAL_MS);
 
-    logger.debug(`Started with ${SESSION_TIMEOUT_MS / 60000} minute timeout`);
+    logger.debug(
+      'SessionManager started (timeout=%dm, cleanup=%ds, keepalive=%ds)',
+      SESSION_TIMEOUT_MS / 60000,
+      SESSION_CLEANUP_INTERVAL_MS / 1000,
+      SESSION_KEEP_ALIVE_INTERVAL_MS / 1000,
+    );
   }
 
   /**
@@ -60,7 +65,7 @@ export class TransportSessionManager {
       lastActivity: new Date(),
       missedHeartbeats: 0,
     });
-    logger.debug(`Session added: ${sessionId} (total: ${this.sessions.size})`);
+    logger.debug('Session [%s] added (total=%d)', sessionId.substring(0, 8), this.sessions.size);
   }
 
   /**
@@ -102,7 +107,7 @@ export class TransportSessionManager {
   remove(sessionId: string): boolean {
     const deleted = this.sessions.delete(sessionId);
     if (deleted) {
-      logger.debug(`Session removed: ${sessionId} (remaining: ${this.sessions.size})`);
+      logger.debug('Session [%s] removed (remaining=%d)', sessionId.substring(0, 8), this.sessions.size);
     }
     return deleted;
   }
@@ -121,14 +126,9 @@ export class TransportSessionManager {
 
     for (const [sessionId, session] of this.sessions.entries()) {
       closePromises.push(
-        session.transport
-          .close()
-          .then(() => {
-            logger.debug(`Closed transport for session ${sessionId}`);
-          })
-          .catch((error) => {
-            logger.error(`Error closing transport ${sessionId}:`, error);
-          }),
+        session.transport.close().catch((error) => {
+          logger.error('Failed to close session [%s]: %s', sessionId.substring(0, 8), error);
+        }),
       );
     }
 

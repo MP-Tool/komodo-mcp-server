@@ -1,158 +1,175 @@
 /**
  * MCP Transport Routes
- * Handles SSE connection and JSON-RPC message exchange
+ *
+ * Implements MCP Streamable HTTP Transport (2025-03-26 Specification)
+ * Using StreamableHTTPServerTransport from the official MCP SDK.
+ *
+ * Endpoints:
+ * - POST /mcp with InitializeRequest (no session) → Creates session, returns Mcp-Session-Id header
+ * - POST /mcp with Mcp-Session-Id header → Reuses existing session for JSON-RPC messages
+ * - GET /mcp with Mcp-Session-Id header → SSE stream for server-to-client notifications
+ * - DELETE /mcp with Mcp-Session-Id header → Terminates session
+ *
+ * Session Management:
+ * - Sessions are identified by Mcp-Session-Id header
+ * - Sessions expire after inactivity (configurable)
+ * - Graceful shutdown closes all active sessions
  */
 
 import { Router, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { isInitializeRequest } from '@modelcontextprotocol/sdk/types.js';
 import { TransportSessionManager } from '../session-manager.js';
-import { createSecureTransport, createModernTransport } from '../transport-factory.js';
 import { createJsonRpcError } from '../utils/json-rpc.js';
-import { logSessionInitialized, logSessionClosed } from '../utils/logging.js';
 import { logger as baseLogger } from '../../utils/logger.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 
 /**
- * Creates the MCP router with injected dependencies
+ * Creates the MCP router with StreamableHTTPServerTransport
  */
 export function createMcpRouter(mcpServerFactory: () => McpServer, sessionManager: TransportSessionManager): Router {
   const router = Router();
 
   /**
-   * GET /mcp
-   * Initializes a new SSE connection for MCP
-   */
-  router.get('/', async (req: Request, res: Response) => {
-    const sessionId = randomUUID();
-
-    await logger.runWithContext({ sessionId }, async () => {
-      try {
-        const transport = createSecureTransport(
-          {
-            onSessionInitialized: (id) => {
-              logSessionInitialized(id);
-              sessionManager.add(id, transport);
-            },
-            onSessionClosed: (id) => {
-              logSessionClosed(id);
-              sessionManager.remove(id);
-            },
-          },
-          sessionId,
-        );
-
-        // Create a new MCP server instance for this connection
-        const mcpServer = mcpServerFactory();
-
-        // Connect the transport to the MCP server
-        await mcpServer.connect(transport);
-
-        // Handle the request with the transport
-        // The transport will handle headers and keeping the connection open
-        await transport.handleRequest(req, res);
-      } catch (error) {
-        logger.error('Error initializing SSE connection:', error);
-        if (!res.headersSent) {
-          res.status(500).json(createJsonRpcError(-32603, 'Internal Error initializing transport'));
-        }
-      }
-    });
-  });
-
-  /**
-   * POST /mcp
-   * Handles JSON-RPC messages from the client
+   * POST /mcp - Main endpoint for JSON-RPC messages
    *
-   * Supports two flows:
-   * 1. Modern Streamable HTTP: POST initialize (no session) → JSON response with Mcp-Session-Id header
-   * 2. Legacy SSE: POST with sessionId (query or header) after GET established session
+   * Flow 1: Initialize (no session) → Create new session
+   * Flow 2: With session → Use existing transport
    */
   router.post('/', async (req: Request, res: Response) => {
-    // Check for session ID in header (Modern flow) or query param (Legacy flow)
-    const sessionIdFromHeader = req.headers['mcp-session-id'] as string | undefined;
-    const sessionIdFromQuery = req.query.sessionId as string | undefined;
-    const sessionId = sessionIdFromHeader || sessionIdFromQuery;
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
 
-    // Check if this is an initialize request (Modern flow - no session required)
-    const isInitializeRequest = req.body?.method === 'initialize';
+    try {
+      // Flow 1: New session via InitializeRequest
+      if (!sessionId && isInitializeRequest(req.body)) {
+        logger.info('Creating new session via POST initialize');
 
-    // Modern Flow: POST initialize without session ID creates a new session
-    if (!sessionId && isInitializeRequest) {
-      const newSessionId = randomUUID();
+        const transport = new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => randomUUID(),
+          onsessioninitialized: (newSessionId) => {
+            logger.info('Session initialized: %s', newSessionId);
+            sessionManager.add(newSessionId, transport);
+          },
+          onsessionclosed: (closedSessionId) => {
+            logger.info('Session closed: %s', closedSessionId);
+            sessionManager.remove(closedSessionId);
+          },
+        });
 
-      await logger.runWithContext({ sessionId: newSessionId }, async () => {
-        try {
-          logger.info('Modern Streamable HTTP: Creating session via POST initialize');
-
-          const transport = createModernTransport(
-            {
-              onSessionInitialized: (id) => {
-                logSessionInitialized(id);
-                sessionManager.add(id, transport);
-              },
-              onSessionClosed: (id) => {
-                logSessionClosed(id);
-                sessionManager.remove(id);
-              },
-            },
-            newSessionId,
-          );
-
-          // Create a new MCP server instance for this connection
-          const mcpServer = mcpServerFactory();
-
-          // Connect the transport to the MCP server
-          await mcpServer.connect(transport);
-
-          // Handle the request - transport will send JSON response with Mcp-Session-Id header
-          await transport.handleRequest(req, res, req.body);
-        } catch (error) {
-          logger.error('Error handling Modern POST initialize:', error);
-          if (!res.headersSent) {
-            res.status(500).json(createJsonRpcError(-32603, 'Internal Error initializing session'));
+        // Set up cleanup handler
+        transport.onclose = () => {
+          const sid = transport.sessionId;
+          if (sid) {
+            sessionManager.remove(sid);
           }
-        }
-      });
-      return;
-    }
+        };
 
-    // No session and not an initialize request - error
-    if (!sessionId) {
-      res
-        .status(400)
-        .json(
-          createJsonRpcError(
-            -32602,
-            'Missing session ID. Send initialize request first, or include Mcp-Session-Id header.',
-          ),
-        );
-      return;
-    }
+        // Connect MCP server to transport BEFORE handling request
+        const mcpServer = mcpServerFactory();
+        await mcpServer.connect(transport);
 
-    // Existing session - find and use it
-    const transport = sessionManager.get(sessionId);
+        // Handle the initialize request
+        await transport.handleRequest(req, res, req.body);
+        return;
+      }
 
-    if (!transport) {
+      // Flow 2: Existing session
+      if (!sessionId) {
+        logger.warn('POST /mcp rejected: missing session ID for non-initialize request');
+        res.status(400).json(createJsonRpcError(-32000, 'Bad Request: Mcp-Session-Id header required'));
+        return;
+      }
+
+      const transport = sessionManager.get(sessionId);
+      if (transport) {
+        const method = req.body?.method || 'unknown';
+        logger.debug('POST /mcp [%s] method=%s', sessionId.substring(0, 8), method);
+        await transport.handleRequest(req, res, req.body);
+        return;
+      }
+
+      // Session not found
+      logger.warn('POST /mcp rejected: session not found [%s]', sessionId.substring(0, 8));
       res.status(404).json(createJsonRpcError(-32001, 'Session not found or expired'));
       return;
-    }
-
-    await logger.runWithContext({ sessionId }, async () => {
-      try {
-        await transport.handleRequest(req, res, req.body);
-      } catch (error) {
-        logger.error('Error handling POST message:', error);
-        if (!res.headersSent) {
-          res.status(500).json(createJsonRpcError(-32603, 'Internal Error handling message'));
-        }
+    } catch (error) {
+      logger.error('Error handling POST request: %s', error);
+      if (!res.headersSent) {
+        res.status(500).json(createJsonRpcError(-32603, 'Internal server error'));
       }
-    });
+    }
   });
 
   /**
-   * Handle unsupported methods
+   * GET /mcp - SSE stream for server-to-client notifications
+   *
+   * Per spec: Clients MAY open an HTTP GET to receive server-initiated messages
+   * Requires Mcp-Session-Id header from prior initialization
+   */
+  router.get('/', async (req: Request, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+    if (!sessionId) {
+      res.status(400).json(createJsonRpcError(-32000, 'Bad Request: Mcp-Session-Id header required'));
+      return;
+    }
+
+    const transport = sessionManager.get(sessionId);
+    if (!transport) {
+      logger.warn('GET /mcp rejected: session not found [%s]', sessionId.substring(0, 8));
+      res.status(404).json(createJsonRpcError(-32001, 'Session not found or expired. Please re-initialize.'));
+      return;
+    }
+
+    logger.debug('GET /mcp SSE stream opened [%s]', sessionId.substring(0, 8));
+
+    try {
+      // Let the SDK handle the SSE stream setup
+      await transport.handleRequest(req, res);
+    } catch (error) {
+      logger.error('Error handling GET request for session %s: %s', sessionId, error);
+      if (!res.headersSent) {
+        res.status(500).json(createJsonRpcError(-32603, 'Internal server error'));
+      }
+    }
+  });
+
+  /**
+   * DELETE /mcp - Terminate session
+   *
+   * Per spec: "Clients that no longer need a particular session SHOULD send
+   * an HTTP DELETE to the MCP endpoint with the Mcp-Session-Id header"
+   */
+  router.delete('/', async (req: Request, res: Response) => {
+    const sessionId = req.headers['mcp-session-id'] as string | undefined;
+
+    if (!sessionId) {
+      res.status(400).json(createJsonRpcError(-32000, 'Bad Request: Mcp-Session-Id header required'));
+      return;
+    }
+
+    const transport = sessionManager.get(sessionId);
+    if (!transport) {
+      res.status(404).json(createJsonRpcError(-32001, 'Session not found'));
+      return;
+    }
+
+    try {
+      // Let SDK handle DELETE (it will call onsessionclosed callback)
+      await transport.handleRequest(req, res);
+    } catch (error) {
+      logger.error('Error handling DELETE request for session %s: %s', sessionId, error);
+      if (!res.headersSent) {
+        res.status(500).json(createJsonRpcError(-32603, 'Internal server error'));
+      }
+    }
+  });
+
+  /**
+   * Reject unsupported methods
    */
   router.all('/', (req: Request, res: Response) => {
     res.status(405).json(createJsonRpcError(-32601, 'Method Not Allowed'));

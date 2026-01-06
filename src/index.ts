@@ -70,10 +70,10 @@ class KomodoMCPServer {
     };
 
     const tools = toolRegistry.getTools();
-    logger.info(`Registering ${tools.length} tools with MCP server`);
+    logger.info('Registering %d tools with MCP server', tools.length);
 
     for (const tool of tools) {
-      logger.debug(`Registering tool: ${tool.name}`);
+      // logger.debug(`Registering tool: ${tool.name}`);
       server.registerTool(
         tool.name,
         {
@@ -102,14 +102,13 @@ class KomodoMCPServer {
 
           return logger.runWithContext(context, async () => {
             try {
-              logger.info(`Executing tool: ${tool.name}`, args);
+              logger.info('Tool [%s] executing', tool.name);
               const result = await tool.handler(args, {
                 client: this.komodoClient,
                 setClient: (client: KomodoClient) => {
                   this.komodoClient = client;
                 },
               });
-              logger.debug(`Tool execution successful: ${tool.name}`);
               return result;
             } catch (error) {
               logger.error(`Error executing ${tool.name}:`, error);

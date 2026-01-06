@@ -33,14 +33,14 @@ describe('Logging Utils', () => {
   });
 
   describe('logSessionEvents', () => {
-    it('should log session initialization', () => {
-      logSessionInitialized('123');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session initialized: 123'));
+    it('should log session initialization with shortened ID', () => {
+      logSessionInitialized('12345678-abcd-efgh-ijkl-mnopqrstuvwx');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session [12345678] initialized'));
     });
 
-    it('should log session closure', () => {
-      logSessionClosed('123');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session closed: 123'));
+    it('should log session closure with shortened ID', () => {
+      logSessionClosed('12345678-abcd-efgh-ijkl-mnopqrstuvwx');
+      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session [12345678] closed'));
     });
   });
 

@@ -10,7 +10,8 @@ describe('Accept Header Middleware', () => {
   beforeEach(() => {
     req = {
       method: 'GET',
-      headers: {}
+      headers: {},
+      query: {} // Required for middleware that checks query.sessionId
     };
     res = {
       status: vi.fn().mockReturnThis(),
@@ -25,7 +26,19 @@ describe('Accept Header Middleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('should reject requests without Accept header (non-POST)', () => {
+  it('should allow GET without session and without Accept header (legacy endpoint event)', () => {
+    // Legacy flow: GET without session should be allowed without Accept header
+    req.method = 'GET';
+    req.headers = {}; // No Accept header
+    req.query = {}; // No session ID
+    validateAcceptHeader(req as Request, res as Response, next);
+    expect(next).toHaveBeenCalled();
+  });
+
+  it('should reject GET with session but without Accept header', () => {
+    req.method = 'GET';
+    req.headers = { 'mcp-session-id': 'some-session-id' } as Record<string, string>;
+    req.query = {};
     validateAcceptHeader(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
@@ -52,8 +65,10 @@ describe('Accept Header Middleware', () => {
     expect(next).toHaveBeenCalled();
   });
 
-  it('should reject invalid Accept header', () => {
-    req.headers = { accept: 'text/html' };
+  it('should reject invalid Accept header for GET with session', () => {
+    req.method = 'GET';
+    req.headers = { accept: 'text/html', 'mcp-session-id': 'some-session' } as Record<string, string>;
+    req.query = {};
     validateAcceptHeader(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({

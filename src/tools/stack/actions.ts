@@ -80,8 +80,7 @@ export const startStackTool: Tool = {
  */
 export const restartStackTool: Tool = {
   name: 'komodo_restart_stack',
-  description:
-    'Restart a Komodo-managed Docker Compose stack. Runs `docker compose restart` to restart all services.',
+  description: 'Restart a Komodo-managed Docker Compose stack. Runs `docker compose restart` to restart all services.',
   schema: z.object({
     stack: z.string().describe('Stack ID or name'),
   }),

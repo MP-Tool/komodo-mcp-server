@@ -327,6 +327,7 @@ class KomodoStreamableTransport extends StreamableHTTPServerTransport {
 
 /**
  * Creates a new StreamableHTTPServerTransport with security features
+ * This version is for Legacy SSE flows (GET-first)
  *
  * Security Features:
  * - Cryptographically secure session IDs (UUID v4)
@@ -344,6 +345,26 @@ export function createSecureTransport(
     allowedHosts: getAllowedHosts(),
     // Note: allowedOrigins not set - middleware handles Origin validation
     // Origin validation is only necessary for servers accessible from the network
+    onsessioninitialized: callbacks.onSessionInitialized,
+    onsessionclosed: callbacks.onSessionClosed,
+  });
+}
+
+/**
+ * Creates a StreamableHTTPServerTransport for Modern HTTP flow (POST-first)
+ * This transport uses JSON responses instead of SSE for synchronous request/response
+ *
+ * Used when client sends POST initialize without prior GET connection
+ */
+export function createModernTransport(
+  callbacks: TransportCallbacks,
+  sessionId?: string,
+): StreamableHTTPServerTransport {
+  return new StreamableHTTPServerTransport({
+    sessionIdGenerator: sessionId ? () => sessionId : () => randomUUID(),
+    enableDnsRebindingProtection: false, // We handle this in middleware
+    allowedHosts: getAllowedHosts(),
+    enableJsonResponse: true, // Key difference: JSON responses for Modern flow
     onsessioninitialized: callbacks.onSessionInitialized,
     onsessionclosed: callbacks.onSessionClosed,
   });

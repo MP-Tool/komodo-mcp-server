@@ -136,3 +136,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - All delete operations now return and display the deleted resource object
 - **Error Handling**:
   - Standardized error messages across all tools using centralized constants
+
+### Transport Layer Enhancements
+- **Modern Streamable HTTP Flow**: Implemented POST-first flow for VS Code compatibility
+    - Added `createModernTransport()` for POST initialize without prior GET connection
+    - Routes now detect initialize requests and create sessions automatically
+    - Transport returns JSON responses with `Mcp-Session-Id` header for Modern flow
+- **Session Management Improvements**:
+    - Session ID detection from both `Mcp-Session-Id` header and query parameter
+    - Support for both Legacy (GET+Event) and Modern (POST-first) connection flows
+
+### Changed
+- **VS Code Integration**: Updated examples to use `type: "http"` instead of `type: "sse"` for Modern Streamable HTTP support

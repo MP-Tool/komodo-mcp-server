@@ -20,13 +20,14 @@ Open your global VS Code MCP configuration file:
 ### 2. Add Configuration
 Add the Komodo MCP server to the configuration.
 
-#### Connect to Self-Hosted (SSE)
-If you are running the server via Docker Compose (see [Compose Example](../compose/README.md)), you can connect via SSE.
+#### Connect to Self-Hosted (HTTP)
+If you are running the server via Docker Compose (see [Compose Example](../compose/README.md)), you can connect via HTTP.
 
 ```json
 {
   "servers": {
-    "komodo-sse": {
+    "Komodo MCP Server": {
+      "type": "http",
       "url": "http://localhost:3000/mcp"
     }
   }

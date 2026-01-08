@@ -2,7 +2,7 @@ import * as util from 'util';
 import * as fs from 'fs';
 import * as path from 'path';
 import { AsyncLocalStorage } from 'async_hooks';
-import { config } from '../config/env.js';
+import { config, SERVER_NAME } from '../config/index.js';
 
 /**
  * Available logging levels ordered by severity.
@@ -197,7 +197,7 @@ export class Logger {
         level: level.toUpperCase(),
         message: formattedMessage,
         service: {
-          name: 'komodo-mcp-server',
+          name: SERVER_NAME,
           component: component,
         },
         trace: {

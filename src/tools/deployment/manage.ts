@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { ERROR_MESSAGES } from '../../config/constants.js';
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../config/descriptions.js';
+import { ERROR_MESSAGES, PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../config/index.js';
 import {
   PartialDeploymentConfigSchema,
   CreateDeploymentConfigSchema,

@@ -1,13 +1,37 @@
 import { z } from 'zod';
 import { KomodoClient } from '../api/index.js';
+import { ProgressData } from '../utils/request-manager.js';
 
 /**
  * Context passed to tool handlers.
- * Contains the Komodo client instance and a setter to update it.
+ * Contains the Komodo client instance, progress reporting, and cancellation support.
  */
 export interface ToolContext {
+  /** The authenticated Komodo client (null if not configured) */
   client: KomodoClient | null;
+  /** Sets a new Komodo client instance (used by configure tool) */
   setClient: (client: KomodoClient) => void;
+
+  /**
+   * Reports progress for long-running operations.
+   * Only available if the client requested progress via _meta.progressToken.
+   *
+   * Per MCP Spec:
+   * - Progress value MUST increase with each notification
+   * - Progress and total MAY be floating point
+   * - Message SHOULD provide relevant human-readable progress information
+   *
+   * @param data - Progress data to report
+   * @returns true if sent, false if not available or rate-limited
+   */
+  reportProgress?: (data: ProgressData) => Promise<boolean>;
+
+  /**
+   * AbortSignal that is triggered when the request is cancelled.
+   * Tools SHOULD check this signal periodically for long-running operations
+   * and abort if signaled.
+   */
+  abortSignal?: AbortSignal;
 }
 
 /**
@@ -30,8 +54,9 @@ export interface Tool<T = any> {
 
 /**
  * Registry for managing available tools.
+ * @internal Not exported - use toolRegistry instance instead
  */
-export class ToolRegistry {
+class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
 
   /**

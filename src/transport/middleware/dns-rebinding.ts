@@ -4,10 +4,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { config } from '../../config/env.js';
-import { createJsonRpcError } from '../utils/json-rpc.js';
-import { logSecurityEvent, sanitizeForLog } from '../utils/logging.js';
-import { getAllowedHosts, getAllowedOrigins, isLocalHost } from '../config/transport.config.js';
+import { config, getAllowedHosts, getAllowedOrigins, isLocalHost } from '../../config/index.js';
+import { createJsonRpcError, logSecurityEvent, sanitizeForLog } from '../utils/index.js';
 
 /**
  * DNS Rebinding Protection Middleware

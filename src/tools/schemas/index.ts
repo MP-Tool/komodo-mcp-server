@@ -1,48 +1,23 @@
 /**
  * Komodo Resource Configuration Schemas
  *
- * Re-exports all configuration schemas for use in MCP tools.
+ * Re-exports configuration schemas used by MCP tools.
  * These schemas provide detailed type information to AI agents
  * so they can construct correct API payloads.
  */
 
+// Deployment schemas (used in deployment/manage.ts)
 export {
-  // Deployment schemas
   PartialDeploymentConfigSchema,
   CreateDeploymentConfigSchema,
   DeploymentImageSchema,
-  RestartModeSchema,
-  TerminationSignalSchema,
-  // Types
-  type PartialDeploymentConfig,
-  type CreateDeploymentConfig,
-  type DeploymentImage,
 } from './deployment-config.schema.js';
 
-export {
-  // Stack schemas
-  PartialStackConfigSchema,
-  CreateStackConfigSchema,
-  SystemCommandSchema,
-  AdditionalEnvFileSchema,
-  StackFileDependencySchema,
-  // Types
-  type PartialStackConfig,
-  type CreateStackConfig,
-} from './stack-config.schema.js';
+// Stack schemas (used in stack/manage.ts)
+export { PartialStackConfigSchema, CreateStackConfigSchema } from './stack-config.schema.js';
 
-export {
-  // Server schemas
-  serverConfigSchema,
-  maintenanceWindowSchema,
-} from './server-config.schema.js';
+// Server schemas (used in server/manage.ts)
+export { serverConfigSchema } from './server-config.schema.js';
 
-export {
-  // Container operation schemas
-  pruneTargetSchema,
-  containerLogOptionsSchema,
-  logSearchOptionsSchema,
-  containerActionSchema,
-  containerInspectSchema,
-  containerListSchema,
-} from './container-operations.schema.js';
+// Container operation schemas (used in container/prune.ts, container/manage.ts)
+export { pruneTargetSchema, containerActionSchema } from './container-operations.schema.js';

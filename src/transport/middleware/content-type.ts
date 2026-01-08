@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { HttpStatus, TransportErrorMessage } from '../../config/index.js';
 
 /**
  * Validates that POST requests have the correct Content-Type header
@@ -14,12 +15,12 @@ export function validateContentType(req: Request, res: Response, next: NextFunct
   const contentType = req.headers['content-type'];
 
   if (!contentType || !contentType.includes('application/json')) {
-    res.status(415).json({
+    res.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE).json({
       jsonrpc: '2.0',
       id: null,
       error: {
         code: ErrorCode.InvalidRequest,
-        message: 'Content-Type must be application/json for POST requests',
+        message: TransportErrorMessage.INVALID_CONTENT_TYPE,
       },
     });
     return;

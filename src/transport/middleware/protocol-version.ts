@@ -4,9 +4,8 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { createJsonRpcError } from '../utils/json-rpc.js';
-import { sanitizeForLog } from '../utils/logging.js';
-import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../config/transport.config.js';
+import { createJsonRpcError, sanitizeForLog } from '../utils/index.js';
+import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../../config/index.js';
 import { logger as baseLogger } from '../../utils/logger.js';
 
 const logger = baseLogger.child({ component: 'middleware' });

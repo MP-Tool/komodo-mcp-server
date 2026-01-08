@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { logger as baseLogger } from '../../utils/logger.js';
+import { HttpStatus, TransportErrorMessage } from '../../config/index.js';
 
 const logger = baseLogger.child({ component: 'middleware' });
 
@@ -17,12 +18,12 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
 
   // Check if body exists and is an object (express.json() should have parsed it)
   if (!body || typeof body !== 'object') {
-    res.status(400).json({
+    res.status(HttpStatus.BAD_REQUEST).json({
       jsonrpc: '2.0',
       id: null,
       error: {
         code: ErrorCode.ParseError,
-        message: 'Invalid JSON payload',
+        message: TransportErrorMessage.INVALID_JSON,
       },
     });
     return;
@@ -31,12 +32,12 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
   // Check for JSON-RPC 2.0 compliance
   if (Array.isArray(body)) {
     if (body.length === 0) {
-      res.status(400).json({
+      res.status(HttpStatus.BAD_REQUEST).json({
         jsonrpc: '2.0',
         id: null,
         error: {
           code: ErrorCode.InvalidRequest,
-          message: 'Empty batch request',
+          message: TransportErrorMessage.INVALID_JSONRPC_BATCH,
         },
       });
       return;
@@ -45,12 +46,12 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
     // Validate each message in the batch
     for (const message of body) {
       if (!message || typeof message !== 'object' || message.jsonrpc !== '2.0') {
-        res.status(400).json({
+        res.status(HttpStatus.BAD_REQUEST).json({
           jsonrpc: '2.0',
           id: message?.id || null,
           error: {
             code: ErrorCode.InvalidRequest,
-            message: 'Invalid JSON-RPC version in batch. Must be "2.0"',
+            message: TransportErrorMessage.INVALID_JSONRPC_VERSION,
           },
         });
         return;
@@ -61,12 +62,12 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
     // Must have jsonrpc: "2.0"
     if (body.jsonrpc !== '2.0') {
       logger.warn('Invalid JSON-RPC version:', JSON.stringify(body));
-      res.status(400).json({
+      res.status(HttpStatus.BAD_REQUEST).json({
         jsonrpc: '2.0',
         id: null,
         error: {
           code: ErrorCode.InvalidRequest,
-          message: 'Invalid JSON-RPC version. Must be "2.0"',
+          message: TransportErrorMessage.INVALID_JSONRPC_VERSION,
         },
       });
       return;
@@ -75,12 +76,12 @@ export function validateJsonRpc(req: Request, res: Response, next: NextFunction)
     // Must have method (for requests) or result/error (for responses, but client sends requests)
     // Actually, client sends requests or notifications.
     if (!body.method) {
-      res.status(400).json({
+      res.status(HttpStatus.BAD_REQUEST).json({
         jsonrpc: '2.0',
         id: body.id || null,
         error: {
           code: ErrorCode.InvalidRequest,
-          message: 'Invalid JSON-RPC message: missing method',
+          message: TransportErrorMessage.MISSING_JSONRPC_METHOD,
         },
       });
       return;

@@ -6,13 +6,13 @@
  */
 
 import { z } from 'zod';
-import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS } from '../../config/descriptions.js';
+import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * Maintenance Window Schema
  * Defines scheduled maintenance periods during which alerts are suppressed
  */
-export const maintenanceWindowSchema = z
+const maintenanceWindowSchema = z
   .object({
     enabled: z.boolean().optional().describe('Whether this maintenance window is enabled'),
     name: z.string().optional().describe('Name of the maintenance window'),

@@ -7,6 +7,68 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [1.1.1] (Unreleased)
+
+### Added
+- **Legacy SSE Transport Support**: Added optional backwards compatibility for older MCP clients using the deprecated HTTP+SSE transport (protocol 2024-11-05).
+  - Enable with `MCP_LEGACY_SSE_ENABLED=true` environment variable
+  - Exposes endpoints: `GET /sse` (SSE stream) and `POST /sse/message` (JSON-RPC messages)
+  - Both modern Streamable HTTP (`/mcp`) and legacy SSE (`/sse`) can run simultaneously
+  - Default: `false` (only Streamable HTTP Transport enabled)
+- **MCP Spec Compliance**: Full implementation of MCP 2025-03-26 transport specification
+  - Request cancellation support via `CancelledNotification`
+  - Progress reporting via `ProgressNotificationSchema`
+  - Resource and Prompt registries with dynamic capability advertising
+  - `RequestManager` for tracking in-flight requests with abort controller support
+- **Session Limits**: Added configurable session limits to prevent memory exhaustion attacks
+  - `SESSION_MAX_COUNT=100` for Streamable HTTP sessions
+  - `LEGACY_SSE_MAX_SESSIONS=50` for Legacy SSE sessions
+- **Example Resources & Prompts**: Renamed and documented example implementations for clarity
+  - `example-server-info.ts` - Example resource demonstrating Resource Registry pattern
+  - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
+
+### Changed
+- **Rate Limiting**: Increased rate limit from 100 to 1000 requests per 15-minute window for better development experience
+- **Session ID Handling**: Fixed SDK compatibility by injecting session IDs into `rawHeaders` for `@hono/node-server`
+- **DNS Rebinding Protection**: Updated middleware to allow localhost origins for development
+
+### Fixed
+- **Signal Handler**: Fixed duplicate SIGINT handlers causing unpredictable shutdown behavior
+  - Consolidated shutdown logic with `shutdownInProgress` guard flag
+  - Single handler for both SIGINT and SIGTERM signals
+
+### Improved
+- **Configuration Module Refactoring**: Separated config into domain-specific modules
+  - `server.config.ts` - Server identity (SERVER_NAME, SERVER_VERSION)
+  - `tools.config.ts` - Tool defaults (CONTAINER_LOGS_DEFAULTS, LOG_SEARCH_DEFAULTS)
+  - `transport.config.ts` - Moved from `src/transport/config/` to `src/config/`
+  - `errors.config.ts` - Centralized error codes and messages
+- **Error Handling Centralization**: Standardized error codes and messages
+  - `JsonRpcErrorCode` enum (INVALID_REQUEST, SERVER_ERROR, SESSION_NOT_FOUND, etc.)
+  - `HttpStatus` enum (BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, etc.)
+  - `TransportErrorMessage` constants for consistent error responses
+- **TypeScript Type Safety**: Replaced `any` casts with proper interfaces
+  - Added `HeartbeatCapableTransport` interface for type-safe heartbeat access
+  - `TransportSessionManager` now uses generic `Transport` interface (better testability)
+- **Code Organization**: Created index.ts barrel files for transport layer modules
+  - `src/transport/index.ts` - Central exports with architecture documentation
+  - `src/transport/middleware/index.ts` - Middleware exports
+  - `src/transport/utils/index.ts` - Utility exports
+- **Import Consolidation**: All modules now use barrel exports for cleaner imports
+  - `config/index.js` used throughout the codebase
+  - `transport/index.js` for main entry point
+  - `transport/utils/index.js` for middleware utilities
+- **Health Endpoint**: Enhanced `/health` endpoint to report session counts by transport type
+  - Shows `streamableHttp` session count (always)
+  - Shows `legacySse` session count (when enabled)
+- **Code Cleanup**: Removed unused exports identified by knip analysis
+  - Removed `JSON_RPC_ERROR_CODES` (using MCP SDK error codes instead)
+  - Removed `LIMITS` from public exports (kept internally for future use)
+  - Removed unused schema exports (RestartModeSchema, TerminationSignalSchema, etc.)
+  - Removed unused dependency `zod-to-json-schema`
+
+--------------------------------------------------------------
+
 ## [1.0.4] (#22)
 
 ### Changed

@@ -57,9 +57,16 @@ export const envSchema = z.object({
   LOG_FORMAT: z.enum(['text', 'json']).default('text'),
   /** Directory to store logs */
   LOG_DIR: z.string().optional(),
+  /**
+   * Enable Legacy SSE Transport (deprecated HTTP+SSE from protocol 2024-11-05)
+   * Default: false (only Streamable HTTP Transport enabled)
+   * Set to 'true' to enable backwards compatibility with older MCP clients
+   */
+  MCP_LEGACY_SSE_ENABLED: z
+    .boolean()
+    .or(z.string().transform((val) => val.toLowerCase() === 'true'))
+    .default(false),
 });
-
-export type Env = z.infer<typeof envSchema>;
 
 /**
  * Global configuration object parsed from environment variables.

@@ -3,17 +3,16 @@
  *
  * This file defines the Zod schema for Komodo Deployment configuration.
  * Based on the official Komodo types: DeploymentConfig and _PartialDeploymentConfig
- *
- * @see https://docs.komo.do
  */
 
 import { z } from 'zod';
-import { PARAM_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/descriptions.js';
+import { PARAM_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * Restart mode options for Docker containers
+ * @internal Used internally in PartialDeploymentConfigSchema
  */
-export const RestartModeSchema = z
+const RestartModeSchema = z
   .enum(['no', 'on-failure', 'always', 'unless-stopped'])
   .describe(
     `Container restart policy: "no" (${RESTART_MODE_DESCRIPTIONS.NO}), "on-failure" (${RESTART_MODE_DESCRIPTIONS.ON_FAILURE}), "always" (${RESTART_MODE_DESCRIPTIONS.ALWAYS}), "unless-stopped" (${RESTART_MODE_DESCRIPTIONS.UNLESS_STOPPED})`,
@@ -21,8 +20,9 @@ export const RestartModeSchema = z
 
 /**
  * Termination signal options
+ * @internal Used internally in PartialDeploymentConfigSchema
  */
-export const TerminationSignalSchema = z
+const TerminationSignalSchema = z
   .enum(['SIGHUP', 'SIGINT', 'SIGQUIT', 'SIGTERM'])
   .describe('Signal to send when stopping the container. Default: SIGTERM');
 
@@ -147,10 +147,3 @@ export const CreateDeploymentConfigSchema = PartialDeploymentConfigSchema.extend
   // server_id is typically required for new deployments
   server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
 });
-
-/**
- * Utility type exports for TypeScript consumers
- */
-export type PartialDeploymentConfig = z.infer<typeof PartialDeploymentConfigSchema>;
-export type CreateDeploymentConfig = z.infer<typeof CreateDeploymentConfigSchema>;
-export type DeploymentImage = z.infer<typeof DeploymentImageSchema>;

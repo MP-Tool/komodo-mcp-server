@@ -1,8 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoContainerListItem } from '../../api/index.js';
-import { ERROR_MESSAGES } from '../../config/constants.js';
-import { PARAM_DESCRIPTIONS } from '../../config/descriptions.js';
+import { ERROR_MESSAGES, PARAM_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * Tool to list all Docker containers on a server.

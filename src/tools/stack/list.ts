@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoStackListItem } from '../../api/index.js';
-import { ERROR_MESSAGES } from '../../config/constants.js';
+import { ERROR_MESSAGES } from '../../config/index.js';
 
 /**
  * Tool to list all Compose stacks.

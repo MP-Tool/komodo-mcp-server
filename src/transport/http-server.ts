@@ -2,12 +2,17 @@
  * HTTP Server for MCP Transport
  *
  * Implements MCP Streamable HTTP Transport (2025-03-26 Specification)
+ * with optional backwards compatibility for Legacy SSE Transport.
  *
- * Endpoints:
+ * Streamable HTTP Transport (default, recommended):
  * - POST /mcp with InitializeRequest → Creates session
  * - POST /mcp with Mcp-Session-Id header → Reuses session
- * - GET /mcp with Mcp-Session-Id header → SSE notifications
  * - DELETE /mcp with Mcp-Session-Id header → Terminates session
+ *
+ * Legacy SSE Transport (optional, deprecated - enable with MCP_LEGACY_SSE_ENABLED=true):
+ * - GET /mcp with Mcp-Session-Id header → SSE notifications
+ * - GET /sse → Opens SSE stream with endpoint event
+ * - POST /sse/message?sessionId=xxx → Receives JSON-RPC messages from legacy SSE clients
  *
  * Architecture:
  * - Express.js application
@@ -15,32 +20,36 @@
  * - Session management with automatic expiration
  *
  * Security features (MCP Specification 2025-03-26):
- * - DNS Rebinding Protection
+ * - DNS Rebinding Protection (MUST)
  * - Rate Limiting
  * - Protocol Version Validation
- * - Accept Header Validation
+ * - Accept Header Validation (MUST)
  * - Session Expiration
+ *
+ * See: https://modelcontextprotocol.io/specification/2025-03-26/basic/transports
  */
 
 import express from 'express';
 import helmet from 'helmet';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { config } from '../config/env.js';
+import { config } from '../config/index.js';
 
 // Session Management
 import { TransportSessionManager } from './session-manager.js';
 
 // Middleware
-import { mcpRateLimiter } from './middleware/rate-limit.js';
-import { validateProtocolVersion } from './middleware/protocol-version.js';
-import { validateAcceptHeader } from './middleware/accept-header.js';
-import { dnsRebindingProtection } from './middleware/dns-rebinding.js';
-import { validateContentType } from './middleware/content-type.js';
-import { validateJsonRpc } from './middleware/json-rpc.js';
+import {
+  mcpRateLimiter,
+  validateProtocolVersion,
+  validateAcceptHeader,
+  dnsRebindingProtection,
+  validateContentType,
+  validateJsonRpc,
+} from './middleware/index.js';
 
 // Routes
 import { createHealthRouter } from './routes/health.js';
-import { createMcpRouter } from './routes/mcp.js';
+import { createMcpRouter, createLegacySseRouter, closeAllLegacySseSessions, isLegacySseEnabled } from './routes/mcp.js';
 
 // Utilities
 import { logger as baseLogger } from '../utils/logger.js';
@@ -72,8 +81,19 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   // Health check endpoint (no rate limiting or security middleware)
   app.use(createHealthRouter(sessionManager));
 
+  // ===== Legacy SSE Transport Routes (optional) =====
+  // IMPORTANT: Mount Legacy SSE message endpoints BEFORE the MCP middleware stack
+  // This ensures Legacy SSE messages don't go through Streamable HTTP validation
+  // Deprecated HTTP+SSE transport from protocol 2024-11-05
+  // Enable with MCP_LEGACY_SSE_ENABLED=true
+  if (isLegacySseEnabled()) {
+    logger.info('Mounting Legacy SSE endpoints at /mcp/message, /sse and /sse/message');
+  }
+  // Always mount the router - it returns 501 if feature is disabled
+  app.use(createLegacySseRouter(mcpServerFactory));
+
   // ===== MCP Transport Routes =====
-  // MCP endpoint with security middleware stack
+  // Streamable HTTP transport on /mcp endpoint
   app.use('/mcp', dnsRebindingProtection); // 1. DNS Rebinding Protection (MUST)
   app.use('/mcp', mcpRateLimiter); // 2. Rate Limiting
   app.use('/mcp', validateProtocolVersion); // 3. Protocol Version (MUST)
@@ -109,6 +129,10 @@ export function startHttpServer(mcpServerFactory: () => McpServer): {
   const shutdown = async () => {
     logger.info('Shutting down HTTP server...');
     await sessionManager.closeAll();
+    // Also close legacy SSE sessions if enabled
+    if (isLegacySseEnabled()) {
+      await closeAllLegacySseSessions();
+    }
     server.close(() => {
       logger.info('HTTP server closed');
       process.exit(0);

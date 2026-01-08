@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { LOG_SEARCH_DEFAULTS, ERROR_MESSAGES } from '../../config/constants.js';
-import { PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/descriptions.js';
+import { LOG_SEARCH_DEFAULTS, ERROR_MESSAGES, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * Tool to search container logs with client-side filtering.

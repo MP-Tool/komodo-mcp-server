@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { CONTAINER_LOGS_DEFAULTS, ERROR_MESSAGES } from '../../config/constants.js';
-import { PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/descriptions.js';
+import { CONTAINER_LOGS_DEFAULTS, ERROR_MESSAGES, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * Tool to get logs from a container.

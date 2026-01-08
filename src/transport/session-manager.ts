@@ -3,22 +3,31 @@
  * Manages transport session lifecycle with automatic expiration
  */
 
-import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js';
+import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import {
   SESSION_TIMEOUT_MS,
   SESSION_CLEANUP_INTERVAL_MS,
   SESSION_KEEP_ALIVE_INTERVAL_MS,
   SESSION_MAX_MISSED_HEARTBEATS,
-} from './config/transport.config.js';
+  SESSION_MAX_COUNT,
+} from '../config/index.js';
 import { logger as baseLogger } from '../utils/logger.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 
 /**
+ * Interface for transports that support heartbeat functionality.
+ * Some transports (like StreamableHTTPServerTransport) have sendHeartbeat but it's not in the public types.
+ */
+interface HeartbeatCapableTransport extends Transport {
+  sendHeartbeat?: () => boolean;
+}
+
+/**
  * Session data with activity tracking for expiration
  */
 interface SessionData {
-  transport: StreamableHTTPServerTransport;
+  transport: Transport;
   lastActivity: Date;
   missedHeartbeats: number;
 }
@@ -57,21 +66,29 @@ export class TransportSessionManager {
   }
 
   /**
-   * Adds a transport to the session map with current timestamp
+   * Adds a transport to the session map with current timestamp.
+   * Returns false if max session limit reached.
    */
-  add(sessionId: string, transport: StreamableHTTPServerTransport): void {
+  add(sessionId: string, transport: Transport): boolean {
+    // Check session limit to prevent memory exhaustion
+    if (this.sessions.size >= SESSION_MAX_COUNT) {
+      logger.warn('Session limit reached (%d), rejecting new session', SESSION_MAX_COUNT);
+      return false;
+    }
+
     this.sessions.set(sessionId, {
       transport,
       lastActivity: new Date(),
       missedHeartbeats: 0,
     });
     logger.debug('Session [%s] added (total=%d)', sessionId.substring(0, 8), this.sessions.size);
+    return true;
   }
 
   /**
    * Gets a transport by session ID and updates activity time
    */
-  get(sessionId: string): StreamableHTTPServerTransport | undefined {
+  get(sessionId: string): Transport | undefined {
     const session = this.sessions.get(sessionId);
     if (session) {
       // Update last activity time
@@ -157,8 +174,7 @@ export class TransportSessionManager {
       if (idleTime > SESSION_TIMEOUT_MS) {
         // Try to send heartbeat to keep active connections alive
         // This handles cases where the client is listening but not sending requests
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const transport = session.transport as any;
+        const transport = session.transport as HeartbeatCapableTransport;
         if (transport.sendHeartbeat && transport.sendHeartbeat()) {
           // Connection is alive, extend session
           session.lastActivity = new Date();
@@ -188,8 +204,7 @@ export class TransportSessionManager {
    */
   private sendKeepAlives(): void {
     for (const [sessionId, session] of this.sessions.entries()) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const transport = session.transport as any;
+      const transport = session.transport as HeartbeatCapableTransport;
       if (transport.sendHeartbeat) {
         const isAlive = transport.sendHeartbeat();
 

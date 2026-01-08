@@ -6,12 +6,13 @@
  */
 
 import { z } from 'zod';
-import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/descriptions.js';
+import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from '../../config/index.js';
 
 /**
  * System command configuration for pre/post deploy hooks
+ * @internal Used internally in PartialStackConfigSchema
  */
-export const SystemCommandSchema = z
+const SystemCommandSchema = z
   .object({
     path: z.string().optional().describe('Working directory for the command'),
     command: z.string().optional().describe('The shell command to execute'),
@@ -20,8 +21,9 @@ export const SystemCommandSchema = z
 
 /**
  * Additional environment file configuration
+ * @internal Used internally in PartialStackConfigSchema
  */
-export const AdditionalEnvFileSchema = z
+const AdditionalEnvFileSchema = z
   .object({
     path: z.string().describe('Path to the env file relative to run directory'),
     contents: z.string().optional().describe('Contents of the env file (if defined in UI)'),
@@ -30,8 +32,9 @@ export const AdditionalEnvFileSchema = z
 
 /**
  * Stack file dependency configuration
+ * @internal Used internally in PartialStackConfigSchema
  */
-export const StackFileDependencySchema = z
+const StackFileDependencySchema = z
   .object({
     path: z.string().describe('Path to the config file relative to run directory'),
     contents: z.string().optional().describe('Contents of the file (if defined in UI)'),
@@ -172,9 +175,3 @@ export const PartialStackConfigSchema = z
 export const CreateStackConfigSchema = PartialStackConfigSchema.extend({
   server_id: z.string().optional().describe(`${PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY}`),
 });
-
-/**
- * Utility type exports for TypeScript consumers
- */
-export type PartialStackConfig = z.infer<typeof PartialStackConfigSchema>;
-export type CreateStackConfig = z.infer<typeof CreateStackConfigSchema>;

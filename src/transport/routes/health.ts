@@ -3,8 +3,9 @@
  */
 
 import { Router } from 'express';
-import { config } from '../../config/env.js';
+import { config } from '../../config/index.js';
 import type { TransportSessionManager } from '../session-manager.js';
+import { getLegacySseSessionCount, isLegacySseEnabled } from './mcp.js';
 
 export function createHealthRouter(sessionManager: TransportSessionManager): Router {
   const router = Router();
@@ -14,11 +15,20 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
    * Returns server status and active session count
    */
   router.get('/health', (req, res) => {
-    res.status(200).json({
+    const response: Record<string, unknown> = {
       status: 'healthy',
       version: config.VERSION,
-      sessions: sessionManager.size,
-    });
+      sessions: {
+        streamableHttp: sessionManager.size,
+      },
+    };
+
+    // Include Legacy SSE session count if enabled
+    if (isLegacySseEnabled()) {
+      (response.sessions as Record<string, number>).legacySse = getLegacySseSessionCount();
+    }
+
+    res.status(200).json(response);
   });
 
   return router;

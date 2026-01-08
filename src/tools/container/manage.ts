@@ -1,6 +1,6 @@
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../api/index.js';
-import { ERROR_MESSAGES } from '../../config/constants.js';
+import { ERROR_MESSAGES } from '../../config/index.js';
 import { containerActionSchema } from '../schemas/index.js';
 
 /**

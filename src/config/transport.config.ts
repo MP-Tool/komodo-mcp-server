@@ -1,19 +1,27 @@
 /**
- * Transport layer configuration
- * Centralized configuration to avoid duplication
+ * Transport Layer Configuration
+ *
+ * Configuration for MCP transport layer including session management,
+ * protocol versions, timeouts, and security settings.
+ *
+ * @module config/transport
  */
 
-import { config } from '../../config/env.js';
+import { config } from './env.js';
+
+// ============================================================================
+// Protocol Version Configuration
+// ============================================================================
 
 /**
  * Supported MCP protocol versions
  * Spec: https://modelcontextprotocol.io/specification/versioning
- * Current version: 2025-06-18 (but 2024-11-05 is still widely used)
  */
 export const SUPPORTED_PROTOCOL_VERSIONS = [
-  '2025-11-25', // Newest release
-  '2025-06-18', // Previous spec version
-  '2024-11-05', // Legacy stable version
+  '2025-11-25', // Latest release
+  '2025-06-18',
+  '2025-03-26',
+  '2024-11-05', // SSE Discontinuation release
 ] as const;
 
 /**
@@ -21,6 +29,10 @@ export const SUPPORTED_PROTOCOL_VERSIONS = [
  * Used when client doesn't send MCP-Protocol-Version header
  */
 export const FALLBACK_PROTOCOL_VERSION = '2024-11-05';
+
+// ============================================================================
+// Session Management Configuration
+// ============================================================================
 
 /**
  * Session timeout in milliseconds
@@ -47,19 +59,35 @@ export const SESSION_KEEP_ALIVE_INTERVAL_MS = 30 * 1000; // 30 seconds
 export const SESSION_MAX_MISSED_HEARTBEATS = 3;
 
 /**
+ * Maximum number of concurrent HTTP sessions
+ * Prevents memory exhaustion from too many open sessions
+ */
+export const SESSION_MAX_COUNT = 100;
+
+/**
+ * Maximum number of concurrent Legacy SSE sessions
+ * Separate limit as these hold open connections
+ */
+export const LEGACY_SSE_MAX_SESSIONS = 50;
+
+// ============================================================================
+// Security Configuration
+// ============================================================================
+
+/**
  * Generates allowed hosts list for DNS rebinding protection
  */
 export function getAllowedHosts(): string[] {
   const port = config.MCP_PORT;
   // prettier-ignore
   const defaults = [
-        'localhost',
-        '127.0.0.1',
-        '[::1]',
-        `localhost:${port}`,
-        `127.0.0.1:${port}`,
-        `[::1]:${port}`,
-    ];
+    'localhost',
+    '127.0.0.1',
+    '[::1]',
+    `localhost:${port}`,
+    `127.0.0.1:${port}`,
+    `[::1]:${port}`,
+  ];
 
   if (config.MCP_ALLOWED_HOSTS && config.MCP_ALLOWED_HOSTS.length > 0) {
     return config.MCP_ALLOWED_HOSTS;
@@ -76,10 +104,10 @@ export function getAllowedOrigins(): string[] {
   const port = config.MCP_PORT;
   // prettier-ignore
   const defaults = [
-        `http://localhost:${port}`,
-        `http://127.0.0.1:${port}`,
-        `http://[::1]:${port}`,
-    ];
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+    `http://[::1]:${port}`,
+  ];
 
   if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
     return config.MCP_ALLOWED_ORIGINS;
@@ -103,18 +131,3 @@ export function isLocalHost(host: string): boolean {
     cleanHost === '[::1]'
   );
 }
-
-/**
- * JSON-RPC error codes
- * Spec: https://www.jsonrpc.org/specification#error_object
- */
-export const JSON_RPC_ERROR_CODES = {
-  PARSE_ERROR: -32700,
-  INVALID_REQUEST: -32600,
-  METHOD_NOT_FOUND: -32601,
-  INVALID_PARAMS: -32602,
-  INTERNAL_ERROR: -32603,
-  // MCP-specific error codes
-  SESSION_NOT_FOUND: -32001,
-  FORBIDDEN: -32000,
-} as const;

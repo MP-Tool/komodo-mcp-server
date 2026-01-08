@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateJsonRpc } from '../../../src/transport/middleware/json-rpc.js';
+import { TransportErrorMessage } from '../../../src/config/index.js';
 import { Request, Response, NextFunction } from 'express';
 
 describe('JSON-RPC Middleware', () => {
@@ -30,7 +31,7 @@ describe('JSON-RPC Middleware', () => {
     validateJsonRpc(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Invalid JSON payload' })
+      error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSON })
     }));
   });
 
@@ -39,7 +40,7 @@ describe('JSON-RPC Middleware', () => {
     validateJsonRpc(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
     expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Empty batch request' })
+      error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSONRPC_BATCH })
     }));
   });
 

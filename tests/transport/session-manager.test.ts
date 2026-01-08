@@ -3,11 +3,12 @@ import { TransportSessionManager } from '../../src/transport/session-manager.js'
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 
 // Mock Config
-vi.mock('../../src/transport/config/transport.config.js', () => ({
+vi.mock('../../src/config/transport.config.js', () => ({
   SESSION_TIMEOUT_MS: 1000,
   SESSION_CLEANUP_INTERVAL_MS: 100,
   SESSION_KEEP_ALIVE_INTERVAL_MS: 50,
-  SESSION_MAX_MISSED_HEARTBEATS: 3
+  SESSION_MAX_MISSED_HEARTBEATS: 3,
+  SESSION_MAX_COUNT: 100,
 }));
 
 // Define a mock transport interface that includes the methods we need
@@ -30,7 +31,7 @@ describe('Session Manager', () => {
       onerror: undefined,
       close: vi.fn().mockResolvedValue(undefined),
       send: vi.fn().mockResolvedValue(undefined),
-      sendHeartbeat: vi.fn().mockReturnValue(true)
+      sendHeartbeat: vi.fn().mockReturnValue(true),
     };
   });
 
@@ -57,24 +58,26 @@ describe('Session Manager', () => {
   it('should update last activity on touch', () => {
     manager.add('session-1', mockTransport);
     // Access private property for testing
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const initialActivity = (manager as any).sessions.get('session-1').lastActivity;
-    
+
     vi.advanceTimersByTime(500);
     manager.touch('session-1');
-    
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const updatedActivity = (manager as any).sessions.get('session-1').lastActivity;
     expect(updatedActivity.getTime()).toBeGreaterThan(initialActivity.getTime());
   });
 
   it('should expire idle sessions', async () => {
     manager.add('session-1', mockTransport);
-    
+
     // Mock heartbeat to fail so it expires
     mockTransport.sendHeartbeat.mockReturnValue(false);
 
     // Advance time past timeout
     vi.advanceTimersByTime(1100);
-    
+
     // Trigger cleanup (interval runs every 100ms)
     vi.advanceTimersByTime(100);
 
@@ -88,35 +91,42 @@ describe('Session Manager', () => {
 
     // Advance time past timeout
     vi.advanceTimersByTime(1100);
-    
+
     // Trigger cleanup
     vi.advanceTimersByTime(100);
 
     // Should NOT close because heartbeat succeeded
     expect(mockTransport.close).not.toHaveBeenCalled();
     expect(manager.has('session-1')).toBe(true);
-    
+
     // Activity should be updated
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const activity = (manager as any).sessions.get('session-1').lastActivity;
     expect(Date.now() - activity.getTime()).toBeLessThanOrEqual(100);
   });
 
   it('should send keep-alive heartbeats', () => {
     manager.add('session-1', mockTransport);
-    
+
     vi.advanceTimersByTime(50); // Interval is 50ms
-    
+
     expect(mockTransport.sendHeartbeat).toHaveBeenCalled();
   });
 
   it('should close session after max missed heartbeats', () => {
     manager.add('session-1', mockTransport);
     mockTransport.sendHeartbeat.mockReturnValue(false);
-    
+
     // Miss 3 heartbeats (3 * 50ms = 150ms)
     vi.advanceTimersByTime(160);
-    
+
     expect(mockTransport.close).toHaveBeenCalled();
     expect(manager.has('session-1')).toBe(false);
+  });
+
+  it('should return true when adding session under limit', () => {
+    const result = manager.add('session-1', mockTransport);
+    expect(result).toBe(true);
+    expect(manager.size).toBe(1);
   });
 });

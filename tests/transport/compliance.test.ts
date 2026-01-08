@@ -16,7 +16,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import request from 'supertest';
 import express from 'express';
 import { TransportSessionManager } from '../../src/transport/session-manager.js';
-import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../../src/transport/config/transport.config.js';
+import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION, JsonRpcErrorCode } from '../../src/config/index.js';
 import { 
   setupTestApp, 
   cleanupTestApp, 
@@ -106,7 +106,7 @@ describe('MCP Transport Layer Compliance', () => {
         });
         
       expect(response.status).toBe(400);
-      expect(response.body.error.code).toBe(-32600);
+      expect(response.body.error.code).toBe(JsonRpcErrorCode.INVALID_REQUEST);
       expect(response.body.error.message).toContain('Unsupported MCP-Protocol-Version');
     });
   });
@@ -160,7 +160,7 @@ describe('MCP Transport Layer Compliance', () => {
         });
         
       expect(response.status).toBe(403);
-      expect(response.body.error.code).toBe(-32000);
+      expect(response.body.error.code).toBe(JsonRpcErrorCode.SERVER_ERROR);
       expect(response.body.error.message).toContain('Invalid Host header');
     });
   });
@@ -355,7 +355,7 @@ describe('MCP Transport Layer Compliance', () => {
         .send({ jsonrpc: '2.0', method: 'ping', id: 1 });
 
       expect(response.status).toBe(500);
-      expect(response.body.error.code).toBe(-32603);
+      expect(response.body.error.code).toBe(JsonRpcErrorCode.INTERNAL_ERROR);
     });
   });
 

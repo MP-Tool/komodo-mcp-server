@@ -7,8 +7,8 @@ import { createExpressApp } from '../../src/transport/http-server.js';
 import { PACKAGE_VERSION } from './utils.js';
 
 // Mock config to control timeouts
-vi.mock('../../src/transport/config/transport.config.js', async () => {
-  const actual = await vi.importActual('../../src/transport/config/transport.config.js');
+vi.mock('../../src/config/transport.config.js', async () => {
+  const actual = await vi.importActual('../../src/config/transport.config.js');
   return {
     ...actual,
     // Short timeout for testing

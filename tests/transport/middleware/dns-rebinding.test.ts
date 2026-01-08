@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { dnsRebindingProtection } from '../../../src/transport/middleware/dns-rebinding.js';
 import { config } from '../../../src/config/env.js';
-import * as transportConfig from '../../../src/transport/config/transport.config.js';
+import * as transportConfig from '../../../src/config/transport.config.js';
 
 // Mock dependencies
 vi.mock('../../../src/config/env.js', () => ({
@@ -11,7 +11,7 @@ vi.mock('../../../src/config/env.js', () => ({
   }
 }));
 
-vi.mock('../../../src/transport/config/transport.config.js', () => ({
+vi.mock('../../../src/config/transport.config.js', () => ({
   getAllowedHosts: vi.fn(),
   getAllowedOrigins: vi.fn(),
   isLocalHost: vi.fn()

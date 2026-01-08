@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateProtocolVersion } from '../../../src/transport/middleware/protocol-version.js';
 import { Request, Response, NextFunction } from 'express';
 
-vi.mock('../../../src/transport/config/transport.config.js', () => ({
+vi.mock('../../../src/config/transport.config.js', () => ({
   SUPPORTED_PROTOCOL_VERSIONS: ['2024-11-05'],
   FALLBACK_PROTOCOL_VERSION: '2024-11-05'
 }));

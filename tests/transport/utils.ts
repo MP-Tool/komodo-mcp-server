@@ -12,8 +12,8 @@ import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { createExpressApp } from '../../src/transport/http-server.js';
 import { TransportSessionManager } from '../../src/transport/session-manager.js';
 
-/** JSON-RPC message type for SSE parsing */
-export interface JsonRpcMessage {
+/** JSON-RPC message type for SSE parsing (internal use) */
+interface JsonRpcMessage {
   jsonrpc: '2.0';
   id?: string | number | null;
   method?: string;
@@ -26,8 +26,8 @@ export interface JsonRpcMessage {
   };
 }
 
-/** Initialize result structure from MCP protocol */
-export interface InitializeResult {
+/** Initialize result structure from MCP protocol (internal use) */
+interface InitializeResult {
   protocolVersion: string;
   serverInfo: {
     name: string;
@@ -44,23 +44,13 @@ export const PACKAGE_VERSION = packageJson.version;
 
 /**
  * Protocol Version Constants
- * These match the versions defined in src/transport/config/transport.config.ts
+ * These match the versions defined in src/config/transport.config.ts
  */
 export const PROTOCOL_VERSION_2025_11_25 = '2025-11-25';
 export const PROTOCOL_VERSION_2025_06_18 = '2025-06-18';
-export const LATEST_PROTOCOL_VERSION = PROTOCOL_VERSION_2025_11_25;
 export const LEGACY_PROTOCOL_VERSION = '2024-11-05';
-
-/**
- * Default Test Configuration
- * Mocks the environment variables used by the server.
- */
-export const TEST_CONFIG = {
-  MCP_PORT: 3000,
-  MCP_BIND_HOST: '127.0.0.1',
-  VERSION: PACKAGE_VERSION,
-  MCP_TRANSPORT: 'http',
-};
+/** Alias for the newest protocol version */
+export const LATEST_PROTOCOL_VERSION = PROTOCOL_VERSION_2025_11_25;
 
 /**
  * Helper to setup the Express app with a mock MCP server.
@@ -141,29 +131,6 @@ export const createPostRequest = (
     .set('Accept', 'application/json, text/event-stream')
     .set('Content-Type', 'application/json')
     .send(body);
-};
-
-/**
- * @deprecated Use createInitializeRequest() for modern Streamable HTTP flow.
- *
- * Helper to create a standard SSE request (Legacy HTTP+SSE transport).
- * Sets the necessary headers for a valid MCP SSE connection.
- *
- * Legacy Flow (MCP 2024-11-05):
- * 1. GET /sse → SSE connection, receives endpoint event
- * 2. POST /messages?sessionId=xxx → JSON-RPC messages
- *
- * @param app - The Express application
- * @param version - The MCP protocol version to use (defaults to latest)
- * @returns The supertest request object
- */
-export const createSseRequest = (app: express.Application, version: string = LATEST_PROTOCOL_VERSION) => {
-  return request(app)
-    .get('/mcp')
-    .set('Host', 'localhost:3000')
-    .set('MCP-Protocol-Version', version)
-    .set('Accept', 'text/event-stream')
-    .buffer(false);
 };
 
 /**

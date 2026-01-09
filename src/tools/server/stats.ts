@@ -14,8 +14,7 @@ export const getServerStatsTool: Tool = {
   }),
   handler: async (args, { client }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const stats = (await client.servers.getState(args.server)) as any;
+    const stats = await client.servers.getState(args.server);
     return {
       content: [
         {

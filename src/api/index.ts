@@ -1,10 +1,15 @@
+/**
+ * API Module
+ *
+ * Provides the KomodoClient for interacting with the Komodo API.
+ *
+ * @module api
+ */
+
 import { KomodoClient as createKomodoClient } from 'komodo_client';
-import { logger as baseLogger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/index.js';
 import { HealthCheckResult } from './types.js';
-import { ServerResource } from './resources/servers.js';
-import { ContainerResource } from './resources/containers.js';
-import { StackResource } from './resources/stacks.js';
-import { DeploymentResource } from './resources/deployments.js';
+import { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
 
 const logger = baseLogger.child({ component: 'api' });
 

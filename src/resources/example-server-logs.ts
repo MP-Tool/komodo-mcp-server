@@ -43,7 +43,7 @@
  */
 
 import { z } from 'zod';
-import { resourceRegistry, type ResourceContent } from './index.js';
+import { resourceRegistry, type ResourceContent, type ResourceListItem } from './index.js';
 
 /**
  * Schema for validating server log template arguments
@@ -51,6 +51,8 @@ import { resourceRegistry, type ResourceContent } from './index.js';
 const serverLogArgsSchema = z.object({
   serverId: z.string().min(1, 'serverId is required'),
 });
+
+type ServerLogArgs = z.infer<typeof serverLogArgsSchema>;
 
 /**
  * Registers the example server logs resource template.
@@ -66,7 +68,7 @@ const serverLogArgsSchema = z.object({
  * - Handle authentication and authorization
  */
 export function registerExampleTemplateResource(): void {
-  resourceRegistry.registerTemplate({
+  resourceRegistry.registerTemplate<ServerLogArgs>({
     uriTemplate: 'komodo://example/server/{serverId}/logs',
     name: '[Example] Server Logs Template',
     description:
@@ -75,9 +77,27 @@ export function registerExampleTemplateResource(): void {
       'In production, this would fetch actual server logs from Komodo.',
     mimeType: 'text/plain',
     argumentsSchema: serverLogArgsSchema,
-    handler: async (args: Record<string, string | string[]>): Promise<ResourceContent[]> => {
-      // Extract serverId from args (SDK extracts this from the URI)
-      const serverId = typeof args.serverId === 'string' ? args.serverId : (args.serverId?.[0] ?? 'unknown');
+
+    /**
+     * List available resources for this template.
+     * Returns mock server IDs for demonstration purposes.
+     *
+     * In production, this would query the Komodo API to list all servers
+     * and return their URIs.
+     */
+    list: async (): Promise<ResourceListItem[]> => {
+      // Mock server IDs for demonstration
+      const mockServerIds = ['server-alpha', 'server-beta', 'server-gamma'];
+
+      return mockServerIds.map((serverId) => ({
+        uri: `komodo://example/server/${serverId}/logs`,
+        name: `Logs for ${serverId}`,
+        description: `Example log resource for server ${serverId}`,
+      }));
+    },
+
+    handler: async (args: ServerLogArgs): Promise<ResourceContent[]> => {
+      const { serverId } = args;
 
       // Mock log output for demonstration
       const mockLogs = [

@@ -120,6 +120,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Removed `LIMITS` from public exports (kept internally for future use)
   - Removed unused schema exports (RestartModeSchema, TerminationSignalSchema, etc.)
   - Removed unused dependency `zod-to-json-schema`
+- **Type Safety Improvements**: Enhanced TypeScript strict typing throughout the codebase
+  - `ResourceTemplate<TArgs>`: Generic type parameter for handler arguments
+  - `ResourceListItem`: New interface for resource list callback results
+  - `KomodoServerState`: Proper type for server state responses (replaces `unknown`)
+  - `ServerState` enum: Re-exported from komodo_client for type-safe status values
+  - Container actions: `const` assertion for type-safe execute API calls
+  - Prune actions: `actionMap` with `as const` for proper literal type inference
+  - `progressToken` extraction: Inline type instead of `as any` cast
+  - Documented `any` usage with `eslint-disable` comments explaining rationale
+- **Module Organization**: Added barrel files (`index.ts`) for cleaner imports
+  - `src/server/index.ts`: Server utilities (handlers, client-initializer)
+  - `src/utils/index.ts`: Logger, mcpLogger, requestManager, connectionManager
+  - `src/api/resources/index.ts`: API resource classes
+  - `src/tools/*/index.ts`: Tool exports by category (container, server, deployment, stack, config)
+  - `src/transport/routes/index.ts`: Route handlers
+- **Code Extraction**: Refactored large functions into dedicated modules
+  - `src/server/handlers.ts`: Cancellation and Ping handlers
+  - `src/server/client-initializer.ts`: Environment-based client initialization
+- **Resource Template Discovery**: Implemented `list` callback for Resource Templates
+  - Templates can now enumerate available resources for MCP clients
+  - Example template demonstrates mock server discovery
 
 --------------------------------------------------------------
 

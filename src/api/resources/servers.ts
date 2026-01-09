@@ -1,5 +1,5 @@
 import { BaseResource } from '../base.js';
-import { KomodoServer, KomodoServerListItem } from '../types.js';
+import { KomodoServer, KomodoServerListItem, KomodoServerState, ServerState } from '../types.js';
 
 /**
  * Resource for managing Servers.
@@ -125,15 +125,15 @@ export class ServerResource extends BaseResource {
    * Gets the current state of a server.
    *
    * @param serverId - The ID of the server
-   * @returns The server state object
+   * @returns The server state object with status (Ok, NotOk, Disabled)
    */
-  async getState(serverId: string): Promise<unknown> {
+  async getState(serverId: string): Promise<KomodoServerState> {
     try {
       const response = await this.client.read('GetServerState', { server: serverId });
-      return response || { status: 'NotOk' };
+      return response || { status: ServerState.NotOk };
     } catch (error) {
       this.logger.error(`Failed to get server state for ${serverId}:`, error);
-      return { status: 'NotOk' };
+      return { status: ServerState.NotOk };
     }
   }
 }

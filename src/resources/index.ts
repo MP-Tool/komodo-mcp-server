@@ -13,7 +13,7 @@
  * @see https://modelcontextprotocol.io/specification/2025-03-26/server/resources
  */
 
-export { resourceRegistry, type ResourceContent } from './base.js';
+export { resourceRegistry, type ResourceContent, type ResourceListItem, type ResourceTemplate } from './base.js';
 
 import { registerExampleResource } from './example-server-info.js';
 import { registerExampleTemplateResource } from './example-server-logs.js';
@@ -46,7 +46,7 @@ export function registerResources(): void {
   // See example-server-logs.ts for implementation details
   registerExampleTemplateResource();
 
-  // TODO: Add production resources here
-  // registerKomodoServerListResource();
-  // registerDeploymentStatusResource();
+  // FUTURE: Production resources (v1.2.0+)
+  // - komodo://servers: List all Komodo servers
+  // - komodo://server/{id}/config: Server configuration
 }

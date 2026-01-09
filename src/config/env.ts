@@ -78,9 +78,6 @@ export const envSchema = z.object({
     .default(false),
 });
 
-/** Type for the validated configuration */
-export type Config = z.infer<typeof envSchema>;
-
 /**
  * Global configuration object parsed from environment variables.
  * Note: For Docker containers, use getKomodoCredentials() to read
@@ -154,15 +151,4 @@ export function getKomodoCredentials(): KomodoCredentials {
     apiKey: getEnv('KOMODO_API_KEY'),
     apiSecret: getEnv('KOMODO_API_SECRET'),
   };
-}
-
-/**
- * Parses environment variables at runtime.
- * Useful for re-validating configuration after environment changes.
- *
- * @returns Validated configuration object
- * @throws ZodError if validation fails
- */
-function parseEnv(): Config {
-  return envSchema.parse(process.env);
 }

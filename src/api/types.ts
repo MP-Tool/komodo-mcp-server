@@ -11,6 +11,8 @@ export type KomodoDeployment = Types.Deployment;
 export type KomodoDeploymentListItem = Types.DeploymentListItem;
 export type KomodoUpdate = Types.Update;
 export type KomodoLog = Types.Log;
+export type KomodoServerState = Types.GetServerStateResponse;
+export const ServerState = Types.ServerState;
 
 export interface HealthCheckResult {
   status: 'healthy' | 'unhealthy';

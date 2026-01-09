@@ -34,7 +34,7 @@ export function registerPrompts(): void {
   // See example-troubleshoot.ts for implementation details
   registerExamplePrompt();
 
-  // TODO: Add production prompts here
-  // registerDeploymentWorkflowPrompt();
-  // registerStackManagementPrompt();
+  // FUTURE: Production prompts (v1.2.0+)
+  // - deploy-workflow: Guided deployment workflow
+  // - stack-management: Stack lifecycle management
 }

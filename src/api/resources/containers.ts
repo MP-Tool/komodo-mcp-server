@@ -107,30 +107,19 @@ export class ContainerResource extends BaseResource {
     serverId: string,
     type: 'containers' | 'images' | 'volumes' | 'networks' | 'system' | 'all',
   ): Promise<KomodoUpdate> {
-    let action: string;
-    switch (type) {
-      case 'containers':
-        action = 'PruneContainers';
-        break;
-      case 'images':
-        action = 'PruneImages';
-        break;
-      case 'volumes':
-        action = 'PruneVolumes';
-        break;
-      case 'networks':
-        action = 'PruneNetworks';
-        break;
-      case 'system':
-      case 'all':
-        action = 'PruneSystem';
-        break;
-      default:
-        throw new Error(`Invalid prune type: ${type}`);
-    }
+    // Map prune type to Komodo execute action
+    const actionMap = {
+      containers: 'PruneContainers',
+      images: 'PruneImages',
+      volumes: 'PruneVolumes',
+      networks: 'PruneNetworks',
+      system: 'PruneSystem',
+      all: 'PruneSystem',
+    } as const;
+
+    const action = actionMap[type];
 
     try {
-      // @ts-expect-error - Prune actions are valid
       const response = await this.client.execute(action, {
         server: serverId,
       });
@@ -170,10 +159,24 @@ export class ContainerResource extends BaseResource {
     }
   }
 
-  private async executeAction(action: string, serverId: string, containerName: string): Promise<KomodoUpdate> {
+  /**
+   * Supported container actions for the execute API
+   */
+  private static readonly CONTAINER_ACTIONS = [
+    'StartContainer',
+    'StopContainer',
+    'RestartContainer',
+    'PauseContainer',
+    'UnpauseContainer',
+  ] as const;
+
+  private async executeAction(
+    action: (typeof ContainerResource.CONTAINER_ACTIONS)[number],
+    serverId: string,
+    containerName: string,
+  ): Promise<KomodoUpdate> {
     try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const response = await this.client.execute(action as any, {
+      const response = await this.client.execute(action, {
         server: serverId,
         container: containerName,
       });

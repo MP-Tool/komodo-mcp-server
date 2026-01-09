@@ -54,6 +54,20 @@ export interface Resource {
 }
 
 /**
+ * Result item for resource list callback
+ */
+export interface ResourceListItem {
+  /** The concrete URI for this resource */
+  uri: string;
+  /** Human-readable name (optional, uses template name if not provided) */
+  name?: string;
+  /** Description (optional, uses template description if not provided) */
+  description?: string;
+  /** MIME type (optional, uses template mimeType if not provided) */
+  mimeType?: string;
+}
+
+/**
  * Definition of an MCP Resource Template (dynamic resources)
  *
  * Resource templates allow clients to request resources with variable URIs.
@@ -66,6 +80,11 @@ export interface Resource {
  *   name: 'Server Logs',
  *   description: 'Get logs for a specific server',
  *   mimeType: 'text/plain',
+ *   list: async () => {
+ *     // Return all available servers
+ *     const servers = await getServerList();
+ *     return servers.map(s => ({ uri: `komodo://server/${s.id}/logs` }));
+ *   },
  *   handler: async (args) => {
  *     const logs = await fetchServerLogs(args.serverId);
  *     return [{ uri: `komodo://server/${args.serverId}/logs`, text: logs }];
@@ -73,7 +92,7 @@ export interface Resource {
  * });
  * ```
  */
-export interface ResourceTemplate {
+export interface ResourceTemplate<TArgs = Record<string, string | string[]>> {
   /** URI template with placeholders using RFC 6570 syntax (e.g., "komodo://server/{serverId}/logs") */
   uriTemplate: string;
   /** Human-readable name */
@@ -83,11 +102,15 @@ export interface ResourceTemplate {
   /** MIME type of the resource content */
   mimeType?: string;
   /** Zod schema for validating template arguments */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  argumentsSchema?: z.ZodSchema<any>;
+  argumentsSchema?: z.ZodSchema<TArgs>;
+  /**
+   * List callback to enumerate available resources matching this template.
+   * Called when clients request resources/list. If undefined, no resources
+   * are returned for this template in list operations.
+   */
+  list?: () => Promise<ResourceListItem[]>;
   /** Handler to read the resource content. Args are extracted from the URI using the template. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (args: Record<string, string | string[]>) => Promise<ResourceContent[]>;
+  handler: (args: TArgs) => Promise<ResourceContent[]>;
 }
 
 /**
@@ -116,11 +139,12 @@ class ResourceRegistry {
    * Registers a resource template (dynamic resource).
    * @throws Error if a template with the same URI is already registered.
    */
-  registerTemplate(template: ResourceTemplate): void {
+  registerTemplate<TArgs = Record<string, string | string[]>>(template: ResourceTemplate<TArgs>): void {
     if (this.templates.has(template.uriTemplate)) {
       throw new Error(`Resource template ${template.uriTemplate} is already registered`);
     }
-    this.templates.set(template.uriTemplate, template);
+    // Store as base type - type safety is ensured at registration time
+    this.templates.set(template.uriTemplate, template as unknown as ResourceTemplate);
   }
 
   /**

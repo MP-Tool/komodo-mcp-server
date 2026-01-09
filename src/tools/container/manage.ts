@@ -94,7 +94,8 @@ export const pauseContainerTool: Tool = {
 /**
  * Tool to unpause a container.
  *
- * TODO: check if doubles with container start tool
+ * Note: This is different from start - unpause resumes a PAUSED container,
+ * while start boots a STOPPED container. Paused containers keep their state in memory.
  */
 export const unpauseContainerTool: Tool = {
   name: 'komodo_unpause_container',

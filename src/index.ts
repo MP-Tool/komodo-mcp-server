@@ -1,25 +1,28 @@
 #!/usr/bin/env node
 
+/**
+ * Komodo MCP Server - Main Entry Point
+ *
+ * Model Context Protocol server for managing Docker containers,
+ * deployments, and stacks through Komodo.
+ *
+ * @module index
+ */
+
 import { McpServer, ResourceTemplate as SdkResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import {
-  ErrorCode,
-  McpError,
-  CancelledNotificationSchema,
-  PingRequestSchema,
-} from '@modelcontextprotocol/sdk/types.js';
+import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
+
+// Internal modules - use barrel imports
 import { KomodoClient } from './api/index.js';
 import { registerTools, toolRegistry } from './tools/index.js';
 import { registerResources, resourceRegistry } from './resources/index.js';
 import { registerPrompts, promptRegistry } from './prompts/index.js';
-import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode, getKomodoCredentials } from './config/index.js';
+import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode } from './config/index.js';
 import { startHttpServer } from './transport/index.js';
-import { logger } from './utils/logger.js';
-import { requestManager } from './utils/request-manager.js';
-import { connectionManager } from './utils/connection-state.js';
-import { mcpLogger } from './utils/mcp-logger.js';
+import { logger, requestManager, connectionManager, mcpLogger } from './utils/index.js';
+import { setupCancellationHandler, setupPingHandler, initializeClientFromEnv } from './server/index.js';
 
-// Komodo MCP server - Container Management Server
 /**
  * Main application class for the Komodo MCP Server.
  * Manages the MCP server instance, tool registration, and Komodo client state.
@@ -129,10 +132,10 @@ class KomodoMCPServer {
 
     // Set up cancellation notification handler
     // Per MCP Spec: Handle notifications/cancelled to stop in-flight requests
-    this.setupCancellationHandler(server);
+    setupCancellationHandler(server);
 
     // Set up ping handler for liveness checks
-    this.setupPingHandler(server);
+    setupPingHandler(server);
 
     // Initialize request manager with McpServer instance for progress notifications
     requestManager.setServer(server);
@@ -167,8 +170,9 @@ class KomodoMCPServer {
           const internalRequestId = Math.random().toString(36).substring(7);
 
           // Extract progress token from _meta if provided
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const progressToken = (args as any)?._meta?.progressToken;
+          // MCP Spec allows progressToken in _meta for progress notifications
+          const argsWithMeta = args as { _meta?: { progressToken?: string | number } };
+          const progressToken = argsWithMeta._meta?.progressToken;
 
           // Register request for cancellation tracking
           const abortSignal = requestManager.registerRequest(
@@ -293,11 +297,27 @@ class KomodoMCPServer {
     // Register resource templates (RFC 6570 URI Templates)
     // The SDK's ResourceTemplate class wraps UriTemplate and handles variable extraction
     for (const template of templates) {
-      // Create SDK ResourceTemplate instance
+      // Create SDK ResourceTemplate instance with list callback if provided
       // The list callback returns available resources matching this template
-      // We set it to undefined since dynamic discovery requires Komodo connection
       const sdkTemplate = new SdkResourceTemplate(template.uriTemplate, {
-        list: undefined, // TODO: Implement list callback for resource discovery
+        list: template.list
+          ? async () => {
+              try {
+                const items = await template.list!();
+                return {
+                  resources: items.map((item) => ({
+                    uri: item.uri,
+                    name: item.name ?? template.name,
+                    description: item.description ?? template.description,
+                    mimeType: item.mimeType ?? template.mimeType,
+                  })),
+                };
+              } catch (error) {
+                logger.error('Failed to list resources for template %s: %s', template.uriTemplate, error);
+                return { resources: [] };
+              }
+            }
+          : undefined,
         // complete: {} // Optional: Add completion callbacks for variables
       });
 
@@ -385,65 +405,6 @@ class KomodoMCPServer {
   }
 
   /**
-   * Sets up the cancellation notification handler.
-   *
-   * Per MCP Spec 2025-11-25:
-   * - Receivers SHOULD stop processing the cancelled request
-   * - Receivers SHOULD free associated resources
-   * - Receivers SHOULD NOT send a response for the cancelled request
-   * - Invalid cancellation notifications SHOULD be ignored
-   *
-   * @param server - The McpServer instance
-   */
-  private setupCancellationHandler(server: McpServer): void {
-    server.server.setNotificationHandler(CancelledNotificationSchema, async (notification) => {
-      const { requestId, reason } = notification.params;
-
-      // Per spec: requestId is required for cancellation
-      if (requestId === undefined) {
-        logger.debug('Cancellation ignored: no requestId provided');
-        return;
-      }
-
-      logger.info('Cancellation received: requestId=%s reason=%s', requestId, reason || 'none');
-
-      // Delegate to request manager
-      const cancelled = requestManager.handleCancellation(requestId, reason);
-
-      if (!cancelled) {
-        // Per spec: Invalid cancellation notifications SHOULD be ignored
-        logger.debug('Cancellation ignored: request not found or already completed');
-      }
-    });
-
-    logger.debug('Cancellation handler registered');
-  }
-
-  /**
-   * Sets up a ping request handler that responds with pong and logs via MCP notification.
-   *
-   * Per MCP Spec: ping is a standard request that servers should respond to.
-   * We extend this by logging a "pong" notification to demonstrate bidirectional communication.
-   *
-   * @param server - The McpServer instance
-   */
-  private setupPingHandler(server: McpServer): void {
-    server.server.setRequestHandler(PingRequestSchema, async () => {
-      // Log pong via MCP notification (info level)
-      mcpLogger.info('🏓 pong').catch(() => {
-        // Ignore errors if client disconnected
-      });
-
-      logger.debug('Received ping, sent pong');
-
-      // Return empty object as per MCP spec
-      return {};
-    });
-
-    logger.debug('Ping handler registered');
-  }
-
-  /**
    * Starts the server using the configured transport (Stdio or HTTP/SSE).
    */
   async run(): Promise<void> {
@@ -500,60 +461,7 @@ class KomodoMCPServer {
     }
 
     // Try to initialize client from environment variables
-    await this.initializeClientFromEnv();
-  }
-
-  /**
-   * Attempts to initialize the Komodo client from environment variables.
-   * Reads credentials at runtime to support Docker env_file loading.
-   * Supports both API Key and Username/Password authentication.
-   */
-  private async initializeClientFromEnv(): Promise<void> {
-    // Read credentials at runtime (important for Docker containers where
-    // env_file variables are only available after container start)
-    const creds = getKomodoCredentials();
-
-    if (!creds.url) {
-      logger.info('No KOMODO_URL configured - use komodo_configure tool to connect');
-      return;
-    }
-
-    // Log available credentials (without sensitive values)
-    logger.debug(
-      'Runtime credentials check: url=%s, username=%s, apiKey=%s',
-      creds.url,
-      !!creds.username,
-      !!creds.apiKey,
-    );
-
-    try {
-      let client: KomodoClient;
-
-      if (creds.apiKey && creds.apiSecret) {
-        logger.info('Attempting API Key configuration for %s...', creds.url);
-        client = KomodoClient.connectWithApiKey(creds.url, creds.apiKey, creds.apiSecret);
-      } else if (creds.username && creds.password) {
-        logger.info('Attempting auto-configuration for %s...', creds.url);
-        client = await KomodoClient.login(creds.url, creds.username, creds.password);
-      } else {
-        logger.info('No Komodo credentials configured - use komodo_configure tool to connect');
-        return;
-      }
-
-      // Connect via connectionManager (validates with health check)
-      const success = await connectionManager.connect(client);
-
-      if (success) {
-        logger.info(
-          '✅ Auto-configuration successful - %d tools now available',
-          toolRegistry.getAvailableTools().length,
-        );
-      } else {
-        logger.warn('⚠️ Auto-configuration failed: health check failed');
-      }
-    } catch (error) {
-      logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
-    }
+    await initializeClientFromEnv();
   }
 }
 

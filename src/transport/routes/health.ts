@@ -21,7 +21,7 @@ import { Router } from 'express';
 import { config } from '../../config/index.js';
 import type { TransportSessionManager } from '../session-manager.js';
 import { getLegacySseSessionCount, isLegacySseEnabled } from './mcp.js';
-import { connectionManager } from '../../utils/connection-state.js';
+import { connectionManager } from '../../utils/index.js';
 import { SESSION_MAX_COUNT, LEGACY_SSE_MAX_SESSIONS } from '../../config/transport.config.js';
 
 /**

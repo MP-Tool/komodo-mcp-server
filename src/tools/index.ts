@@ -1,21 +1,39 @@
+/**
+ * Tools Module
+ *
+ * Central registration point for all MCP tools.
+ * Uses barrel exports from sub-modules for clean imports.
+ *
+ * @module tools
+ */
+
 import { toolRegistry } from './base.js';
-import { listContainersTool } from './container/list.js';
+
+// Import tools from barrel files
 import {
+  listContainersTool,
   startContainerTool,
   stopContainerTool,
   restartContainerTool,
   pauseContainerTool,
   unpauseContainerTool,
-} from './container/manage.js';
-import { inspectContainerTool } from './container/info.js';
-import { getContainerLogsTool } from './container/logs.js';
-import { searchContainerLogsTool } from './container/search-logs.js';
-import { pruneResourcesTool } from './container/prune.js';
-import { listServersTool } from './server/list.js';
-import { getServerStatsTool } from './server/stats.js';
-import { getServerInfoTool, createServerTool, updateServerTool, deleteServerTool } from './server/manage.js';
-import { listDeploymentsTool } from './deployment/list.js';
+  inspectContainerTool,
+  getContainerLogsTool,
+  searchContainerLogsTool,
+  pruneResourcesTool,
+} from './container/index.js';
+
 import {
+  listServersTool,
+  getServerStatsTool,
+  getServerInfoTool,
+  createServerTool,
+  updateServerTool,
+  deleteServerTool,
+} from './server/index.js';
+
+import {
+  listDeploymentsTool,
   deployContainerTool,
   pullDeploymentImageTool,
   startDeploymentTool,
@@ -24,15 +42,14 @@ import {
   unpauseDeploymentTool,
   stopDeploymentTool,
   destroyDeploymentTool,
-} from './deployment/actions.js';
-import {
   getDeploymentInfoTool,
   createDeploymentTool,
   updateDeploymentTool,
   deleteDeploymentTool,
-} from './deployment/manage.js';
-import { listStacksTool } from './stack/list.js';
+} from './deployment/index.js';
+
 import {
+  listStacksTool,
   deployStackTool,
   pullStackTool,
   startStackTool,
@@ -41,10 +58,13 @@ import {
   unpauseStackTool,
   stopStackTool,
   destroyStackTool,
-} from './stack/actions.js';
-import { getStackInfoTool, createStackTool, updateStackTool, deleteStackTool } from './stack/manage.js';
-import { configureTool } from './config/configure.js';
-import { healthCheckTool } from './config/health.js';
+  getStackInfoTool,
+  createStackTool,
+  updateStackTool,
+  deleteStackTool,
+} from './stack/index.js';
+
+import { configureTool, healthCheckTool } from './config/index.js';
 
 /**
  * Registers all available tools with the tool registry.

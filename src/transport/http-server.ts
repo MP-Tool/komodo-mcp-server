@@ -33,6 +33,7 @@ import express from 'express';
 import helmet from 'helmet';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { config } from '../config/index.js';
+import { logger as baseLogger } from '../utils/index.js';
 
 // Session Management
 import { TransportSessionManager } from './session-manager.js';
@@ -48,11 +49,13 @@ import {
 } from './middleware/index.js';
 
 // Routes
-import { createHealthRouter } from './routes/health.js';
-import { createMcpRouter, createLegacySseRouter, closeAllLegacySseSessions, isLegacySseEnabled } from './routes/mcp.js';
-
-// Utilities
-import { logger as baseLogger } from '../utils/logger.js';
+import {
+  createHealthRouter,
+  createMcpRouter,
+  createLegacySseRouter,
+  closeAllLegacySseSessions,
+  isLegacySseEnabled,
+} from './routes/index.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 

@@ -79,6 +79,12 @@ interface PromptArgument {
 
 /**
  * Definition of an MCP Prompt
+ *
+ * @remarks
+ * The `any` types for argumentsSchema and handler args are intentional because:
+ * 1. Prompt arguments come from client input and are validated at runtime
+ * 2. Zod schemas handle type safety for argument validation
+ * 3. TypeScript cannot infer dynamic prompt argument types at compile time
  */
 interface Prompt {
   /** Unique name of the prompt */
@@ -88,10 +94,10 @@ interface Prompt {
   /** Arguments this prompt accepts */
   arguments?: PromptArgument[];
   /** Zod schema for validating arguments (optional, for type safety) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentional: Schema type varies per prompt
   argumentsSchema?: z.ZodSchema<any>;
   /** Handler to generate the prompt messages */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentional: Args validated by schema at runtime
   handler: (args: Record<string, any>) => Promise<{
     description?: string;
     messages: PromptMessage[];

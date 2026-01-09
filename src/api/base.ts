@@ -1,5 +1,5 @@
 import { KomodoClient as CoreClient } from 'komodo_client';
-import { logger as baseLogger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/index.js';
 
 /**
  * Abstract base class for API resources.

@@ -11,7 +11,7 @@ import {
   SESSION_MAX_MISSED_HEARTBEATS,
   SESSION_MAX_COUNT,
 } from '../config/index.js';
-import { logger as baseLogger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/index.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 

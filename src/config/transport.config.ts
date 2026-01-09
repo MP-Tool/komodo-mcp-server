@@ -100,7 +100,7 @@ export function getAllowedHosts(): string[] {
  * Generates allowed origins list for CORS validation
  * Only used when server is bound to non-localhost addresses
  *
- * SECURITY NOTE: Wildcard '*' is only allowed in development mode.
+ * NOTE: Wildcard '*' is only allowed in development mode.
  * In production, explicit origins must be specified.
  */
 export function getAllowedOrigins(): string[] {

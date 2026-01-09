@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { KomodoClient } from '../api/index.js';
-import { ProgressData } from '../utils/request-manager.js';
+import type { ProgressData } from '../utils/index.js';
 
 /**
  * Context passed to tool handlers.
@@ -39,8 +39,18 @@ export interface ToolContext {
 
 /**
  * Definition of an MCP Tool.
+ *
+ * @typeParam T - The type of arguments the tool accepts (inferred from schema).
+ *                Defaults to `unknown` to allow flexible schema definitions while
+ *                maintaining type inference at the handler level via Zod.
+ *
+ * @remarks
+ * The `any` default is intentional here because:
+ * 1. Zod schemas handle runtime validation
+ * 2. TypeScript cannot infer complex schema types at compile time
+ * 3. Each tool defines its own schema which provides type safety at usage
  */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
+// eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentional: Zod handles type safety at runtime
 export interface Tool<T = any> {
   /** Unique name of the tool (e.g., 'komodo_list_servers') */
   name: string;
@@ -61,7 +71,7 @@ export interface Tool<T = any> {
    */
   requiresClient?: boolean;
   /** The function that executes the tool logic */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- MCP SDK accepts flexible return types
   handler: (args: T, context: ToolContext) => Promise<any>;
 }
 

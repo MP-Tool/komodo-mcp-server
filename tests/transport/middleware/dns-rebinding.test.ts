@@ -7,19 +7,19 @@ import * as transportConfig from '../../../src/config/transport.config.js';
 vi.mock('../../../src/config/env.js', () => ({
   config: {
     MCP_ALLOWED_HOSTS: undefined,
-    MCP_BIND_HOST: 'localhost'
-  }
+    MCP_BIND_HOST: 'localhost',
+  },
 }));
 
 vi.mock('../../../src/config/transport.config.js', () => ({
   getAllowedHosts: vi.fn(),
   getAllowedOrigins: vi.fn(),
-  isLocalHost: vi.fn()
+  isLocalHost: vi.fn(),
 }));
 
 vi.mock('../../../src/transport/utils/logging.js', () => ({
   logSecurityEvent: vi.fn(),
-  sanitizeForLog: (s: string) => s
+  sanitizeForLog: (s: string) => s,
 }));
 
 describe('DNS Rebinding Middleware', () => {
@@ -30,15 +30,15 @@ describe('DNS Rebinding Middleware', () => {
   beforeEach(() => {
     req = {
       headers: {
-        host: 'localhost:3000'
-      }
+        host: 'localhost:3000',
+      },
     };
     res = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      json: vi.fn(),
     };
     next = vi.fn();
-    
+
     // Reset config
     (config as any).MCP_ALLOWED_HOSTS = undefined;
     (config as any).MCP_BIND_HOST = 'localhost';
@@ -67,17 +67,19 @@ describe('DNS Rebinding Middleware', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Invalid Host') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid Host') }),
+      }),
+    );
   });
 
   it('should enforce strict mode when MCP_ALLOWED_HOSTS is set', () => {
     (config as any).MCP_ALLOWED_HOSTS = 'myserver.com';
     (transportConfig.getAllowedHosts as any).mockReturnValue(['myserver.com']);
     // Even if it looks like localhost, strict mode should reject if not in allowed list
-    (transportConfig.isLocalHost as any).mockReturnValue(true); 
-    
+    (transportConfig.isLocalHost as any).mockReturnValue(true);
+
     req.headers.host = 'localhost:3000'; // Not in allowed list
 
     dnsRebindingProtection(req, res, next);
@@ -99,9 +101,11 @@ describe('DNS Rebinding Middleware', () => {
 
     expect(next).not.toHaveBeenCalled();
     expect(res.status).toHaveBeenCalledWith(403);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Invalid Origin') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid Origin') }),
+      }),
+    );
   });
 
   it('should allow valid Origin', () => {

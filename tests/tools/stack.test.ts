@@ -8,13 +8,13 @@ const mockClient = {
   stacks: {
     list: vi.fn(),
     stop: vi.fn(),
-    deploy: vi.fn()
-  }
+    deploy: vi.fn(),
+  },
 } as unknown as KomodoClient;
 
 const mockContext = {
   client: mockClient,
-  setClient: vi.fn()
+  setClient: vi.fn(),
 };
 
 describe('Stack Tools', () => {
@@ -26,7 +26,7 @@ describe('Stack Tools', () => {
     it('should list stacks correctly', async () => {
       const mockStacks = [
         { id: 'stack1', name: 'My Stack', info: { state: 'Running' } },
-        { id: 'stack2', name: 'Other Stack', info: { state: 'Stopped' } }
+        { id: 'stack2', name: 'Other Stack', info: { state: 'Stopped' } },
       ];
       (mockClient.stacks.list as any).mockResolvedValue(mockStacks);
 
@@ -46,8 +46,9 @@ describe('Stack Tools', () => {
     });
 
     it('should throw if client is missing', async () => {
-      await expect(listStacksTool.handler({}, { client: null, setClient: vi.fn() }))
-        .rejects.toThrow('Komodo client not initialized');
+      await expect(listStacksTool.handler({}, { client: null, setClient: vi.fn() })).rejects.toThrow(
+        'Komodo client not initialized',
+      );
     });
   });
 

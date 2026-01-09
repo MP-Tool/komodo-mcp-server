@@ -5,21 +5,21 @@ import { KomodoClient } from '../../src/api/index.js';
 
 // Mock KomodoClient class and instance
 const mockClientInstance = {
-  healthCheck: vi.fn()
+  healthCheck: vi.fn(),
 };
 
 // Mock the static login method
 vi.mock('../../src/api/index.js', () => {
   return {
     KomodoClient: {
-      login: vi.fn()
-    }
+      login: vi.fn(),
+    },
   };
 });
 
 const mockContext = {
   client: mockClientInstance as unknown as KomodoClient,
-  setClient: vi.fn()
+  setClient: vi.fn(),
 };
 
 describe('Config Tools', () => {
@@ -31,7 +31,7 @@ describe('Config Tools', () => {
     it('should login and return success message if healthy', async () => {
       const mockHealth = {
         status: 'healthy',
-        details: { responseTime: 10, apiVersion: '1.0.0' }
+        details: { responseTime: 10, apiVersion: '1.0.0' },
       };
       (mockClientInstance.healthCheck as any).mockResolvedValue(mockHealth);
       (KomodoClient.login as any).mockResolvedValue(mockClientInstance);
@@ -49,7 +49,7 @@ describe('Config Tools', () => {
       const mockHealth = {
         status: 'unhealthy',
         message: 'Something wrong',
-        details: { error: 'Connection refused' }
+        details: { error: 'Connection refused' },
       };
       (mockClientInstance.healthCheck as any).mockResolvedValue(mockHealth);
       (KomodoClient.login as any).mockResolvedValue(mockClientInstance);
@@ -75,7 +75,7 @@ describe('Config Tools', () => {
       const mockHealth = {
         status: 'healthy',
         message: 'All good',
-        details: { url: 'http://localhost', responseTime: 20, authenticated: true }
+        details: { url: 'http://localhost', responseTime: 20, authenticated: true },
       };
       (mockClientInstance.healthCheck as any).mockResolvedValue(mockHealth);
 
@@ -90,7 +90,7 @@ describe('Config Tools', () => {
       const mockHealth = {
         status: 'unhealthy',
         message: 'Bad connection',
-        details: { url: 'http://localhost', responseTime: 0, reachable: false, authenticated: false }
+        details: { url: 'http://localhost', responseTime: 0, reachable: false, authenticated: false },
       };
       (mockClientInstance.healthCheck as any).mockResolvedValue(mockHealth);
 

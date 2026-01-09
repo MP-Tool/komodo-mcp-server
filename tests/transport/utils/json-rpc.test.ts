@@ -8,7 +8,7 @@ describe('JSON-RPC Utils', () => {
       expect(error).toEqual({
         jsonrpc: '2.0',
         error: { code: JsonRpcErrorCode.INVALID_REQUEST, message: 'Invalid Request' },
-        id: 1
+        id: 1,
       });
     });
 
@@ -17,7 +17,7 @@ describe('JSON-RPC Utils', () => {
       expect(error).toEqual({
         jsonrpc: '2.0',
         error: { code: JsonRpcErrorCode.INVALID_REQUEST, message: 'Invalid Request' },
-        id: null
+        id: null,
       });
     });
   });
@@ -28,7 +28,7 @@ describe('JSON-RPC Utils', () => {
       expect(result).toEqual({
         jsonrpc: '2.0',
         result: { foo: 'bar' },
-        id: 1
+        id: 1,
       });
     });
 
@@ -37,7 +37,7 @@ describe('JSON-RPC Utils', () => {
       expect(result).toEqual({
         jsonrpc: '2.0',
         result: { foo: 'bar' },
-        id: null
+        id: null,
       });
     });
   });

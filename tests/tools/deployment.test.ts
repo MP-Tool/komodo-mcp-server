@@ -7,13 +7,13 @@ import { KomodoClient } from '../../src/api/index.js';
 const mockClient = {
   deployments: {
     list: vi.fn(),
-    deploy: vi.fn()
-  }
+    deploy: vi.fn(),
+  },
 } as unknown as KomodoClient;
 
 const mockContext = {
   client: mockClient,
-  setClient: vi.fn()
+  setClient: vi.fn(),
 };
 
 describe('Deployment Tools', () => {
@@ -25,7 +25,7 @@ describe('Deployment Tools', () => {
     it('should list deployments correctly', async () => {
       const mockDeployments = [
         { id: 'dep1', name: 'Deployment 1', info: { state: 'Active' } },
-        { id: 'dep2', name: 'Deployment 2', info: { state: 'Inactive' } }
+        { id: 'dep2', name: 'Deployment 2', info: { state: 'Inactive' } },
       ];
       (mockClient.deployments.list as any).mockResolvedValue(mockDeployments);
 
@@ -45,8 +45,9 @@ describe('Deployment Tools', () => {
     });
 
     it('should throw if client is missing', async () => {
-      await expect(listDeploymentsTool.handler({}, { client: null, setClient: vi.fn() }))
-        .rejects.toThrow('Komodo client not initialized');
+      await expect(listDeploymentsTool.handler({}, { client: null, setClient: vi.fn() })).rejects.toThrow(
+        'Komodo client not initialized',
+      );
     });
   });
 

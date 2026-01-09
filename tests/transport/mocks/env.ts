@@ -11,5 +11,5 @@ export const config = {
   MCP_PORT: 3000,
   MCP_BIND_HOST: '127.0.0.1',
   VERSION: packageJson.version,
-  MCP_TRANSPORT: 'sse'
+  MCP_TRANSPORT: 'sse',
 };

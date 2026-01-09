@@ -1,9 +1,9 @@
 /**
  * MCP Transport Layer Compliance Tests
- * 
+ *
  * These tests verify that the server implementation complies with the Model Context Protocol (MCP) specification.
  * Uses the modern Streamable HTTP transport (POST initialize → session via header).
- * 
+ *
  * It covers:
  * - Protocol Versioning (Headers, Fallbacks)
  * - Security (DNS Rebinding, Host Header Validation)
@@ -17,15 +17,15 @@ import request from 'supertest';
 import express from 'express';
 import { TransportSessionManager } from '../../src/transport/session-manager.js';
 import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION, JsonRpcErrorCode } from '../../src/config/index.js';
-import { 
-  setupTestApp, 
-  cleanupTestApp, 
+import {
+  setupTestApp,
+  cleanupTestApp,
   createInitializeRequest,
   initializeAndParse,
   initializeSession,
   createPostRequest,
   parseSseResponse,
-  LATEST_PROTOCOL_VERSION 
+  LATEST_PROTOCOL_VERSION,
 } from './utils.js';
 
 // Mock config
@@ -54,10 +54,10 @@ describe('MCP Transport Layer Compliance', () => {
     describe.each(SUPPORTED_PROTOCOL_VERSIONS)('Version %s', (version) => {
       it(`should accept valid protocol version ${version}`, async () => {
         const response = await createInitializeRequest(app, version);
-        
+
         expect(response.status).toBe(200);
         expect(response.headers['mcp-session-id']).toBeDefined();
-        
+
         // Parse SSE response and verify result
         const messages = parseSseResponse(response.text);
         expect(messages.length).toBeGreaterThan(0);
@@ -78,9 +78,9 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: FALLBACK_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
 
       expect(response.status).toBe(200);
@@ -100,11 +100,11 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: '1999-01-01',
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
-        
+
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe(JsonRpcErrorCode.INVALID_REQUEST);
       expect(response.body.error.message).toContain('Unsupported MCP-Protocol-Version');
@@ -132,9 +132,9 @@ describe('MCP Transport Layer Compliance', () => {
             params: {
               protocolVersion: LATEST_PROTOCOL_VERSION,
               capabilities: {},
-              clientInfo: { name: 'test', version: '1.0' }
+              clientInfo: { name: 'test', version: '1.0' },
             },
-            id: 1
+            id: 1,
           });
 
         expect(response.status).toBe(200);
@@ -154,11 +154,11 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: LATEST_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
-        
+
       expect(response.status).toBe(403);
       expect(response.body.error.code).toBe(JsonRpcErrorCode.SERVER_ERROR);
       expect(response.body.error.message).toContain('Invalid Host header');
@@ -188,9 +188,9 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: LATEST_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
 
       // SDK may accept */* (200) or require explicit types (406)
@@ -211,11 +211,11 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: LATEST_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
-        
+
       // SDK may return 400 or 406 for missing/invalid Accept
       expect([400, 406]).toContain(response.status);
     });
@@ -233,11 +233,11 @@ describe('MCP Transport Layer Compliance', () => {
           params: {
             protocolVersion: LATEST_PROTOCOL_VERSION,
             capabilities: {},
-            clientInfo: { name: 'test', version: '1.0' }
+            clientInfo: { name: 'test', version: '1.0' },
           },
-          id: 1
+          id: 1,
         });
-          
+
       expect(response.status).toBe(400);
       expect(response.body.error.message).toContain('Accept header must include');
     });
@@ -257,7 +257,7 @@ describe('MCP Transport Layer Compliance', () => {
 
     it('should return Mcp-Session-Id header on successful initialization', async () => {
       const { sessionId: newSessionId, response } = await initializeAndParse(app);
-      
+
       expect(response.status).toBe(200);
       expect(newSessionId).toBeDefined();
       expect(typeof newSessionId).toBe('string');
@@ -266,7 +266,7 @@ describe('MCP Transport Layer Compliance', () => {
 
     it('should return SSE content type for initialize response', async () => {
       const response = await createInitializeRequest(app);
-      
+
       expect(response.status).toBe(200);
       expect(response.headers['content-type']).toContain('text/event-stream');
     });
@@ -336,13 +336,13 @@ describe('MCP Transport Layer Compliance', () => {
     it('should handle internal transport errors gracefully', async () => {
       // Create a mock session with a failing transport
       const errorSessionId = 'error-session-' + Date.now();
-      
+
       const mockErrorTransport = {
         sessionId: errorSessionId,
         handleRequest: vi.fn().mockRejectedValue(new Error('Transport failed')),
-        close: vi.fn().mockResolvedValue(undefined)
+        close: vi.fn().mockResolvedValue(undefined),
       };
-      
+
       sessionManager.add(errorSessionId, mockErrorTransport as any);
 
       const response = await request(app)
@@ -392,12 +392,8 @@ describe('MCP Transport Layer Compliance', () => {
 
     it('should accept notifications with 202 status', async () => {
       const sessionId = await initializeSession(app);
-      
-      const response = await createPostRequest(
-        app,
-        sessionId,
-        { jsonrpc: '2.0', method: 'notifications/initialized' }
-      );
+
+      const response = await createPostRequest(app, sessionId, { jsonrpc: '2.0', method: 'notifications/initialized' });
 
       expect(response.status).toBe(202);
     });
@@ -413,23 +409,22 @@ describe('MCP Transport Layer Compliance', () => {
         .set('Host', 'localhost:3000')
         .set('MCP-Protocol-Version', LATEST_PROTOCOL_VERSION)
         .set('Accept', 'application/json, text/event-stream');
-        
+
       expect(response.status).toBe(405);
     });
 
     it('should support DELETE for session termination', async () => {
       const sessionId = await initializeSession(app);
-      
+
       const response = await request(app)
         .delete('/mcp')
         .set('Host', 'localhost:3000')
         .set('Mcp-Session-Id', sessionId)
         .set('MCP-Protocol-Version', LATEST_PROTOCOL_VERSION);
-        
-      // DELETE should either succeed (204/200), be handled (202), 
+
+      // DELETE should either succeed (204/200), be handled (202),
       // be rejected as not allowed (405), or require Accept header (400)
       expect([200, 202, 204, 400, 405]).toContain(response.status);
     });
   });
 });
-

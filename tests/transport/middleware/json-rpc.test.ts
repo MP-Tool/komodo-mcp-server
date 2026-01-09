@@ -11,11 +11,11 @@ describe('JSON-RPC Middleware', () => {
   beforeEach(() => {
     req = {
       method: 'POST',
-      body: {}
+      body: {},
     };
     res = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      json: vi.fn(),
     };
     next = vi.fn();
   });
@@ -30,27 +30,33 @@ describe('JSON-RPC Middleware', () => {
     req.body = null;
     validateJsonRpc(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSON })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSON }),
+      }),
+    );
   });
 
   it('should reject empty batch', () => {
     req.body = [];
     validateJsonRpc(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSONRPC_BATCH })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: TransportErrorMessage.INVALID_JSONRPC_BATCH }),
+      }),
+    );
   });
 
   it('should reject invalid JSON-RPC version in batch', () => {
     req.body = [{ jsonrpc: '1.0', method: 'test' }];
     validateJsonRpc(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Invalid JSON-RPC version') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Invalid JSON-RPC version') }),
+      }),
+    );
   });
 
   it('should allow valid batch', () => {

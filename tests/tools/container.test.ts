@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { listContainersTool } from '../../src/tools/container/list.js';
-import { 
-  startContainerTool, 
-  stopContainerTool, 
-  restartContainerTool, 
-  pauseContainerTool, 
-  unpauseContainerTool 
+import {
+  startContainerTool,
+  stopContainerTool,
+  restartContainerTool,
+  pauseContainerTool,
+  unpauseContainerTool,
 } from '../../src/tools/container/manage.js';
 import { KomodoClient } from '../../src/api/index.js';
 
@@ -17,13 +17,13 @@ const mockClient = {
     stop: vi.fn(),
     restart: vi.fn(),
     pause: vi.fn(),
-    unpause: vi.fn()
-  }
+    unpause: vi.fn(),
+  },
 } as unknown as KomodoClient;
 
 const mockContext = {
   client: mockClient,
-  setClient: vi.fn()
+  setClient: vi.fn(),
 };
 
 describe('Container Tools', () => {
@@ -35,7 +35,7 @@ describe('Container Tools', () => {
     it('should list containers correctly', async () => {
       const mockContainers = [
         { name: 'container1', state: 'running', image: 'nginx:latest' },
-        { name: 'container2', state: 'exited', image: 'redis:alpine' }
+        { name: 'container2', state: 'exited', image: 'redis:alpine' },
       ];
       (mockClient.containers.list as any).mockResolvedValue(mockContainers);
 
@@ -55,8 +55,9 @@ describe('Container Tools', () => {
     });
 
     it('should throw if client is missing', async () => {
-      await expect(listContainersTool.handler({ server: 'server1' }, { client: null, setClient: vi.fn() }))
-        .rejects.toThrow('Komodo client not initialized');
+      await expect(
+        listContainersTool.handler({ server: 'server1' }, { client: null, setClient: vi.fn() }),
+      ).rejects.toThrow('Komodo client not initialized');
     });
   });
 

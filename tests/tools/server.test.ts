@@ -7,13 +7,13 @@ import { KomodoClient } from '../../src/api/index.js';
 const mockClient = {
   servers: {
     list: vi.fn(),
-    getState: vi.fn()
-  }
+    getState: vi.fn(),
+  },
 } as unknown as KomodoClient;
 
 const mockContext = {
   client: mockClient,
-  setClient: vi.fn()
+  setClient: vi.fn(),
 };
 
 describe('Server Tools', () => {
@@ -24,16 +24,16 @@ describe('Server Tools', () => {
   describe('listServersTool', () => {
     it('should list servers correctly', async () => {
       const mockServers = [
-        { 
-          id: 'server1', 
-          name: 'Main Server', 
-          info: { state: 'Ok', version: '1.0.0', region: 'us-east' } 
+        {
+          id: 'server1',
+          name: 'Main Server',
+          info: { state: 'Ok', version: '1.0.0', region: 'us-east' },
         },
-        { 
-          id: 'server2', 
-          name: 'Backup Server', 
-          info: { state: 'NotOk', version: 'unknown' } 
-        }
+        {
+          id: 'server2',
+          name: 'Backup Server',
+          info: { state: 'NotOk', version: 'unknown' },
+        },
       ];
       (mockClient.servers.list as any).mockResolvedValue(mockServers);
 
@@ -53,8 +53,9 @@ describe('Server Tools', () => {
     });
 
     it('should throw if client is missing', async () => {
-      await expect(listServersTool.handler({}, { client: null, setClient: vi.fn() }))
-        .rejects.toThrow('Komodo client not initialized');
+      await expect(listServersTool.handler({}, { client: null, setClient: vi.fn() })).rejects.toThrow(
+        'Komodo client not initialized',
+      );
     });
   });
 
@@ -70,8 +71,9 @@ describe('Server Tools', () => {
     });
 
     it('should throw if client is missing', async () => {
-      await expect(getServerStatsTool.handler({ server: 'server1' }, { client: null, setClient: vi.fn() }))
-        .rejects.toThrow('Komodo client not initialized');
+      await expect(
+        getServerStatsTool.handler({ server: 'server1' }, { client: null, setClient: vi.fn() }),
+      ).rejects.toThrow('Komodo client not initialized');
     });
   });
 });

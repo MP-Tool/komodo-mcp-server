@@ -49,7 +49,8 @@ export const PACKAGE_VERSION = packageJson.version;
 export const PROTOCOL_VERSION_2025_11_25 = '2025-11-25';
 export const PROTOCOL_VERSION_2025_06_18 = '2025-06-18';
 export const LEGACY_PROTOCOL_VERSION = '2024-11-05';
-/** Alias for the newest protocol version */
+
+/** Alias for the newest protocol version - use in tests for readability */
 export const LATEST_PROTOCOL_VERSION = PROTOCOL_VERSION_2025_11_25;
 
 /**

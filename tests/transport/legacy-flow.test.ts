@@ -35,7 +35,7 @@ describe('Modern Streamable HTTP Transport (2025-03-26)', () => {
       // 1. The SSE stream stays open indefinitely
       // 2. supertest waits for the response to complete
       // 3. We cannot easily abort the request in a cross-platform way
-      // 
+      //
       // This functionality is tested via integration tests with actual EventSource clients.
       // The /mcp endpoint for legacy SSE is verified to work via Docker container testing.
     });
@@ -83,7 +83,6 @@ describe('Modern Streamable HTTP Transport (2025-03-26)', () => {
   });
 
   describe('POST /mcp with Mcp-Session-Id header → reuse session', () => {
-
     it('should prioritize Mcp-Session-Id header over ?sessionId query parameter', async () => {
       // Create session
       const initializeRequest = {
@@ -100,7 +99,11 @@ describe('Modern Streamable HTTP Transport (2025-03-26)', () => {
         },
       };
 
-      const initResponse = await request(app).post('/mcp').set('Accept', 'application/json, text/event-stream').send(initializeRequest).expect(200);
+      const initResponse = await request(app)
+        .post('/mcp')
+        .set('Accept', 'application/json, text/event-stream')
+        .send(initializeRequest)
+        .expect(200);
 
       const sessionId = initResponse.headers['mcp-session-id'];
 

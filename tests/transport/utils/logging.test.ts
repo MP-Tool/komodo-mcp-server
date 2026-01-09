@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { 
-  sanitizeForLog, 
-  logSessionInitialized, 
-  logSessionClosed, 
-  logSecurityEvent 
+import {
+  sanitizeForLog,
+  logSessionInitialized,
+  logSessionClosed,
+  logSecurityEvent,
 } from '../../../src/transport/utils/logging.js';
 
 describe('Logging Utils', () => {
@@ -35,24 +35,32 @@ describe('Logging Utils', () => {
   describe('logSessionEvents', () => {
     it('should log session initialization with shortened ID', () => {
       logSessionInitialized('12345678-abcd-efgh-ijkl-mnopqrstuvwx');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session [12345678] initialized'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('[INFO ] [transport] Session [12345678] initialized'),
+      );
     });
 
     it('should log session closure with shortened ID', () => {
       logSessionClosed('12345678-abcd-efgh-ijkl-mnopqrstuvwx');
-      expect(console.log).toHaveBeenCalledWith(expect.stringContaining('[INFO ] [transport] Session [12345678] closed'));
+      expect(console.log).toHaveBeenCalledWith(
+        expect.stringContaining('[INFO ] [transport] Session [12345678] closed'),
+      );
     });
   });
 
   describe('logSecurityEvent', () => {
     it('should log security event without details', () => {
       logSecurityEvent('Attack detected');
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [transport] Security: Attack detected'));
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[WARN ] [transport] Security: Attack detected'),
+      );
     });
 
     it('should log security event with details', () => {
       logSecurityEvent('Attack detected', { ip: '1.2.3.4' });
-      expect(console.error).toHaveBeenCalledWith(expect.stringContaining('[WARN ] [transport] Security: Attack detected {"ip":"1.2.3.4"}'));
+      expect(console.error).toHaveBeenCalledWith(
+        expect.stringContaining('[WARN ] [transport] Security: Attack detected {"ip":"1.2.3.4"}'),
+      );
     });
   });
 });

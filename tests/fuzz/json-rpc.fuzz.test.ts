@@ -1,6 +1,6 @@
 /**
  * JSON-RPC Middleware Fuzzing Tests
- * 
+ *
  * This test suite uses property-based testing (fuzzing) to verify the robustness
  * of the JSON-RPC middleware. It generates arbitrary JSON inputs to ensure
  * the middleware handles malformed or unexpected data without crashing the server.
@@ -39,7 +39,7 @@ describe('JSON-RPC Middleware Fuzzing', () => {
         }
 
         // Verification:
-        // The middleware must either call next() (valid request) 
+        // The middleware must either call next() (valid request)
         // or send a response (invalid request).
         // It should not do nothing.
         return true;
@@ -47,32 +47,32 @@ describe('JSON-RPC Middleware Fuzzing', () => {
       {
         verbose: true,
         numRuns: 1000, // Extensive testing
-      }
+      },
     );
   });
 
   it('should handle arbitrary non-POST methods', () => {
     fc.assert(
-        fc.property(fc.string(), (method) => {
-            if (method === 'POST') return true; // Skip POST as it's handled above
+      fc.property(fc.string(), (method) => {
+        if (method === 'POST') return true; // Skip POST as it's handled above
 
-            const req = {
-                method: method,
-                body: {}
-            } as unknown as Request;
+        const req = {
+          method: method,
+          body: {},
+        } as unknown as Request;
 
-            const res = {
-                status: vi.fn().mockReturnThis(),
-                json: vi.fn().mockReturnThis(),
-            } as unknown as Response;
+        const res = {
+          status: vi.fn().mockReturnThis(),
+          json: vi.fn().mockReturnThis(),
+        } as unknown as Response;
 
-            const next = vi.fn();
+        const next = vi.fn();
 
-            validateJsonRpc(req, res, next);
+        validateJsonRpc(req, res, next);
 
-            // Should always call next() for non-POST
-            return next.mock.calls.length === 1;
-        })
+        // Should always call next() for non-POST
+        return next.mock.calls.length === 1;
+      }),
     );
   });
 });

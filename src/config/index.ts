@@ -29,8 +29,7 @@
  */
 
 // Environment configuration (validated env vars)
-export { config, getEnv, getKomodoCredentials, parseEnv } from './env.js';
-export type { Config } from './env.js';
+export { config, getKomodoCredentials } from './env.js';
 
 // Server configuration (identity, capabilities)
 export { SERVER_NAME, SERVER_VERSION } from './server.config.js';

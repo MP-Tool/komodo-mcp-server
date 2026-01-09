@@ -107,7 +107,7 @@ export const config = envSchema.parse(process.env);
  * }
  * ```
  */
-export function getEnv(key: string): string | undefined {
+function getEnv(key: string): string | undefined {
   const value = process.env[key];
   // Treat empty strings as undefined (common Docker/shell behavior)
   return value && value.trim().length > 0 ? value.trim() : undefined;
@@ -163,6 +163,6 @@ export function getKomodoCredentials(): KomodoCredentials {
  * @returns Validated configuration object
  * @throws ZodError if validation fails
  */
-export function parseEnv(): Config {
+function parseEnv(): Config {
   return envSchema.parse(process.env);
 }

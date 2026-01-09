@@ -67,8 +67,9 @@ export interface Tool<T = any> {
 
 /**
  * Callback type for tool availability changes.
+ * @internal Used by ToolRegistry for notifications
  */
-export type ToolAvailabilityListener = (availableTools: Tool[]) => void;
+type ToolAvailabilityListener = (availableTools: Tool[]) => void;
 
 /**
  * Registry for managing available tools.

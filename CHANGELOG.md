@@ -10,6 +10,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **Resource Templates (RFC 6570)**: Full support for dynamic resource URIs with variable placeholders
+  - Uses SDK's `ResourceTemplate` class for proper URI template matching
+  - Supports RFC 6570 URI Template syntax (e.g., `komodo://server/{serverId}/logs`)
+  - Argument validation with Zod schemas for type-safe template parameters
+  - Example template: `example-server-logs.ts` demonstrating the pattern
 - **MCP Notification Logger** (`mcpLogger`): Reusable logging module for sending log messages to MCP clients
   - Follows RFC 5424 syslog levels (debug, info, notice, warning, error, critical, alert, emergency)
   - Multi-server support for concurrent sessions

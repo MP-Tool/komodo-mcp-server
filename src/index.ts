@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
+import { McpServer, ResourceTemplate as SdkResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import {
   ErrorCode,
@@ -290,10 +290,56 @@ class KomodoMCPServer {
       logger.debug('Registered resource: %s (%s)', resource.name, resource.uri);
     }
 
-    // Register resource templates - skipping for now as they need special handling
-    // TODO: Implement ResourceTemplate registration with proper UriTemplate class
-    if (templates.length > 0) {
-      logger.warn('Resource templates not yet supported, skipping %d templates', templates.length);
+    // Register resource templates (RFC 6570 URI Templates)
+    // The SDK's ResourceTemplate class wraps UriTemplate and handles variable extraction
+    for (const template of templates) {
+      // Create SDK ResourceTemplate instance
+      // The list callback returns available resources matching this template
+      // We set it to undefined since dynamic discovery requires Komodo connection
+      const sdkTemplate = new SdkResourceTemplate(template.uriTemplate, {
+        list: undefined, // TODO: Implement list callback for resource discovery
+        // complete: {} // Optional: Add completion callbacks for variables
+      });
+
+      server.registerResource(
+        template.name,
+        sdkTemplate,
+        {
+          description: template.description,
+          mimeType: template.mimeType,
+        },
+        async (uri: URL, variables: Record<string, string | string[]>) => {
+          logger.debug('Reading resource template: %s with variables %j', template.uriTemplate, variables);
+
+          // Validate arguments if schema is provided
+          if (template.argumentsSchema) {
+            try {
+              template.argumentsSchema.parse(variables);
+            } catch (error) {
+              logger.error('Resource template argument validation failed: %s', error);
+              throw new McpError(
+                ErrorCode.InvalidParams,
+                `Invalid arguments for resource template: ${error instanceof Error ? error.message : String(error)}`,
+              );
+            }
+          }
+
+          const contents = await template.handler(variables);
+          // McpServer expects { contents: [...] } with either text OR blob
+          return {
+            contents: contents.map((c) => {
+              if ('text' in c && c.text !== undefined) {
+                return { uri: c.uri, mimeType: c.mimeType, text: c.text };
+              } else if ('blob' in c && c.blob !== undefined) {
+                return { uri: c.uri, mimeType: c.mimeType, blob: c.blob };
+              }
+              // Default to empty text if neither is provided
+              return { uri: c.uri, mimeType: c.mimeType, text: '' };
+            }),
+          };
+        },
+      );
+      logger.debug('Registered resource template: %s (%s)', template.name, template.uriTemplate);
     }
   }
 

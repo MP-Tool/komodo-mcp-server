@@ -15,18 +15,21 @@ const logger = baseLogger.child({ component: 'connection' });
 
 /**
  * Possible connection states for the Komodo client.
+ * @internal
  */
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
 
 /**
  * Listener function type for connection state changes.
+ * @internal
  */
-export type ConnectionStateListener = (state: ConnectionState, client: KomodoClient | null, error?: Error) => void;
+type ConnectionStateListener = (state: ConnectionState, client: KomodoClient | null, error?: Error) => void;
 
 /**
  * Connection state change event data.
+ * @internal
  */
-export interface ConnectionStateEvent {
+interface ConnectionStateEvent {
   /** Previous connection state */
   previousState: ConnectionState;
   /** Current connection state */

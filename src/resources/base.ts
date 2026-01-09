@@ -4,9 +4,10 @@
  * Provides infrastructure for MCP Resources.
  * Resources expose data and content from the server to clients.
  *
- * Per MCP Spec 2025-11-25:
+ * Per MCP Spec 2025-03-26 / 2025-11-25:
  * - Resources are identified by URIs
  * - Resources can be static or dynamic (templates)
+ * - Resource Templates use RFC 6570 URI Template syntax
  * - Server can notify clients of resource list changes
  *
  * Future use cases:
@@ -14,7 +15,7 @@
  * - Server/deployment status pages
  * - Log file access
  *
- * @see https://modelcontextprotocol.io/specification/2025-11-25/server/resources
+ * @see https://modelcontextprotocol.io/specification/2025-03-26/server/resources
  */
 
 import { z } from 'zod';
@@ -22,24 +23,24 @@ import { z } from 'zod';
 /**
  * Resource content types
  */
-interface TextResourceContent {
+export interface TextResourceContent {
   uri: string;
   mimeType?: string;
   text: string;
 }
 
-interface BlobResourceContent {
+export interface BlobResourceContent {
   uri: string;
   mimeType?: string;
   blob: string; // Base64 encoded
 }
 
-type ResourceContent = TextResourceContent | BlobResourceContent;
+export type ResourceContent = TextResourceContent | BlobResourceContent;
 
 /**
  * Definition of an MCP Resource
  */
-interface Resource {
+export interface Resource {
   /** Unique URI identifying this resource */
   uri: string;
   /** Human-readable name */
@@ -54,9 +55,26 @@ interface Resource {
 
 /**
  * Definition of an MCP Resource Template (dynamic resources)
+ *
+ * Resource templates allow clients to request resources with variable URIs.
+ * The uriTemplate field uses RFC 6570 URI Template syntax.
+ *
+ * @example
+ * ```typescript
+ * resourceRegistry.registerTemplate({
+ *   uriTemplate: 'komodo://server/{serverId}/logs',
+ *   name: 'Server Logs',
+ *   description: 'Get logs for a specific server',
+ *   mimeType: 'text/plain',
+ *   handler: async (args) => {
+ *     const logs = await fetchServerLogs(args.serverId);
+ *     return [{ uri: `komodo://server/${args.serverId}/logs`, text: logs }];
+ *   },
+ * });
+ * ```
  */
-interface ResourceTemplate {
-  /** URI template with placeholders (e.g., "komodo://server/{serverId}/logs") */
+export interface ResourceTemplate {
+  /** URI template with placeholders using RFC 6570 syntax (e.g., "komodo://server/{serverId}/logs") */
   uriTemplate: string;
   /** Human-readable name */
   name: string;
@@ -67,9 +85,9 @@ interface ResourceTemplate {
   /** Zod schema for validating template arguments */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   argumentsSchema?: z.ZodSchema<any>;
-  /** Handler to read the resource content */
+  /** Handler to read the resource content. Args are extracted from the URI using the template. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  handler: (args: any) => Promise<ResourceContent[]>;
+  handler: (args: Record<string, string | string[]>) => Promise<ResourceContent[]>;
 }
 
 /**

@@ -40,6 +40,7 @@ describe('Resource Registry', () => {
       | {
           uriTemplate: string;
           name: string;
+          argumentsSchema?: z.ZodSchema<unknown>;
           handler: (
             args: Record<string, string | string[]>,
           ) => Promise<{ uri: string; text?: string; blob?: string; mimeType?: string }[]>;

@@ -1,6 +1,16 @@
 import { z } from 'zod';
 
 /**
+ * Environment Configuration Module
+ *
+ * Provides validated environment variable access with Zod schemas.
+ * Supports both static (build-time) and runtime environment reading,
+ * which is essential for Docker containers using env_file.
+ *
+ * @module config/env
+ */
+
+/**
  * Zod schema for environment variable validation.
  * Ensures that the application starts with a valid configuration.
  */
@@ -44,13 +54,13 @@ export const envSchema = z.object({
   /** Komodo Server URL (optional, for auto-config) */
   KOMODO_URL: z.string().url().optional(),
   /** Komodo Username (optional, for auto-config) */
-  KOMODO_USERNAME: z.string().optional(),
+  KOMODO_USERNAME: z.string().min(1).optional(),
   /** Komodo Password (optional, for auto-config) */
-  KOMODO_PASSWORD: z.string().optional(),
+  KOMODO_PASSWORD: z.string().min(1).optional(),
   /** Komodo API Key (optional, for auto-config) */
-  KOMODO_API_KEY: z.string().optional(),
+  KOMODO_API_KEY: z.string().min(1).optional(),
   /** Komodo API Secret (optional, for auto-config) */
-  KOMODO_API_SECRET: z.string().optional(),
+  KOMODO_API_SECRET: z.string().min(1).optional(),
   /** Log level (trace, debug, info, warn, error) */
   LOG_LEVEL: z.enum(['trace', 'debug', 'info', 'warn', 'error']).default('info'),
   /** Log format (text, json) */
@@ -68,8 +78,91 @@ export const envSchema = z.object({
     .default(false),
 });
 
+/** Type for the validated configuration */
+export type Config = z.infer<typeof envSchema>;
+
 /**
  * Global configuration object parsed from environment variables.
- * Throws an error if validation fails.
+ * Note: For Docker containers, use getKomodoCredentials() to read
+ * credentials at runtime when env_file is used.
  */
 export const config = envSchema.parse(process.env);
+
+// ============================================================================
+// Runtime Environment Access
+// ============================================================================
+
+/**
+ * Safely reads a runtime environment variable.
+ * Use this for values that may be set via Docker env_file at container start.
+ *
+ * @param key - The environment variable name
+ * @returns The trimmed value or undefined if empty/not set
+ *
+ * @example
+ * ```typescript
+ * const apiKey = getEnv('KOMODO_API_KEY');
+ * if (apiKey) {
+ *   // Use the API key
+ * }
+ * ```
+ */
+export function getEnv(key: string): string | undefined {
+  const value = process.env[key];
+  // Treat empty strings as undefined (common Docker/shell behavior)
+  return value && value.trim().length > 0 ? value.trim() : undefined;
+}
+
+/**
+ * Komodo credentials structure for runtime access.
+ */
+export interface KomodoCredentials {
+  /** Komodo server URL */
+  url?: string;
+  /** Username for password authentication */
+  username?: string;
+  /** Password for password authentication */
+  password?: string;
+  /** API key for key-based authentication */
+  apiKey?: string;
+  /** API secret for key-based authentication */
+  apiSecret?: string;
+}
+
+/**
+ * Gets Komodo credentials from runtime environment.
+ *
+ * Reads directly from process.env to get values set by Docker at container start.
+ * This is essential when using Docker Compose with env_file, as those variables
+ * are only available at runtime, not when the module is first loaded.
+ *
+ * @returns Object with URL and credentials (if available)
+ *
+ * @example
+ * ```typescript
+ * const creds = getKomodoCredentials();
+ * if (creds.url && creds.username && creds.password) {
+ *   const client = await KomodoClient.login(creds.url, creds.username, creds.password);
+ * }
+ * ```
+ */
+export function getKomodoCredentials(): KomodoCredentials {
+  return {
+    url: getEnv('KOMODO_URL'),
+    username: getEnv('KOMODO_USERNAME'),
+    password: getEnv('KOMODO_PASSWORD'),
+    apiKey: getEnv('KOMODO_API_KEY'),
+    apiSecret: getEnv('KOMODO_API_SECRET'),
+  };
+}
+
+/**
+ * Parses environment variables at runtime.
+ * Useful for re-validating configuration after environment changes.
+ *
+ * @returns Validated configuration object
+ * @throws ZodError if validation fails
+ */
+export function parseEnv(): Config {
+  return envSchema.parse(process.env);
+}

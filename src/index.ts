@@ -2,15 +2,22 @@
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ErrorCode, McpError, CancelledNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
+import {
+  ErrorCode,
+  McpError,
+  CancelledNotificationSchema,
+  PingRequestSchema,
+} from '@modelcontextprotocol/sdk/types.js';
 import { KomodoClient } from './api/index.js';
 import { registerTools, toolRegistry } from './tools/index.js';
 import { registerResources, resourceRegistry } from './resources/index.js';
 import { registerPrompts, promptRegistry } from './prompts/index.js';
-import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode } from './config/index.js';
+import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode, getKomodoCredentials } from './config/index.js';
 import { startHttpServer } from './transport/index.js';
-import { logger, LogLevel } from './utils/logger.js';
+import { logger } from './utils/logger.js';
 import { requestManager } from './utils/request-manager.js';
+import { connectionManager } from './utils/connection-state.js';
+import { mcpLogger } from './utils/mcp-logger.js';
 
 // Komodo MCP server - Container Management Server
 /**
@@ -18,40 +25,44 @@ import { requestManager } from './utils/request-manager.js';
  * Manages the MCP server instance, tool registration, and Komodo client state.
  */
 class KomodoMCPServer {
-  private komodoClient: KomodoClient | null = null;
   private shutdownInProgress = false;
+  /** Active MCP server instances for sending notifications */
+  private mcpServers: Set<McpServer> = new Set();
 
   constructor() {
     // Register all tools, resources, and prompts
     registerTools();
     registerResources();
     registerPrompts();
-    // Note: Signal handlers are registered in run() based on transport mode
-  }
 
-  /**
-   * Maps internal log levels to MCP logging levels.
-   *
-   * @param level - The internal log level
-   * @returns The corresponding MCP log level
-   */
-  private mapLogLevel(
-    level: LogLevel,
-  ): 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency' {
-    switch (level) {
-      case 'trace':
-        return 'debug';
-      case 'debug':
-        return 'debug';
-      case 'info':
-        return 'info';
-      case 'warn':
-        return 'warning';
-      case 'error':
-        return 'error';
-      default:
-        return 'info';
-    }
+    // Set up connection state listener to update tool availability
+    connectionManager.onStateChange((state, client) => {
+      const wasConnected = toolRegistry.getConnectionState();
+      const isConnected = state === 'connected' && client !== null;
+
+      if (toolRegistry.setConnectionState(isConnected)) {
+        // State changed - notify all active MCP servers
+        logger.info('Tool availability changed: %s tools now available', toolRegistry.getAvailableTools().length);
+
+        for (const server of this.mcpServers) {
+          try {
+            server.sendToolListChanged();
+            logger.debug('Sent tools/list_changed notification');
+          } catch (error) {
+            logger.error('Failed to send tool list changed notification:', error);
+          }
+        }
+      }
+
+      // Log connection state changes
+      if (!wasConnected && isConnected) {
+        logger.info('Komodo connected - %d tools now available', toolRegistry.getAvailableTools().length);
+      } else if (wasConnected && !isConnected) {
+        logger.info('Komodo disconnected - %d tools now available', toolRegistry.getAvailableTools().length);
+      }
+    });
+
+    // Note: Signal handlers are registered in run() based on transport mode
   }
 
   /**
@@ -71,6 +82,8 @@ class KomodoMCPServer {
     const capabilities: Record<string, object> = {
       // Logging is always available
       logging: {},
+      // Tools with dynamic availability (listChanged support)
+      tools: { listChanged: true },
     };
 
     // Only advertise resources capability if we have resources registered
@@ -97,6 +110,19 @@ class KomodoMCPServer {
       { capabilities },
     );
 
+    // Track this server for tool list change notifications
+    this.mcpServers.add(server);
+
+    // Register server with MCP logger for client notifications
+    mcpLogger.addServer(server);
+
+    // Clean up when server closes
+    server.server.onclose = () => {
+      this.mcpServers.delete(server);
+      mcpLogger.removeServer(server);
+      logger.debug('MCP server closed, %d active servers remaining', this.mcpServers.size);
+    };
+
     server.server.onerror = (error) => {
       logger.error('MCP Error:', error);
     };
@@ -105,11 +131,18 @@ class KomodoMCPServer {
     // Per MCP Spec: Handle notifications/cancelled to stop in-flight requests
     this.setupCancellationHandler(server);
 
+    // Set up ping handler for liveness checks
+    this.setupPingHandler(server);
+
     // Initialize request manager with McpServer instance for progress notifications
     requestManager.setServer(server);
 
     const tools = toolRegistry.getTools();
-    logger.info('Registering %d tools with MCP server', tools.length);
+    logger.info(
+      'Registering %d tools with MCP server (%d available)',
+      tools.length,
+      toolRegistry.getAvailableTools().length,
+    );
 
     for (const tool of tools) {
       server.registerTool(
@@ -119,6 +152,14 @@ class KomodoMCPServer {
           inputSchema: tool.schema,
         },
         async (args, _extra) => {
+          // Check if tool is currently available (connection-dependent tools require connection)
+          if (!toolRegistry.getTool(tool.name)) {
+            throw new McpError(
+              ErrorCode.InvalidRequest,
+              `Tool '${tool.name}' requires a Komodo connection. Use 'komodo_configure' to connect first.`,
+            );
+          }
+
           // Get existing context (to preserve sessionId)
           const existingContext = logger.getContext();
 
@@ -143,16 +184,7 @@ class KomodoMCPServer {
           const context = {
             sessionId: existingContext?.sessionId,
             requestId: internalRequestId,
-            sendMcpLog: (level: LogLevel, message: string) => {
-              server.server
-                .sendLoggingMessage({
-                  level: this.mapLogLevel(level),
-                  data: message,
-                })
-                .catch(() => {
-                  // Ignore errors sending logs to client (e.g. if disconnected)
-                });
-            },
+            sendMcpLog: mcpLogger.createContextLogger(server),
           };
 
           return logger.runWithContext(context, async () => {
@@ -165,9 +197,10 @@ class KomodoMCPServer {
               logger.info('Tool [%s] executing', tool.name);
 
               const result = await tool.handler(args, {
-                client: this.komodoClient,
-                setClient: (client: KomodoClient) => {
-                  this.komodoClient = client;
+                client: connectionManager.getClient(),
+                setClient: async (client: KomodoClient) => {
+                  // Use connectionManager to set client and update tool availability
+                  await connectionManager.connect(client);
                 },
                 reportProgress,
                 abortSignal,
@@ -337,6 +370,30 @@ class KomodoMCPServer {
   }
 
   /**
+   * Sets up a ping request handler that responds with pong and logs via MCP notification.
+   *
+   * Per MCP Spec: ping is a standard request that servers should respond to.
+   * We extend this by logging a "pong" notification to demonstrate bidirectional communication.
+   *
+   * @param server - The McpServer instance
+   */
+  private setupPingHandler(server: McpServer): void {
+    server.server.setRequestHandler(PingRequestSchema, async () => {
+      // Log pong via MCP notification (info level)
+      mcpLogger.info('🏓 pong').catch(() => {
+        // Ignore errors if client disconnected
+      });
+
+      logger.debug('Received ping, sent pong');
+
+      // Return empty object as per MCP spec
+      return {};
+    });
+
+    logger.debug('Ping handler registered');
+  }
+
+  /**
    * Starts the server using the configured transport (Stdio or HTTP/SSE).
    */
   async run(): Promise<void> {
@@ -393,35 +450,59 @@ class KomodoMCPServer {
     }
 
     // Try to initialize client from environment variables
-    if (config.KOMODO_URL) {
-      try {
-        if (config.KOMODO_API_KEY && config.KOMODO_API_SECRET) {
-          logger.info(`Attempting API Key configuration for ${config.KOMODO_URL}...`);
-          this.komodoClient = KomodoClient.connectWithApiKey(
-            config.KOMODO_URL,
-            config.KOMODO_API_KEY,
-            config.KOMODO_API_SECRET,
-          );
+    await this.initializeClientFromEnv();
+  }
 
-          // Verify connection
-          const health = await this.komodoClient.healthCheck();
-          if (health.status !== 'healthy') {
-            throw new Error(`Health check failed: ${health.message}`);
-          }
-          logger.info('✅ API Key configuration successful');
-        } else if (config.KOMODO_USERNAME && config.KOMODO_PASSWORD) {
-          logger.info(`Attempting auto-configuration for ${config.KOMODO_URL}...`);
-          this.komodoClient = await KomodoClient.login(
-            config.KOMODO_URL,
-            config.KOMODO_USERNAME,
-            config.KOMODO_PASSWORD,
-          );
-          logger.info('✅ Auto-configuration successful');
-        }
-      } catch (error) {
-        logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
-        this.komodoClient = null;
+  /**
+   * Attempts to initialize the Komodo client from environment variables.
+   * Reads credentials at runtime to support Docker env_file loading.
+   * Supports both API Key and Username/Password authentication.
+   */
+  private async initializeClientFromEnv(): Promise<void> {
+    // Read credentials at runtime (important for Docker containers where
+    // env_file variables are only available after container start)
+    const creds = getKomodoCredentials();
+
+    if (!creds.url) {
+      logger.info('No KOMODO_URL configured - use komodo_configure tool to connect');
+      return;
+    }
+
+    // Log available credentials (without sensitive values)
+    logger.debug(
+      'Runtime credentials check: url=%s, username=%s, apiKey=%s',
+      creds.url,
+      !!creds.username,
+      !!creds.apiKey,
+    );
+
+    try {
+      let client: KomodoClient;
+
+      if (creds.apiKey && creds.apiSecret) {
+        logger.info('Attempting API Key configuration for %s...', creds.url);
+        client = KomodoClient.connectWithApiKey(creds.url, creds.apiKey, creds.apiSecret);
+      } else if (creds.username && creds.password) {
+        logger.info('Attempting auto-configuration for %s...', creds.url);
+        client = await KomodoClient.login(creds.url, creds.username, creds.password);
+      } else {
+        logger.info('No Komodo credentials configured - use komodo_configure tool to connect');
+        return;
       }
+
+      // Connect via connectionManager (validates with health check)
+      const success = await connectionManager.connect(client);
+
+      if (success) {
+        logger.info(
+          '✅ Auto-configuration successful - %d tools now available',
+          toolRegistry.getAvailableTools().length,
+        );
+      } else {
+        logger.warn('⚠️ Auto-configuration failed: health check failed');
+      }
+    } catch (error) {
+      logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
     }
   }
 }

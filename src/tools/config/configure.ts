@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { KomodoClient } from '../../api/index.js';
+import { toolRegistry } from '../index.js';
 
 /**
  * Tool to configure the Komodo client connection.
@@ -23,11 +24,15 @@ export const configureTool: Tool = {
       // Login to get JWT-Token
       const client = await KomodoClient.login(args.url, args.username, args.password);
 
-      // Set the client in the context
-      context.setClient(client);
+      // Set the client in the context (this triggers connection state change)
+      await context.setClient(client);
 
       // Perform health check after configuration
       const health = await client.healthCheck();
+
+      // Get count of now available tools
+      const availableTools = toolRegistry.getAvailableTools().length;
+      const totalTools = toolRegistry.getTools().length;
 
       if (health.status === 'healthy') {
         return {
@@ -41,6 +46,7 @@ export const configureTool: Tool = {
                 `⚡ Response Time: ${health.details.responseTime}ms\n` +
                 `🔐 Authentication: OK\n` +
                 `${health.details.apiVersion ? `📦 API Version: ${health.details.apiVersion}\n` : ''}` +
+                `🔧 Tools Available: ${availableTools}/${totalTools}\n` +
                 `\nReady for container management! 🚀`,
             },
           ],

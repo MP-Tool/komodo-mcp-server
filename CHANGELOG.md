@@ -10,6 +10,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **MCP Notification Logger** (`mcpLogger`): Reusable logging module for sending log messages to MCP clients
+  - Follows RFC 5424 syslog levels (debug, info, notice, warning, error, critical, alert, emergency)
+  - Multi-server support for concurrent sessions
+  - Configurable minimum log level
+  - Convenience methods: `debug()`, `info()`, `warn()`, `error()`, etc.
+  - Context logger factory for tool handlers
+- **Connection State Manager** (`connectionManager`): Centralized Komodo connection state tracking
+  - State machine: `disconnected` → `connecting` → `connected` | `error`
+  - Listener notifications on state changes
+  - Health check validation during connect
+  - Connection history tracking (last 10 state changes)
+- **Dynamic Tool Availability (Tool Gating)**: Tools are now enabled/disabled based on Komodo connection
+  - `requiresClient` property on tool definitions (default: `true`)
+  - `komodo_configure` always available (doesn't require connection)
+  - `tools/list_changed` notification sent when availability changes
+  - MCP clients automatically receive updated tool list
+- **Ping/Pong Handler**: Server responds to MCP ping requests with pong notification
+  - Logs `🏓 pong` via MCP notification (info level)
+  - Useful for client liveness checks
+- **Runtime Environment Credentials**: Fixed Docker `env_file` support
+  - `getKomodoCredentials()` reads credentials at runtime (not module load time)
+  - `getEnv()` safely reads environment variables with empty string handling
+  - Ensures credentials from `env_file` are available after container start
 - **Legacy SSE Transport Support**: Added optional backwards compatibility for older MCP clients using the deprecated HTTP+SSE transport (protocol 2024-11-05).
   - Enable with `MCP_LEGACY_SSE_ENABLED=true` environment variable
   - Exposes endpoints: `GET /sse` (SSE stream) and `POST /sse/message` (JSON-RPC messages)
@@ -28,11 +51,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
 
 ### Changed
+- **Tool Context**: `setClient()` is now async and returns `Promise<void>`
+  - Triggers connection state change and tool availability update
+  - Validates connection with health check before completing
+- **Configure Tool**: Now shows available tool count after configuration
+  - Displays `🔧 Tools Available: X/Y` in success message
 - **Rate Limiting**: Increased rate limit from 100 to 1000 requests per 15-minute window for better development experience
 - **Session ID Handling**: Fixed SDK compatibility by injecting session IDs into `rawHeaders` for `@hono/node-server`
 - **DNS Rebinding Protection**: Updated middleware to allow localhost origins for development
 
 ### Fixed
+- **Docker env_file Credentials**: Environment variables from `env_file` are now correctly read at runtime
+  - Previously, credentials were read at module load time (before container fully started)
+  - `getKomodoCredentials()` ensures runtime access to Docker-injected environment variables
 - **Signal Handler**: Fixed duplicate SIGINT handlers causing unpredictable shutdown behavior
   - Consolidated shutdown logic with `shutdownInProgress` guard flag
   - Single handler for both SIGINT and SIGTERM signals

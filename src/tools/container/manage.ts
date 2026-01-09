@@ -11,9 +11,9 @@ export const startContainerTool: Tool = {
   description:
     'Start a stopped or paused container. The container must exist and be in a stopped or paused state. Returns an update ID to track the operation.',
   schema: containerActionSchema,
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.start(args.server, args.container);
+    const result = await client.containers.start(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {
@@ -33,9 +33,9 @@ export const stopContainerTool: Tool = {
   description:
     'Stop a running container gracefully. Sends SIGTERM first, then SIGKILL after timeout. Returns an update ID to track the operation.',
   schema: containerActionSchema,
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.stop(args.server, args.container);
+    const result = await client.containers.stop(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {
@@ -55,9 +55,9 @@ export const restartContainerTool: Tool = {
   description:
     'Restart a container. Stops the container if running, then starts it again. Useful for applying configuration changes.',
   schema: containerActionSchema,
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.restart(args.server, args.container);
+    const result = await client.containers.restart(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {
@@ -77,9 +77,9 @@ export const pauseContainerTool: Tool = {
   description:
     'Pause all processes in a running container using cgroups freezer. The container remains in memory but consumes no CPU cycles.',
   schema: containerActionSchema,
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.pause(args.server, args.container);
+    const result = await client.containers.pause(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {
@@ -101,9 +101,9 @@ export const unpauseContainerTool: Tool = {
   name: 'komodo_unpause_container',
   description: 'Resume a paused container. All processes that were frozen will continue execution.',
   schema: containerActionSchema,
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.unpause(args.server, args.container);
+    const result = await client.containers.unpause(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {

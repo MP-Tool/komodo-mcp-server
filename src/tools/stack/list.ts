@@ -11,9 +11,9 @@ export const listStacksTool: Tool = {
   description:
     'List all Komodo-managed Compose stacks. Stacks are multi-container applications defined by compose files. Shows stack name, ID, and current state.',
   schema: z.object({}),
-  handler: async (_args, { client }) => {
+  handler: async (_args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const stacks = await client.stacks.list();
+    const stacks = await client.stacks.list({ signal: abortSignal });
     return {
       content: [
         {

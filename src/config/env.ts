@@ -76,6 +76,21 @@ export const envSchema = z.object({
     .boolean()
     .or(z.string().transform((val) => val.toLowerCase() === 'true'))
     .default(false),
+  /**
+   * API request timeout in milliseconds
+   * Default: 30000 (30 seconds)
+   */
+  API_TIMEOUT_MS: z.coerce.number().min(1000).max(300000).default(30000),
+  /**
+   * Rate limit window in milliseconds
+   * Default: 900000 (15 minutes)
+   */
+  MCP_RATE_LIMIT_WINDOW_MS: z.coerce.number().min(1000).default(900000),
+  /**
+   * Maximum requests per rate limit window
+   * Default: 1000
+   */
+  MCP_RATE_LIMIT_MAX: z.coerce.number().min(100).default(1000),
 });
 
 /**

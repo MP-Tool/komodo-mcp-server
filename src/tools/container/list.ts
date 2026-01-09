@@ -13,9 +13,9 @@ export const listContainersTool: Tool = {
   schema: z.object({
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const containers = await client.containers.list(args.server);
+    const containers = await client.containers.list(args.server, { signal: abortSignal });
     return {
       content: [
         {

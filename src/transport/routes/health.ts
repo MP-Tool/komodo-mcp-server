@@ -18,7 +18,7 @@
  */
 
 import { Router } from 'express';
-import { config } from '../../config/index.js';
+import { config, getKomodoCredentials } from '../../config/index.js';
 import type { TransportSessionManager } from '../session-manager.js';
 import { getLegacySseSessionCount, isLegacySseEnabled } from './mcp.js';
 import { connectionManager } from '../../utils/index.js';
@@ -88,7 +88,8 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
     const sessionsAtLimit = httpSessionsAtLimit || sseSessionsAtLimit;
 
     // Determine readiness
-    const hasKomodoConfig = !!(config.KOMODO_URL || process.env.KOMODO_URL);
+    // Use getKomodoCredentials() for runtime env access (Docker env_file support)
+    const hasKomodoConfig = !!getKomodoCredentials().url;
     const komodoReady = !hasKomodoConfig || isKomodoConnected;
 
     // Determine status code

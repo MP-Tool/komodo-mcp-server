@@ -162,9 +162,26 @@ export class LegacySseTransport implements Transport {
     this._res.write(`event: ${event}\n`);
     this._res.write(`data: ${data}\n\n`);
 
-    // Flush to ensure immediate delivery
-    if (typeof (this._res as unknown as { flush?: () => void }).flush === 'function') {
-      (this._res as unknown as { flush: () => void }).flush();
+    // Flush to ensure immediate delivery (some Express middleware add flush)
+    this._flushResponse();
+  }
+
+  /**
+   * Flushes the response buffer if the response supports it.
+   * Some middleware (like compression) add a flush method to the response.
+   */
+  private _flushResponse(): void {
+    const res = this._res as FlushableResponse;
+    if (typeof res.flush === 'function') {
+      res.flush();
     }
   }
+}
+
+/**
+ * Response object that may have a flush method added by middleware.
+ * Some Express middleware (like compression) add this method.
+ */
+interface FlushableResponse extends Response {
+  flush?: () => void;
 }

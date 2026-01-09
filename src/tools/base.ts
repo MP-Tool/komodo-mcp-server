@@ -84,6 +84,7 @@ type ToolAvailabilityListener = (availableTools: Tool[]) => void;
 /**
  * Registry for managing available tools.
  * Supports dynamic tool availability based on connection state.
+ * Uses internal caching for performance optimization.
  *
  * @internal Not exported - use toolRegistry instance instead
  */
@@ -91,6 +92,23 @@ class ToolRegistry {
   private tools: Map<string, Tool> = new Map();
   private isConnected = false;
   private listeners: Set<ToolAvailabilityListener> = new Set();
+
+  // Performance: Cached arrays to avoid repeated Array.from() calls
+  private cachedAllTools: Tool[] | null = null;
+  private cachedAvailableTools: Tool[] | null = null;
+  private cachedClientRequired: Tool[] | null = null;
+  private cachedAlwaysAvailable: Tool[] | null = null;
+
+  /**
+   * Invalidates all cached tool arrays.
+   * Called when tools are registered or connection state changes.
+   */
+  private invalidateCache(): void {
+    this.cachedAllTools = null;
+    this.cachedAvailableTools = null;
+    this.cachedClientRequired = null;
+    this.cachedAlwaysAvailable = null;
+  }
 
   /**
    * Registers a new tool.
@@ -101,6 +119,7 @@ class ToolRegistry {
       throw new Error(`Tool ${tool.name} is already registered`);
     }
     this.tools.set(tool.name, tool);
+    this.invalidateCache(); // Invalidate cache when new tool is registered
   }
 
   /**
@@ -122,36 +141,52 @@ class ToolRegistry {
   /**
    * Returns all registered tools (regardless of availability).
    * Use getAvailableTools() for tools available in current state.
+   * Results are cached for performance.
    */
   getTools(): Tool[] {
-    return Array.from(this.tools.values());
+    if (!this.cachedAllTools) {
+      this.cachedAllTools = Array.from(this.tools.values());
+    }
+    return this.cachedAllTools;
   }
 
   /**
    * Returns only tools that are currently available.
    * Tools with requiresClient=true are only available when connected.
+   * Results are cached and invalidated on connection state change.
    */
   getAvailableTools(): Tool[] {
-    return Array.from(this.tools.values()).filter((tool) => {
-      if (this.requiresConnection(tool)) {
-        return this.isConnected;
-      }
-      return true;
-    });
+    if (!this.cachedAvailableTools) {
+      this.cachedAvailableTools = Array.from(this.tools.values()).filter((tool) => {
+        if (this.requiresConnection(tool)) {
+          return this.isConnected;
+        }
+        return true;
+      });
+    }
+    return this.cachedAvailableTools;
   }
 
   /**
    * Returns tools that require a Komodo connection.
+   * Results are cached for performance.
    */
   getClientRequiredTools(): Tool[] {
-    return Array.from(this.tools.values()).filter((tool) => this.requiresConnection(tool));
+    if (!this.cachedClientRequired) {
+      this.cachedClientRequired = Array.from(this.tools.values()).filter((tool) => this.requiresConnection(tool));
+    }
+    return this.cachedClientRequired;
   }
 
   /**
    * Returns tools that are always available (no connection required).
+   * Results are cached for performance.
    */
   getAlwaysAvailableTools(): Tool[] {
-    return Array.from(this.tools.values()).filter((tool) => !this.requiresConnection(tool));
+    if (!this.cachedAlwaysAvailable) {
+      this.cachedAlwaysAvailable = Array.from(this.tools.values()).filter((tool) => !this.requiresConnection(tool));
+    }
+    return this.cachedAlwaysAvailable;
   }
 
   /**
@@ -167,6 +202,8 @@ class ToolRegistry {
     }
 
     this.isConnected = connected;
+    // Invalidate availability cache when connection state changes
+    this.cachedAvailableTools = null;
     this.notifyListeners();
     return true;
   }

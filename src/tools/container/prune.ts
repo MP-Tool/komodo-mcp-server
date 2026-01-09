@@ -15,9 +15,9 @@ export const pruneResourcesTool: Tool = {
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
     pruneTarget: pruneTargetSchema,
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.prune(args.server, args.pruneTarget);
+    const result = await client.containers.prune(args.server, args.pruneTarget, { signal: abortSignal });
     return {
       content: [
         {

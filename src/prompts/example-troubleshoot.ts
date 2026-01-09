@@ -72,9 +72,9 @@ export function registerExamplePrompt(): void {
       },
     ],
     handler: async (args) => {
-      const containerName = args.container_name || 'unknown';
-      const serverName = args.server_name || 'unknown';
-      const issueType = args.issue_type || 'general';
+      const containerName = String(args.container_name ?? 'unknown');
+      const serverName = String(args.server_name ?? 'unknown');
+      const issueType = String(args.issue_type ?? 'general');
 
       // Build troubleshooting guide based on issue type
       const troubleshootingSteps = getTroubleshootingSteps(issueType);

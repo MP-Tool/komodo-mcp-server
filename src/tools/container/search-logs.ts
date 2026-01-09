@@ -26,10 +26,10 @@ export const searchContainerLogsTool: Tool = {
       .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
       .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
 
-    const result = await client.containers.logs(args.server, args.container, args.tail, false);
+    const result = await client.containers.logs(args.server, args.container, args.tail, false, { signal: abortSignal });
 
     // Combine stdout and stderr for searching
     const logContent = result.stdout + (result.stderr ? '\n' + result.stderr : '');

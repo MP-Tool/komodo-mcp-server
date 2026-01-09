@@ -13,9 +13,9 @@ export const getStackInfoTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.get(args.stack);
+    const result = await client.stacks.get(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -57,7 +57,7 @@ COMMON CONFIG OPTIONS:
     server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_COMPOSE),
     config: CreateStackConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_CREATE),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
 
     // Build the config object
@@ -68,7 +68,7 @@ COMMON CONFIG OPTIONS:
       stackConfig.server_id = args.server_id;
     }
 
-    const result = await client.stacks.create(args.name, stackConfig);
+    const result = await client.stacks.create(args.name, stackConfig, { signal: abortSignal });
     return {
       content: [
         {
@@ -102,9 +102,9 @@ COMMON UPDATE SCENARIOS:
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_UPDATE),
     config: PartialStackConfigSchema.describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_PARTIAL),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.update(args.stack, args.config);
+    const result = await client.stacks.update(args.stack, args.config, { signal: abortSignal });
     return {
       content: [
         {
@@ -125,9 +125,9 @@ export const deleteStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.delete(args.stack);
+    const result = await client.stacks.delete(args.stack, { signal: abortSignal });
     return {
       content: [
         {

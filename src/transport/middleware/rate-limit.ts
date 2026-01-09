@@ -4,19 +4,20 @@
  */
 
 import rateLimit from 'express-rate-limit';
+import { config } from '../../config/index.js';
 
 /**
  * Creates rate limiter for MCP endpoint
  *
- * Default: 1000 requests per 15 minutes per IP
- * This allows for heavy MCP usage while still preventing abuse.
+ * Configurable via environment variables:
+ * - MCP_RATE_LIMIT_WINDOW_MS: Time window in ms (default: 900000 = 15 minutes)
+ * - MCP_RATE_LIMIT_MAX: Max requests per window (default: 1000)
  *
- * For production deployments with stricter requirements,
- * consider using environment variables to configure limits.
+ * This allows for heavy MCP usage while still preventing abuse.
  */
 export const mcpRateLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 1000, // Limit each IP to 1000 requests per windowMs
+  windowMs: config.MCP_RATE_LIMIT_WINDOW_MS,
+  max: config.MCP_RATE_LIMIT_MAX,
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers

@@ -75,7 +75,22 @@ export const LEGACY_SSE_MAX_SESSIONS = 50;
 // ============================================================================
 
 /**
- * Generates allowed hosts list for DNS rebinding protection
+ * Generates allowed hosts list for DNS rebinding protection.
+ *
+ * Returns the configured allowed hosts or defaults to localhost variants.
+ * The returned list is used by middleware to validate Host headers.
+ *
+ * @returns Array of allowed host strings (e.g., ['localhost:3000', '127.0.0.1:3000'])
+ *
+ * @example
+ * ```typescript
+ * // With default config (localhost binding)
+ * getAllowedHosts(); // ['localhost', '127.0.0.1', '[::1]', 'localhost:3000', ...]
+ *
+ * // With custom MCP_ALLOWED_HOSTS
+ * // MCP_ALLOWED_HOSTS=myapp.example.com,api.example.com
+ * getAllowedHosts(); // ['myapp.example.com', 'api.example.com']
+ * ```
  */
 export function getAllowedHosts(): string[] {
   const port = config.MCP_PORT;
@@ -132,8 +147,22 @@ export function getAllowedOrigins(): string[] {
 }
 
 /**
- * Checks if a host is a local loopback address
- * Allows any port on localhost/127.0.0.1/[::1]
+ * Checks if a host is a local loopback address.
+ *
+ * Supports localhost, 127.0.0.1, and IPv6 loopback [::1] with or without port.
+ * Used by middleware to determine if localhost-specific behavior should apply.
+ *
+ * @param host - The host string to check (e.g., 'localhost:3000', '192.168.1.1')
+ * @returns true if the host is a local loopback address
+ *
+ * @example
+ * ```typescript
+ * isLocalHost('localhost:3000');  // true
+ * isLocalHost('127.0.0.1');       // true
+ * isLocalHost('[::1]:8080');      // true
+ * isLocalHost('192.168.1.1');     // false
+ * isLocalHost('myapp.com');       // false
+ * ```
  */
 export function isLocalHost(host: string): boolean {
   const cleanHost = host.trim();

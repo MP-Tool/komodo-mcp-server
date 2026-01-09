@@ -13,9 +13,9 @@ export const deployStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.deploy(args.stack);
+    const result = await client.stacks.deploy(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -37,9 +37,9 @@ export const pullStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.pull(args.stack);
+    const result = await client.stacks.pull(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -61,9 +61,9 @@ export const startStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.start(args.stack);
+    const result = await client.stacks.start(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -84,9 +84,9 @@ export const restartStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.restart(args.stack);
+    const result = await client.stacks.restart(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -108,9 +108,9 @@ export const pauseStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.pause(args.stack);
+    const result = await client.stacks.pause(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -132,9 +132,9 @@ export const unpauseStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.unpause(args.stack);
+    const result = await client.stacks.unpause(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -156,9 +156,9 @@ export const stopStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.stop(args.stack);
+    const result = await client.stacks.stop(args.stack, { signal: abortSignal });
     return {
       content: [
         {
@@ -180,9 +180,9 @@ export const destroyStackTool: Tool = {
   schema: z.object({
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.destroy(args.stack);
+    const result = await client.stacks.destroy(args.stack, { signal: abortSignal });
     return {
       content: [
         {

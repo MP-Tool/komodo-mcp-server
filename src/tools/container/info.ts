@@ -13,9 +13,9 @@ export const inspectContainerTool: Tool = {
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
     container: z.string().describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.inspect(args.server, args.container);
+    const result = await client.containers.inspect(args.server, args.container, { signal: abortSignal });
     return {
       content: [
         {

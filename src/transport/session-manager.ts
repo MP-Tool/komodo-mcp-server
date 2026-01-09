@@ -11,7 +11,7 @@ import {
   SESSION_MAX_MISSED_HEARTBEATS,
   SESSION_MAX_COUNT,
 } from '../config/index.js';
-import { logger as baseLogger } from '../utils/index.js';
+import { logger as baseLogger, formatSessionId } from '../utils/index.js';
 
 const logger = baseLogger.child({ component: 'transport' });
 
@@ -81,7 +81,7 @@ export class TransportSessionManager {
       lastActivity: new Date(),
       missedHeartbeats: 0,
     });
-    logger.debug('Session [%s] added (total=%d)', sessionId.substring(0, 8), this.sessions.size);
+    logger.debug('Session [%s] added (total=%d)', formatSessionId(sessionId), this.sessions.size);
     return true;
   }
 
@@ -124,7 +124,7 @@ export class TransportSessionManager {
   remove(sessionId: string): boolean {
     const deleted = this.sessions.delete(sessionId);
     if (deleted) {
-      logger.debug('Session [%s] removed (remaining=%d)', sessionId.substring(0, 8), this.sessions.size);
+      logger.debug('Session [%s] removed (remaining=%d)', formatSessionId(sessionId), this.sessions.size);
     }
     return deleted;
   }
@@ -144,7 +144,7 @@ export class TransportSessionManager {
     for (const [sessionId, session] of this.sessions.entries()) {
       closePromises.push(
         session.transport.close().catch((error) => {
-          logger.error('Failed to close session [%s]: %s', sessionId.substring(0, 8), error);
+          logger.error('Failed to close session [%s]: %s', formatSessionId(sessionId), error);
         }),
       );
     }
@@ -218,7 +218,9 @@ export class TransportSessionManager {
           if (session.missedHeartbeats >= SESSION_MAX_MISSED_HEARTBEATS) {
             // Threshold reached, clean up dead connection
             logger.error(`Closing dead session ${sessionId} after ${session.missedHeartbeats} failed heartbeats`);
-            session.transport.close().catch(() => {});
+            session.transport.close().catch((err) => {
+              logger.debug('Error closing dead session (expected): %s', err);
+            });
             this.sessions.delete(sessionId);
           }
         }

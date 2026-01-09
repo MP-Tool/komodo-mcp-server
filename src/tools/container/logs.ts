@@ -25,10 +25,12 @@ export const getContainerLogsTool: Tool = {
       .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
       .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
 
-    const result = await client.containers.logs(args.server, args.container, args.tail, args.timestamps);
+    const result = await client.containers.logs(args.server, args.container, args.tail, args.timestamps, {
+      signal: abortSignal,
+    });
 
     // Extract stdout and stderr from Log object
     // Combine stdout and stderr with labels if both exist

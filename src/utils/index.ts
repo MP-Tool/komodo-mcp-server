@@ -6,7 +6,8 @@
  * @module utils
  */
 
-export { logger } from './logger.js';
+export { logger, Logger } from './logger.js';
 export { mcpLogger } from './mcp-logger.js';
 export { requestManager, type ProgressData } from './request-manager.js';
 export { connectionManager } from './connection-state.js';
+export { formatSessionId } from './format.js';

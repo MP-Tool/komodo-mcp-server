@@ -20,7 +20,7 @@ import { registerResources, resourceRegistry } from './resources/index.js';
 import { registerPrompts, promptRegistry } from './prompts/index.js';
 import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode } from './config/index.js';
 import { startHttpServer } from './transport/index.js';
-import { logger, requestManager, connectionManager, mcpLogger } from './utils/index.js';
+import { logger, Logger, requestManager, connectionManager, mcpLogger } from './utils/index.js';
 import { setupCancellationHandler, setupPingHandler, initializeClientFromEnv } from './server/index.js';
 
 /**
@@ -425,6 +425,9 @@ class KomodoMCPServer {
 
         // Close all active MCP sessions
         await sessionManager.closeAll();
+
+        // Close log file streams
+        await Logger.closeStreams();
 
         // Close HTTP server
         server.close(() => {

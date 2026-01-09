@@ -50,6 +50,7 @@ interface ConnectionStateEvent {
  * - Notifies listeners when state changes
  * - Provides current client instance
  * - Supports health check validation
+ * - Uses circular buffer for efficient history management (O(1) operations)
  *
  * @example
  * ```typescript
@@ -67,8 +68,13 @@ class ConnectionStateManager {
   private client: KomodoClient | null = null;
   private lastError: Error | null = null;
   private listeners: Set<ConnectionStateListener> = new Set();
-  private stateHistory: ConnectionStateEvent[] = [];
+
+  // Performance: Use circular buffer instead of array with shift()
+  // shift() is O(n), circular buffer is O(1)
   private readonly maxHistorySize = 10;
+  private stateHistory: (ConnectionStateEvent | null)[] = new Array(this.maxHistorySize).fill(null);
+  private historyIndex = 0;
+  private historyCount = 0;
 
   /**
    * Get the current connection state.
@@ -102,9 +108,20 @@ class ConnectionStateManager {
   /**
    * Get the connection state history.
    * Returns the most recent state changes (up to maxHistorySize).
+   * History is returned in chronological order (oldest first).
    */
   getHistory(): readonly ConnectionStateEvent[] {
-    return [...this.stateHistory];
+    // Reconstruct array from circular buffer in chronological order
+    const result: ConnectionStateEvent[] = [];
+    for (let i = 0; i < this.historyCount; i++) {
+      // Calculate the actual index in circular buffer
+      const index = (this.historyIndex - this.historyCount + i + this.maxHistorySize) % this.maxHistorySize;
+      const event = this.stateHistory[index];
+      if (event) {
+        result.push(event);
+      }
+    }
+    return result;
   }
 
   /**
@@ -201,11 +218,15 @@ class ConnectionStateManager {
     this.client = null;
     this.lastError = null;
     this.listeners.clear();
-    this.stateHistory = [];
+    // Reset circular buffer
+    this.stateHistory = new Array(this.maxHistorySize).fill(null);
+    this.historyIndex = 0;
+    this.historyCount = 0;
   }
 
   /**
    * Internal method to update state and notify listeners.
+   * Uses circular buffer for O(1) history management.
    */
   private setState(newState: ConnectionState, error?: Error): void {
     const previousState = this.state;
@@ -224,10 +245,11 @@ class ConnectionStateManager {
       timestamp: new Date(),
     };
 
-    // Add to history
-    this.stateHistory.push(event);
-    if (this.stateHistory.length > this.maxHistorySize) {
-      this.stateHistory.shift();
+    // Add to circular buffer - O(1) operation instead of shift() which is O(n)
+    this.stateHistory[this.historyIndex] = event;
+    this.historyIndex = (this.historyIndex + 1) % this.maxHistorySize;
+    if (this.historyCount < this.maxHistorySize) {
+      this.historyCount++;
     }
 
     logger.debug('Connection state: %s → %s', previousState, newState);

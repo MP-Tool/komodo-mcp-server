@@ -11,9 +11,9 @@ export const listServersTool: Tool = {
   description:
     'List all servers registered in Komodo. Shows server name, ID, status (healthy/unhealthy/disabled), Periphery version, and region. Use this to discover available servers before performing container or deployment operations.',
   schema: z.object({}),
-  handler: async (_args, { client }) => {
+  handler: async (_args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const servers = await client.servers.list();
+    const servers = await client.servers.list({ signal: abortSignal });
     return {
       content: [
         {

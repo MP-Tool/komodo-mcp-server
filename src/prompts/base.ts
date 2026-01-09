@@ -78,15 +78,30 @@ interface PromptArgument {
 }
 
 /**
+ * Result of a prompt handler
+ */
+interface PromptResult {
+  description?: string;
+  messages: PromptMessage[];
+}
+
+/**
+ * Generic prompt arguments type - represents validated arguments from client
+ * Using Record with string keys allows flexible argument structures
+ * while still providing type information for common use cases.
+ */
+type PromptArguments = Record<string, string | number | boolean | undefined>;
+
+/**
  * Definition of an MCP Prompt
  *
+ * @typeParam TArgs - The type of arguments this prompt accepts, defaults to PromptArguments
+ *
  * @remarks
- * The `any` types for argumentsSchema and handler args are intentional because:
- * 1. Prompt arguments come from client input and are validated at runtime
- * 2. Zod schemas handle type safety for argument validation
- * 3. TypeScript cannot infer dynamic prompt argument types at compile time
+ * Prompts use Zod schemas for runtime validation of arguments.
+ * The generic parameter provides compile-time type safety for the handler.
  */
-interface Prompt {
+interface Prompt<TArgs extends PromptArguments = PromptArguments> {
   /** Unique name of the prompt */
   name: string;
   /** Human-readable description */
@@ -94,14 +109,9 @@ interface Prompt {
   /** Arguments this prompt accepts */
   arguments?: PromptArgument[];
   /** Zod schema for validating arguments (optional, for type safety) */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentional: Schema type varies per prompt
-  argumentsSchema?: z.ZodSchema<any>;
+  argumentsSchema?: z.ZodSchema<TArgs>;
   /** Handler to generate the prompt messages */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Intentional: Args validated by schema at runtime
-  handler: (args: Record<string, any>) => Promise<{
-    description?: string;
-    messages: PromptMessage[];
-  }>;
+  handler: (args: TArgs) => Promise<PromptResult>;
 }
 
 /**
@@ -112,35 +122,41 @@ interface Prompt {
  * @internal Not exported - use promptRegistry instance instead
  */
 class PromptRegistry {
-  private prompts: Map<string, Prompt> = new Map();
+  private prompts: Map<string, Prompt<PromptArguments>> = new Map();
 
   /**
    * Registers a prompt.
+   * @param prompt - The prompt to register
    * @throws Error if a prompt with the same name is already registered.
    */
-  register(prompt: Prompt): void {
+  register<TArgs extends PromptArguments>(prompt: Prompt<TArgs>): void {
     if (this.prompts.has(prompt.name)) {
       throw new Error(`Prompt ${prompt.name} is already registered`);
     }
-    this.prompts.set(prompt.name, prompt);
+    // Store as base type - runtime validation ensures type safety
+    this.prompts.set(prompt.name, prompt as unknown as Prompt<PromptArguments>);
   }
 
   /**
    * Retrieves a prompt by name.
+   * @param name - The name of the prompt to retrieve
+   * @returns The prompt if found, undefined otherwise
    */
-  getPrompt(name: string): Prompt | undefined {
+  getPrompt(name: string): Prompt<PromptArguments> | undefined {
     return this.prompts.get(name);
   }
 
   /**
    * Returns all registered prompts.
+   * @returns Array of all registered prompts
    */
-  getPrompts(): Prompt[] {
+  getPrompts(): Prompt<PromptArguments>[] {
     return Array.from(this.prompts.values());
   }
 
   /**
    * Returns true if any prompts are registered.
+   * @returns boolean indicating if prompts exist
    */
   hasPrompts(): boolean {
     return this.prompts.size > 0;
@@ -148,6 +164,7 @@ class PromptRegistry {
 
   /**
    * Returns the count of registered prompts.
+   * @returns The number of registered prompts
    */
   getCount(): number {
     return this.prompts.size;
@@ -156,3 +173,6 @@ class PromptRegistry {
 
 /** Singleton instance */
 export const promptRegistry = new PromptRegistry();
+
+// Export types for external usage
+export type { Prompt, PromptArgument, PromptArguments, PromptMessage, PromptResult, PromptContent, PromptRole };

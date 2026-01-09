@@ -17,9 +17,9 @@ export const getDeploymentInfoTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.get(args.deployment);
+    const result = await client.deployments.get(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -65,7 +65,7 @@ COMMON CONFIG OPTIONS:
       .describe('Docker image to deploy'),
     config: CreateDeploymentConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_CREATE),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
 
     // Build the config object
@@ -88,7 +88,7 @@ COMMON CONFIG OPTIONS:
       }
     }
 
-    const result = await client.deployments.create(args.name, deploymentConfig);
+    const result = await client.deployments.create(args.name, deploymentConfig, { signal: abortSignal });
     return {
       content: [
         {
@@ -124,9 +124,9 @@ COMMON UPDATE SCENARIOS:
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_UPDATE),
     config: PartialDeploymentConfigSchema.describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_PARTIAL),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.update(args.deployment, args.config);
+    const result = await client.deployments.update(args.deployment, args.config, { signal: abortSignal });
     return {
       content: [
         {
@@ -147,9 +147,9 @@ export const deleteDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.delete(args.deployment);
+    const result = await client.deployments.delete(args.deployment, { signal: abortSignal });
     return {
       content: [
         {

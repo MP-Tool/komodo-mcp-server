@@ -12,9 +12,9 @@ export const getServerInfoTool: Tool = {
   schema: z.object({
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.servers.get(args.server);
+    const result = await client.servers.get(args.server, { signal: abortSignal });
     return {
       content: [
         {
@@ -37,10 +37,10 @@ export const createServerTool: Tool = {
     name: z.string().describe(PARAM_DESCRIPTIONS.SERVER_NAME),
     config: serverConfigSchema.partial().optional().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_CREATE),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
 
-    const result = await client.servers.create(args.name, args.config || {});
+    const result = await client.servers.create(args.name, args.config || {}, { signal: abortSignal });
     return {
       content: [
         {
@@ -63,9 +63,9 @@ export const updateServerTool: Tool = {
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
     config: serverConfigSchema.partial().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_PARTIAL),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.servers.update(args.server, args.config);
+    const result = await client.servers.update(args.server, args.config, { signal: abortSignal });
     return {
       content: [
         {
@@ -86,9 +86,9 @@ export const deleteServerTool: Tool = {
   schema: z.object({
     server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.servers.delete(args.server);
+    const result = await client.servers.delete(args.server, { signal: abortSignal });
     return {
       content: [
         {

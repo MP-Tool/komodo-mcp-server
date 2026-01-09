@@ -13,9 +13,9 @@ export const deployContainerTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.deploy(args.deployment);
+    const result = await client.deployments.deploy(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -37,9 +37,9 @@ export const pullDeploymentImageTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.pull(args.deployment);
+    const result = await client.deployments.pull(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -61,9 +61,9 @@ export const startDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.start(args.deployment);
+    const result = await client.deployments.start(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -84,9 +84,9 @@ export const restartDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.restart(args.deployment);
+    const result = await client.deployments.restart(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -108,9 +108,9 @@ export const pauseDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.pause(args.deployment);
+    const result = await client.deployments.pause(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -131,9 +131,9 @@ export const unpauseDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.unpause(args.deployment);
+    const result = await client.deployments.unpause(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -155,9 +155,9 @@ export const stopDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.stop(args.deployment);
+    const result = await client.deployments.stop(args.deployment, { signal: abortSignal });
     return {
       content: [
         {
@@ -179,9 +179,9 @@ export const destroyDeploymentTool: Tool = {
   schema: z.object({
     deployment: z.string().describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
-  handler: async (args, { client }) => {
+  handler: async (args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.deployments.destroy(args.deployment);
+    const result = await client.deployments.destroy(args.deployment, { signal: abortSignal });
     return {
       content: [
         {

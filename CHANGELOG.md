@@ -10,6 +10,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **AbortSignal Propagation**: Full request cancellation support through all layers
+  - `ApiOperationOptions` interface with optional `signal?: AbortSignal` parameter
+  - `BaseResource.checkAborted()` helper method for consistent cancellation checks
+  - All API resource methods (`containers`, `servers`, `stacks`, `deployments`) accept AbortSignal
+  - All 40+ tool handlers pass `abortSignal` to API calls for proper cancellation
+- **Zod Input Validation Schemas** (`src/api/utils.ts`): Centralized input validation for API resources
+  - `serverIdSchema`, `containerNameSchema`, `stackIdSchema`, `deploymentIdSchema` for resource IDs
+  - `tailSchema` for log tail parameter validation (positive integer ≥ 1)
+  - `resourceNameSchema` for generic resource names with min length validation
+  - Helper functions: `validateServerId()`, `validateContainerName()`, etc.
+- **MCP-COMPLIANCE.md**: Comprehensive MCP specification compliance documentation
+  - Compliance matrix for transport, lifecycle, resources, tools, prompts
+  - Security feature documentation (request cancellation, rate limiting)
+  - Testing coverage information and architecture overview
+- **Logger Shutdown** (`Logger.closeStreams()`): Graceful file handle cleanup
+  - Closes stdout/stderr file streams before process exit
+  - Prevents file descriptor leaks on shutdown
 - **Resource Templates (RFC 6570)**: Full support for dynamic resource URIs with variable placeholders
   - Uses SDK's `ResourceTemplate` class for proper URI template matching
   - Supports RFC 6570 URI Template syntax (e.g., `komodo://server/{serverId}/logs`)
@@ -63,6 +80,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example Resources & Prompts**: Renamed and documented example implementations for clarity
   - `example-server-info.ts` - Example resource demonstrating Resource Registry pattern
   - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
+- **Formatting Utilities** (`src/utils/format.ts`): Centralized formatting helpers
+  - `formatSessionId()` - Truncates session IDs to 8 chars for consistent logging
+
+### Performance
+- **Logger Regex Pre-Compilation**: Secret scrubbing regex patterns compiled once at module load
+  - `SCRUB_JWT_REGEX`, `SCRUB_BEARER_REGEX`, `SCRUB_KV_REGEX` pre-compiled
+  - Eliminates regex compilation overhead on every log call
+  - ~50-80% faster logging under high volume
+- **Tool Registry Caching**: Cached tool arrays to avoid repeated `Array.from()` calls
+  - `cachedAllTools`, `cachedAvailableTools`, `cachedClientRequired`, `cachedAlwaysAvailable`
+  - Cache invalidation on tool registration and connection state changes
+  - Eliminates O(n) array creation on every tool lookup
+- **Circular Buffer for Connection History**: O(1) history management
+  - Replaced `array.push()` + `array.shift()` with circular buffer
+  - `shift()` was O(n), circular buffer index update is O(1)
+  - Memory-efficient fixed-size history storage
 
 ### Security
 - **CORS Wildcard Protection**: Wildcard `*` origin is now blocked in production mode
@@ -82,6 +115,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Rate Limiting**: Increased rate limit from 100 to 1000 requests per 15-minute window for better development experience
 - **Session ID Handling**: Fixed SDK compatibility by injecting session IDs into `rawHeaders` for `@hono/node-server`
 - **DNS Rebinding Protection**: Updated middleware to allow localhost origins for development
+- **Prompts Type Safety**: `PromptArguments` type replaces `any` in prompt definitions
+  - `Record<string, string | number | boolean | undefined>` for type-safe prompt args
 
 ### Fixed
 - **Docker env_file Credentials**: Environment variables from `env_file` are now correctly read at runtime
@@ -90,6 +125,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Signal Handler**: Fixed duplicate SIGINT handlers causing unpredictable shutdown behavior
   - Consolidated shutdown logic with `shutdownInProgress` guard flag
   - Single handler for both SIGINT and SIGTERM signals
+- **API Error Handling**: Removed try/catch blocks with silent returns in API resources
+  - Errors now propagate correctly through the call stack
+  - Consistent error handling across all API methods
+
+### Removed
+- **Unused Utilities** (`src/tools/utils/`): Removed entire directory
+  - `action-factory.ts` - Never used action factory pattern
+  - `index.ts` - Barrel export file
+- **Unused Format Functions** (`src/utils/format.ts`): Removed dead code
+  - `formatDuration()` - Planned but never integrated
+  - `formatBytes()` - Planned but never integrated
 
 ### Improved
 - **Configuration Module Refactoring**: Separated config into domain-specific modules

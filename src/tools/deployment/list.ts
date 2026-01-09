@@ -11,9 +11,9 @@ export const listDeploymentsTool: Tool = {
   description:
     'List all Komodo-managed deployments. Deployments are single-container applications managed by Komodo. Shows deployment name, ID, and current state (running, stopped, etc.).',
   schema: z.object({}),
-  handler: async (_args, { client }) => {
+  handler: async (_args, { client, abortSignal }) => {
     if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const deployments = await client.deployments.list();
+    const deployments = await client.deployments.list({ signal: abortSignal });
     return {
       content: [
         {

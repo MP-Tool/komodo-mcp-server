@@ -50,6 +50,18 @@ const SENSITIVE_KEYS = [
 ];
 
 /**
+ * Pre-compiled regex patterns for secret scrubbing.
+ * Performance optimization: compile once at module load instead of on every log call.
+ */
+// JWT: eyJ...
+const SCRUB_JWT_REGEX = /\beyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/g;
+// Bearer token
+const SCRUB_BEARER_REGEX = /\bBearer\s+[a-zA-Z0-9._-]+/gi;
+// Key-value pairs for sensitive keys (excluding bearer/authorization which are handled separately)
+const SCRUB_KV_PATTERN = SENSITIVE_KEYS.filter((k) => !['bearer', 'authorization'].includes(k.toLowerCase())).join('|');
+const SCRUB_KV_REGEX = new RegExp(`\\b(${SCRUB_KV_PATTERN})\\b(\\s*[:=]\\s*)(["']?)([^\\s"']+)\\3`, 'gi');
+
+/**
  * Centralized logger for the application.
  * Handles log formatting, level filtering, context management, and secret scrubbing.
  * Supports both standard output and MCP client logging.
@@ -91,6 +103,37 @@ export class Logger {
     } catch (err) {
       console.error('Failed to initialize log streams:', err);
     }
+  }
+
+  /**
+   * Closes all file streams gracefully.
+   * Should be called during application shutdown to ensure all logs are flushed.
+   *
+   * @returns Promise that resolves when all streams are closed
+   */
+  public static async closeStreams(): Promise<void> {
+    const closePromises: Promise<void>[] = [];
+
+    for (const [name, stream] of Logger.streams.entries()) {
+      closePromises.push(
+        new Promise<void>((resolve, reject) => {
+          stream.end(() => {
+            stream.close((err) => {
+              if (err) {
+                console.error(`Failed to close log stream for ${name}:`, err);
+                reject(err);
+              } else {
+                resolve();
+              }
+            });
+          });
+        }),
+      );
+    }
+
+    await Promise.allSettled(closePromises);
+    Logger.streams.clear();
+    Logger.initialized = false;
   }
 
   /**
@@ -293,40 +336,25 @@ export class Logger {
   }
 
   /**
-   * Remove sensitive information from text using regex patterns.
+   * Remove sensitive information from text using pre-compiled regex patterns.
    * Handles JWTs, Bearer tokens, and key-value pairs matching sensitive keys.
+   * Performance: Uses module-level compiled regex instead of compiling per-call.
    */
   private scrubSecrets(text: string): string {
     let scrubbed = text;
 
     // 1. Known Secret Formats (High Confidence)
-    // JWT: eyJ...
-    const jwtRegex = /\beyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/g;
-    scrubbed = scrubbed.replace(jwtRegex, '**********');
+    // JWT: eyJ... - Use pre-compiled regex
+    scrubbed = scrubbed.replace(SCRUB_JWT_REGEX, '**********');
 
     // 2. Common Auth Headers
-    // Bearer token
+    // Bearer token - Use pre-compiled regex
     // We run this BEFORE the generic KV scrubber to ensure "Bearer <token>" is handled as a unit
-    // if it appears in a header-like context.
-    const bearerRegex = /\bBearer\s+[a-zA-Z0-9._-]+/gi;
-    scrubbed = scrubbed.replace(bearerRegex, 'Bearer **********');
+    scrubbed = scrubbed.replace(SCRUB_BEARER_REGEX, 'Bearer **********');
 
     // 3. Context-based Scrubbing (Key-Value pairs)
-    // Looks for: key=value, key: value
-    // We construct the regex dynamically from SENSITIVE_KEYS
-    // We filter out 'bearer' and 'authorization' from keysPattern because we handled it specifically above,
-    // and we don't want "Authorization: Bearer **********" to become "Authorization: ********** **********"
-    const keysPattern = SENSITIVE_KEYS.filter((k) => !['bearer', 'authorization'].includes(k.toLowerCase())).join('|');
-
-    // Regex explanation:
-    // \b(${keysPattern})\b : Match one of the sensitive keys as a whole word (Group 1)
-    // (\s*[:=]\s*)         : Match separator (: or =) with optional whitespace (Group 2)
-    // (["']?)              : Optional quote (Group 3)
-    // ([^\s"']+)           : The value (no spaces, no quotes) (Group 4)
-    // \3                   : Match the closing quote if one was opened
-    const kvRegex = new RegExp(`\\b(${keysPattern})\\b(\\s*[:=]\\s*)(["']?)([^\\s"']+)\\3`, 'gi');
-
-    scrubbed = scrubbed.replace(kvRegex, (match, key, sep, quote, value) => {
+    // Looks for: key=value, key: value - Use pre-compiled regex
+    scrubbed = scrubbed.replace(SCRUB_KV_REGEX, (match, key, sep, quote, value) => {
       // Don't redact if it's already redacted (e.g. by Bearer scrubber)
       if (value.includes('**********')) return match;
       return `${key}${sep}${quote}**********${quote}`;

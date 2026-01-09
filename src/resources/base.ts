@@ -143,7 +143,9 @@ class ResourceRegistry {
     if (this.templates.has(template.uriTemplate)) {
       throw new Error(`Resource template ${template.uriTemplate} is already registered`);
     }
-    // Store as base type - type safety is ensured at registration time
+    // Type erasure: Store generic template as base type for uniform Map storage.
+    // Type safety is ensured at registration time via the generic constraint.
+    // This is the standard pattern for heterogeneous generic collections.
     this.templates.set(template.uriTemplate, template as unknown as ResourceTemplate);
   }
 

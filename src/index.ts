@@ -209,6 +209,10 @@ class KomodoMCPServer {
               return result;
             } catch (error) {
               // Handle cancellation
+              // Note: MCP Spec says "SHOULD NOT send a response" for cancelled requests,
+              // but the SDK architecture requires throwing an error to stop processing.
+              // We use REQUEST_CANCELLED (-32800) to clearly indicate cancellation to the client.
+              // This is a pragmatic trade-off for SDK compatibility.
               if (abortSignal.aborted || (error instanceof Error && error.name === 'AbortError')) {
                 logger.info('Tool [%s] cancelled', tool.name);
                 throw new McpError(JsonRpcErrorCode.REQUEST_CANCELLED, 'Request was cancelled');

@@ -99,6 +99,9 @@ export function getAllowedHosts(): string[] {
 /**
  * Generates allowed origins list for CORS validation
  * Only used when server is bound to non-localhost addresses
+ *
+ * SECURITY NOTE: Wildcard '*' is only allowed in development mode.
+ * In production, explicit origins must be specified.
  */
 export function getAllowedOrigins(): string[] {
   const port = config.MCP_PORT;
@@ -110,6 +113,18 @@ export function getAllowedOrigins(): string[] {
   ];
 
   if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
+    // Filter out wildcard '*' in production mode
+    if (config.NODE_ENV === 'production') {
+      const filtered = config.MCP_ALLOWED_ORIGINS.filter((origin) => origin !== '*');
+      if (filtered.length !== config.MCP_ALLOWED_ORIGINS.length) {
+        // Log warning about stripped wildcard (use console.warn to avoid circular import)
+        console.warn(
+          '[SECURITY] Wildcard "*" origin is not allowed in production mode. ' +
+            'Please specify explicit allowed origins via MCP_ALLOWED_ORIGINS.',
+        );
+      }
+      return filtered.length > 0 ? filtered : defaults;
+    }
     return config.MCP_ALLOWED_ORIGINS;
   }
 

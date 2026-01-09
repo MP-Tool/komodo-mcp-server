@@ -33,6 +33,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `getKomodoCredentials()` reads credentials at runtime (not module load time)
   - `getEnv()` safely reads environment variables with empty string handling
   - Ensures credentials from `env_file` are available after container start
+- **Enhanced Health & Readiness Probes**: Improved container orchestration support
+  - `/health` (Liveness): Always returns 200 if process is running, includes uptime
+  - `/ready` (Readiness): Smart status codes for accurate container health:
+    - `200 OK`: Server is ready to accept traffic
+    - `503 Service Unavailable`: Komodo configured but not connected
+    - `429 Too Many Requests`: Session limits reached (HTTP or SSE)
+  - Docker HEALTHCHECK uses `/ready` for accurate container status reporting
+  - Detailed session information with current/max/atLimit for each transport
+  - `start_period` increased to 10s for reliable container startup
 - **Legacy SSE Transport Support**: Added optional backwards compatibility for older MCP clients using the deprecated HTTP+SSE transport (protocol 2024-11-05).
   - Enable with `MCP_LEGACY_SSE_ENABLED=true` environment variable
   - Exposes endpoints: `GET /sse` (SSE stream) and `POST /sse/message` (JSON-RPC messages)
@@ -49,6 +58,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example Resources & Prompts**: Renamed and documented example implementations for clarity
   - `example-server-info.ts` - Example resource demonstrating Resource Registry pattern
   - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
+
+### Security
+- **CORS Wildcard Protection**: Wildcard `*` origin is now blocked in production mode
+  - `getAllowedOrigins()` filters out `*` when `NODE_ENV=production`
+  - Logs security warning when wildcard is stripped
+  - Explicit origins must be specified via `MCP_ALLOWED_ORIGINS` for production
+- **Enhanced DNS Rebinding Documentation**: Added security notes to middleware
+  - Documents need for reverse proxy (nginx, traefik) with TLS in production
+  - Clarifies that MCP endpoint relies on network isolation, not HTTP auth
 
 ### Changed
 - **Tool Context**: `setClient()` is now async and returns `Promise<void>`

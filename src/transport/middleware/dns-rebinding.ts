@@ -1,6 +1,11 @@
 /**
  * DNS Rebinding Protection middleware
  * MCP Spec 2025-06-18 MUST requirement
+ *
+ * SECURITY NOTE: This middleware validates Host and Origin headers to prevent
+ * DNS rebinding attacks. For production deployments:
+ * - Always run behind a reverse proxy (nginx, traefik) with proper TLS
+ * - Configure explicit MCP_ALLOWED_HOSTS and MCP_ALLOWED_ORIGINS
  */
 
 import { Request, Response, NextFunction } from 'express';
@@ -40,7 +45,8 @@ export function dnsRebindingProtection(req: Request, res: Response, next: NextFu
     const origin = req.headers.origin;
     if (origin) {
       const allowedOrigins = getAllowedOrigins();
-      // Allow if wildcard '*' is present OR if specific origin matches
+      // Check if origin is in the allowed list
+      // Note: Wildcard '*' is filtered out in production mode by getAllowedOrigins()
       if (!allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) {
         logSecurityEvent(`Invalid Origin blocked: ${origin}`);
         res.status(403).json(createJsonRpcError(-32000, 'Forbidden: Invalid Origin header'));

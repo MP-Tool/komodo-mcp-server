@@ -10,6 +10,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **Transport Integration Tests** (`tests/integration/transport-*.test.ts`): Comprehensive transport mode testing
+  - `transport-stdio.test.ts`: 9 tests for stdio transport (JSON-RPC over stdin/stdout)
+  - `transport-http.test.ts`: 12 tests for Streamable HTTP Transport (2025-03-26)
+  - `transport-http-sse.test.ts`: 8 tests for Legacy SSE Transport (2024-11-05)
+  - `transport-cross.test.ts`: 8 tests verifying consistent behavior across all transport modes
+  - Tests cover: protocol compliance, session management, concurrent connections, error handling
+- **New Test Script** (`npm run test:transport`): Run all transport integration tests
 - **AbortSignal Propagation**: Full request cancellation support through all layers
   - `ApiOperationOptions` interface with optional `signal?: AbortSignal` parameter
   - `BaseResource.checkAborted()` helper method for consistent cancellation checks
@@ -27,22 +34,64 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Logger Shutdown** (`Logger.closeStreams()`): Graceful file handle cleanup
   - Closes stdout/stderr file streams before process exit
   - Prevents file descriptor leaks on shutdown
+- **Custom Error Classes** (`src/utils/errors/`): Type-safe error hierarchy for better error handling
+  - `KomodoError` base class with code, statusCode, mcpCode, cause chain, and JSON serialization
+  - `ApiError` for Komodo API communication errors (endpoint, method, responseStatus)
+  - `ConnectionError` and `AuthenticationError` for connection/auth failures
+  - `NotFoundError` for resource not found errors with resourceType/resourceId
+  - `ValidationError` with Zod integration and automatic value sanitization
+  - `ConfigurationError` with helpers for missing/invalid env vars
+  - `OperationCancelledError` and `OperationError` for operation lifecycle
+  - `ClientNotConfiguredError` for tool execution without Komodo connection
+- **Structured JSON Logging** (`src/utils/logger/log-schema.ts`): ECS-compatible structured log format
+  - `StructuredLogEntry` interface following Elastic Common Schema (ECS) 8.x
+  - `LogEntryBuilder` fluent API for constructing log entries
+  - Support for service metadata, trace context, HTTP context, error details
+  - Numeric log severity (`log.level`) for easy filtering
+  - `@timestamp` in ISO 8601 format for log aggregation (ELK, Datadog, Splunk)
+- **Dependency Injection Container** (`src/utils/di/`): Lightweight, type-safe DI system
+  - `Container` class with singleton/transient scopes
+  - Token-based registration (string or Symbol)
+  - Factory functions for lazy instantiation
+  - Hierarchical containers (child scopes) for request-level dependencies
+  - `TOKENS` predefined symbols for common services
+  - `createToken<T>()` helper for typed token creation
+- **OpenTelemetry Tracing** (`src/server/telemetry/tracing.ts`): Distributed tracing support
+  - Optional activation via `OTEL_ENABLED=true` environment variable
+  - `withSpan()` and `withSpanSync()` helpers for creating spans
+  - Auto-instrumentation for HTTP, Express, and other modules
+  - OTLP exporter for Jaeger, Zipkin, Datadog compatibility
+  - `MCP_ATTRIBUTES` semantic conventions for MCP operations
+  - Graceful shutdown with `shutdownTelemetry()`
+- **OpenTelemetry Metrics** (`src/server/telemetry/metrics.ts`): Server performance metrics
+  - `ServerMetricsManager` class for centralized metric collection
+  - Request metrics: count, duration histogram, success/failure tracking
+  - Session metrics: active HTTP and SSE session gauges
+  - Connection state metrics: state transition counters
+  - Error metrics: categorized by type and component
+  - `getStats()` method for runtime statistics snapshot
+  - Falls back to in-memory tracking when OpenTelemetry is disabled
+- **Knip Configuration** (`knip.json`): Unused code detection configuration
+  - Project scope: `src/**/*.ts`
+  - Ignores: test files to avoid false positives
 - **Resource Templates (RFC 6570)**: Full support for dynamic resource URIs with variable placeholders
   - Uses SDK's `ResourceTemplate` class for proper URI template matching
   - Supports RFC 6570 URI Template syntax (e.g., `komodo://server/{serverId}/logs`)
   - Argument validation with Zod schemas for type-safe template parameters
   - Example template: `example-server-logs.ts` demonstrating the pattern
-- **MCP Notification Logger** (`mcpLogger`): Reusable logging module for sending log messages to MCP clients
+- **MCP Notification Logger** (`src/utils/logger/mcp-logger.ts`): Reusable logging module for sending log messages to MCP clients
   - Follows RFC 5424 syslog levels (debug, info, notice, warning, error, critical, alert, emergency)
   - Multi-server support for concurrent sessions
   - Configurable minimum log level
   - Convenience methods: `debug()`, `info()`, `warn()`, `error()`, etc.
   - Context logger factory for tool handlers
-- **Connection State Manager** (`connectionManager`): Centralized Komodo connection state tracking
+- **Connection State Manager** (`src/server/utils/connection-state.ts`): Centralized Komodo connection state tracking
   - State machine: `disconnected` → `connecting` → `connected` | `error`
   - Listener notifications on state changes
   - Health check validation during connect
-  - Connection history tracking (last 10 state changes)
+  - Connection history tracking (last 10 state changes) with circular buffer
+  - **OpenTelemetry integration**: spans and events for connection lifecycle
+  - **Metrics integration**: records state transitions via `serverMetrics`
 - **Dynamic Tool Availability (Tool Gating)**: Tools are now enabled/disabled based on Komodo connection
   - `requiresClient` property on tool definitions (default: `true`)
   - `komodo_configure` always available (doesn't require connection)
@@ -73,7 +122,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Request cancellation support via `CancelledNotification`
   - Progress reporting via `ProgressNotificationSchema`
   - Resource and Prompt registries with dynamic capability advertising
-  - `RequestManager` for tracking in-flight requests with abort controller support
+  - `RequestManager` (`src/server/utils/request-manager.ts`) for tracking in-flight requests with abort controller support
 - **Session Limits**: Added configurable session limits to prevent memory exhaustion attacks
   - `SESSION_MAX_COUNT=100` for Streamable HTTP sessions
   - `LEGACY_SSE_MAX_SESSIONS=50` for Legacy SSE sessions
@@ -117,6 +166,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **DNS Rebinding Protection**: Updated middleware to allow localhost origins for development
 - **Prompts Type Safety**: `PromptArguments` type replaces `any` in prompt definitions
   - `Record<string, string | number | boolean | undefined>` for type-safe prompt args
+- **JSON Logging Format**: Upgraded to ECS-compatible structured logging
+  - `@timestamp` instead of `timestamp` for ECS compliance
+  - `log.level` numeric severity for filtering
+  - `metadata` field for custom data instead of spreading at root level
+  - `labels.request_id` for easy request tracking
+
+### Dependencies
+- **Added**: OpenTelemetry packages for distributed tracing
+  - `@opentelemetry/api` - Core tracing API
+  - `@opentelemetry/sdk-node` - Node.js SDK
+  - `@opentelemetry/auto-instrumentations-node` - Auto instrumentation
+  - `@opentelemetry/exporter-trace-otlp-http` - OTLP exporter
 
 ### Fixed
 - **Docker env_file Credentials**: Environment variables from `env_file` are now correctly read at runtime
@@ -176,14 +237,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `progressToken` extraction: Inline type instead of `as any` cast
   - Documented `any` usage with `eslint-disable` comments explaining rationale
 - **Module Organization**: Added barrel files (`index.ts`) for cleaner imports
-  - `src/server/index.ts`: Server utilities (handlers, client-initializer)
-  - `src/utils/index.ts`: Logger, mcpLogger, requestManager, connectionManager
+  - `src/server/index.ts`: Server initialization and exports
+  - `src/server/utils/index.ts`: Connection state, request manager, handlers, client initializer
+  - `src/server/telemetry/index.ts`: OpenTelemetry tracing and metrics exports
+  - `src/server/transport/index.ts`: HTTP server, session manager, transports
+  - `src/server/transport/routes/index.ts`: MCP and health route handlers
+  - `src/server/transport/utils/index.ts`: JSON-RPC helpers, logging utilities
+  - `src/utils/index.ts`: Logger, errors, DI container, format utilities
+  - `src/utils/logger/index.ts`: Logger, MCP logger, log schema
+  - `src/utils/errors/index.ts`: KomodoError hierarchy exports
+  - `src/utils/di/index.ts`: DI container and tokens
   - `src/api/resources/index.ts`: API resource classes
-  - `src/tools/*/index.ts`: Tool exports by category (container, server, deployment, stack, config)
-  - `src/transport/routes/index.ts`: Route handlers
+  - `src/mcp/tools/index.ts`: Tool registry and tool exports
 - **Code Extraction**: Refactored large functions into dedicated modules
-  - `src/server/handlers.ts`: Cancellation and Ping handlers
-  - `src/server/client-initializer.ts`: Environment-based client initialization
+  - `src/server/utils/handlers.ts`: Cancellation and Ping handlers
+  - `src/server/utils/client-initializer.ts`: Environment-based client initialization
 - **Resource Template Discovery**: Implemented `list` callback for Resource Templates
   - Templates can now enumerate available resources for MCP clients
   - Example template demonstrates mock server discovery

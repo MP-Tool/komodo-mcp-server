@@ -9,17 +9,22 @@
  * @module index
  */
 
+// Initialize OpenTelemetry FIRST, before any other imports
+// This ensures all modules are instrumented
+import { initializeTelemetry, shutdownTelemetry } from './server/telemetry/index.js';
+const telemetryEnabled = initializeTelemetry();
+
 import { McpServer, ResourceTemplate as SdkResourceTemplate } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
 
 // Internal modules - use barrel imports
 import { KomodoClient } from './api/index.js';
-import { registerTools, toolRegistry } from './tools/index.js';
-import { registerResources, resourceRegistry } from './resources/index.js';
-import { registerPrompts, promptRegistry } from './prompts/index.js';
+import { registerTools, toolRegistry } from './mcp/tools/index.js';
+import { registerResources, resourceRegistry } from './mcp/resources/index.js';
+import { registerPrompts, promptRegistry } from './mcp/prompts/index.js';
 import { config, SERVER_NAME, SERVER_VERSION, JsonRpcErrorCode } from './config/index.js';
-import { startHttpServer } from './transport/index.js';
+import { startHttpServer } from './server/transport/index.js';
 import { logger, Logger, requestManager, connectionManager, mcpLogger } from './utils/index.js';
 import { setupCancellationHandler, setupPingHandler, initializeClientFromEnv } from './server/index.js';
 
@@ -429,6 +434,11 @@ class KomodoMCPServer {
         // Close log file streams
         await Logger.closeStreams();
 
+        // Shutdown OpenTelemetry
+        if (telemetryEnabled) {
+          await shutdownTelemetry();
+        }
+
         // Close HTTP server
         server.close(() => {
           logger.info('HTTP server closed');
@@ -451,10 +461,16 @@ class KomodoMCPServer {
       logger.info('Komodo MCP server started (Stdio Mode)');
 
       // Simple shutdown for stdio mode
-      const shutdown = () => {
+      const shutdown = async () => {
         if (this.shutdownInProgress) return;
         this.shutdownInProgress = true;
         logger.info('Received shutdown signal, exiting...');
+
+        // Shutdown OpenTelemetry
+        if (telemetryEnabled) {
+          await shutdownTelemetry();
+        }
+
         process.exit(0);
       };
       process.on('SIGINT', shutdown);

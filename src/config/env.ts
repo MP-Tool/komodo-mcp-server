@@ -15,8 +15,10 @@ import { z } from 'zod';
  * Ensures that the application starts with a valid configuration.
  */
 export const envSchema = z.object({
+  /* v8 ignore start - environment-dependent default */
   /** Application version (defaults to package.json version) */
   VERSION: z.string().default(process.env.npm_package_version || 'unknown'),
+  /* v8 ignore stop */
   /** Node environment (development, production, test) */
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   /** Host to bind the MCP server to (default: 127.0.0.1) */
@@ -91,6 +93,32 @@ export const envSchema = z.object({
    * Default: 1000
    */
   MCP_RATE_LIMIT_MAX: z.coerce.number().min(100).default(1000),
+  /**
+   * Enable OpenTelemetry distributed tracing
+   * Default: false
+   */
+  OTEL_ENABLED: z
+    .boolean()
+    .or(z.string().transform((val) => val.toLowerCase() === 'true'))
+    .default(false),
+  /**
+   * OpenTelemetry service name
+   * Default: 'komodo-mcp-server'
+   */
+  OTEL_SERVICE_NAME: z.string().default('komodo-mcp-server'),
+  /**
+   * OTLP exporter endpoint URL
+   * Example: http://localhost:4318
+   */
+  OTEL_EXPORTER_OTLP_ENDPOINT: z.string().url().optional(),
+  /**
+   * Enable OpenTelemetry debug logging
+   * Default: false
+   */
+  OTEL_DEBUG: z
+    .boolean()
+    .or(z.string().transform((val) => val.toLowerCase() === 'true'))
+    .default(false),
 });
 
 /**

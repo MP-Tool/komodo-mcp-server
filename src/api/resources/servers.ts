@@ -140,6 +140,8 @@ export class ServerResource extends BaseResource {
     this.checkAborted(options?.signal);
 
     const response = await this.client.read('GetServerState', { server: serverId });
+    /* v8 ignore start - defensive fallback */
     return response || { status: ServerState.NotOk };
+    /* v8 ignore stop */
   }
 }

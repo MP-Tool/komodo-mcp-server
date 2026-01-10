@@ -90,9 +90,14 @@ ENV MCP_TRANSPORT=http
 # Expose MCP port
 EXPOSE ${MCP_PORT}
 
-# Health check - verifies MCP server process is running
-HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-  CMD curl -f http://localhost:${MCP_PORT}/health || exit 1
+# Health check - verifies MCP server is ready to accept traffic
+# Uses /ready endpoint for comprehensive status:
+# - 200: Server ready (process running, Komodo connected if configured)
+# - 503: Komodo configured but not connected
+# - 429: Session limits reached
+# This gives Docker accurate container health status
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+  CMD curl -f http://localhost:${MCP_PORT}/ready || exit 1
 # Container metadata labels (OCI standard)
 LABEL org.opencontainers.image.title="Komodo MCP Server"
 LABEL org.opencontainers.image.version="${VERSION}"

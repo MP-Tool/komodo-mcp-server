@@ -11,11 +11,11 @@ describe('Accept Header Middleware', () => {
     req = {
       method: 'GET',
       headers: {},
-      query: {} // Required for middleware that checks query.sessionId
+      query: {}, // Required for middleware that checks query.sessionId
     };
     res = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      json: vi.fn(),
     };
     next = vi.fn();
   });
@@ -41,9 +41,11 @@ describe('Accept Header Middleware', () => {
     req.query = {};
     validateAcceptHeader(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: 'Missing Accept header' })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: 'Missing Accept header' }),
+      }),
+    );
     expect(next).not.toHaveBeenCalled();
   });
 
@@ -71,9 +73,11 @@ describe('Accept Header Middleware', () => {
     req.query = {};
     validateAcceptHeader(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Accept header must include') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Accept header must include') }),
+      }),
+    );
     expect(next).not.toHaveBeenCalled();
   });
 });

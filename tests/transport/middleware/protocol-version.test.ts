@@ -2,9 +2,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { validateProtocolVersion } from '../../../src/transport/middleware/protocol-version.js';
 import { Request, Response, NextFunction } from 'express';
 
-vi.mock('../../../src/transport/config/transport.config.js', () => ({
+vi.mock('../../../src/config/transport.config.js', () => ({
   SUPPORTED_PROTOCOL_VERSIONS: ['2024-11-05'],
-  FALLBACK_PROTOCOL_VERSION: '2024-11-05'
+  FALLBACK_PROTOCOL_VERSION: '2024-11-05',
 }));
 
 describe('Protocol Version Middleware', () => {
@@ -14,11 +14,11 @@ describe('Protocol Version Middleware', () => {
 
   beforeEach(() => {
     req = {
-      headers: {}
+      headers: {},
     };
     res = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      json: vi.fn(),
     };
     next = vi.fn();
   });
@@ -39,9 +39,11 @@ describe('Protocol Version Middleware', () => {
     req.headers = { 'mcp-protocol-version': '1.0.0' };
     validateProtocolVersion(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(400);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Unsupported MCP-Protocol-Version') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Unsupported MCP-Protocol-Version') }),
+      }),
+    );
     expect(next).not.toHaveBeenCalled();
   });
 });

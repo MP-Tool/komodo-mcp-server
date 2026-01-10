@@ -9,8 +9,8 @@ vi.mock('../../src/config/env.js', () => ({
     LOG_LEVEL: 'info',
     LOG_FORMAT: 'text',
     MCP_TRANSPORT: 'stdio',
-    LOG_DIR: undefined
-  }
+    LOG_DIR: undefined,
+  },
 }));
 
 // Mock fs module
@@ -62,7 +62,7 @@ describe('Logger', () => {
     it('should prevent log injection by escaping newlines', () => {
       logger.info('Line 1\nLine 2\rLine 3');
       const lastCall = consoleErrorSpy.mock.calls[0][0];
-      expect(lastCall).toContain('Line 1\\nLine 2\\rLine 3'); 
+      expect(lastCall).toContain('Line 1\\nLine 2\\rLine 3');
     });
   });
 
@@ -72,7 +72,7 @@ describe('Logger', () => {
       logger.runWithContext({ requestId }, () => {
         logger.info('test message');
       });
-      
+
       const lastCall = consoleErrorSpy.mock.calls[0][0];
       expect(lastCall).toContain('[Req:req-123]');
     });
@@ -82,7 +82,7 @@ describe('Logger', () => {
       logger.runWithContext({ sessionId }, () => {
         logger.info('test message');
       });
-      
+
       const lastCall = consoleErrorSpy.mock.calls[0][0];
       // Implementation format: [sessionId] (truncated to 8 chars)
       expect(lastCall).toContain('[sess-456]');
@@ -92,7 +92,7 @@ describe('Logger', () => {
       logger.runWithContext({ requestId: 'req-1', sessionId: 'sess-1' }, () => {
         logger.info('test message');
       });
-      
+
       const lastCall = consoleErrorSpy.mock.calls[0][0];
       // Implementation format: [sessionId:requestId] (truncated to 8 chars)
       expect(lastCall).toContain('[sess-1:req-1]');
@@ -103,7 +103,7 @@ describe('Logger', () => {
       logger.runWithContext({ requestId: longId, sessionId: longId }, () => {
         logger.info('test message');
       });
-      
+
       const lastCall = consoleErrorSpy.mock.calls[0][0];
       expect(lastCall).toContain('[12345678:12345678]');
     });
@@ -119,7 +119,8 @@ describe('Logger', () => {
     });
 
     it('should scrub JWTs from formatted strings', () => {
-      const jwt = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
+      const jwt =
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c';
       logger.info('Token: %s', jwt);
       const lastCall = consoleErrorSpy.mock.calls[0][0];
       expect(lastCall).toContain('Token: **********');
@@ -148,33 +149,33 @@ describe('Logger', () => {
         config: {
           LOG_LEVEL: 'info',
           LOG_FORMAT: 'json',
-          MCP_TRANSPORT: 'stdio'
-        }
+          MCP_TRANSPORT: 'stdio',
+        },
       }));
 
       // Re-import Logger to pick up new config
       const { Logger: JsonLogger } = await import('../../src/utils/logger.js');
       const jsonLogger = new JsonLogger('json-test');
-      
+
       // Spy on console.error again since we reset modules
       const jsonConsoleErrorSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
       jsonLogger.info('json message', { meta: 'data' });
-      
+
       expect(jsonConsoleErrorSpy).toHaveBeenCalled();
       const lastCall = jsonConsoleErrorSpy.mock.calls[0][0];
-      
+
       // Parse the JSON output
       const logEntry = JSON.parse(lastCall);
-      
+
       expect(logEntry).toMatchObject({
         level: 'INFO',
         message: 'json message',
         service: {
           name: 'komodo-mcp-server',
-          component: 'json-test'
+          component: 'json-test',
         },
-        meta: 'data'
+        meta: 'data',
       });
       expect(logEntry.timestamp).toBeDefined();
     });
@@ -186,8 +187,8 @@ describe('Logger', () => {
         config: {
           LOG_LEVEL: 'info',
           LOG_FORMAT: 'json',
-          MCP_TRANSPORT: 'stdio'
-        }
+          MCP_TRANSPORT: 'stdio',
+        },
       }));
 
       const { Logger: JsonLogger } = await import('../../src/utils/logger.js');
@@ -218,8 +219,8 @@ describe('Logger', () => {
           LOG_LEVEL: 'info',
           LOG_FORMAT: 'text',
           MCP_TRANSPORT: 'stdio',
-          LOG_DIR: '/tmp/logs'
-        }
+          LOG_DIR: '/tmp/logs',
+        },
       }));
 
       // Re-import Logger to pick up new config
@@ -230,7 +231,7 @@ describe('Logger', () => {
       expect(fs.createWriteStream).toHaveBeenCalled();
 
       fileLogger.info('file message');
-      
+
       // Get the mock write stream
       const writeStreamMock = (fs.createWriteStream as any).mock.results[0].value;
       expect(writeStreamMock.write).toHaveBeenCalledWith(expect.stringContaining('file message'));

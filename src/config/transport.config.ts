@@ -1,0 +1,177 @@
+/**
+ * Transport Layer Configuration
+ *
+ * Configuration for MCP transport layer including session management,
+ * protocol versions, timeouts, and security settings.
+ *
+ * @module config/transport
+ */
+
+import { config } from './env.js';
+
+// ============================================================================
+// Protocol Version Configuration
+// ============================================================================
+
+/**
+ * Supported MCP protocol versions
+ * Spec: https://modelcontextprotocol.io/specification/versioning
+ */
+export const SUPPORTED_PROTOCOL_VERSIONS = [
+  '2025-11-25', // Latest release
+  '2025-06-18',
+  '2025-03-26',
+  '2024-11-05', // SSE Discontinuation release
+] as const;
+
+/**
+ * Fallback protocol version for backwards compatibility
+ * Used when client doesn't send MCP-Protocol-Version header
+ */
+export const FALLBACK_PROTOCOL_VERSION = '2024-11-05';
+
+// ============================================================================
+// Session Management Configuration
+// ============================================================================
+
+/**
+ * Session timeout in milliseconds
+ * Sessions expire after 30 minutes of inactivity
+ */
+export const SESSION_TIMEOUT_MS = 30 * 60 * 1000; // 30 minutes
+
+/**
+ * Session cleanup interval in milliseconds
+ * Expired sessions are cleaned up every minute
+ */
+export const SESSION_CLEANUP_INTERVAL_MS = 60 * 1000; // 1 minute
+
+/**
+ * Session keep-alive interval in milliseconds
+ * Sends a heartbeat every 30 seconds to prevent connection timeouts
+ */
+export const SESSION_KEEP_ALIVE_INTERVAL_MS = 30 * 1000; // 30 seconds
+
+/**
+ * Maximum number of missed heartbeats before closing session
+ * Allows for temporary network glitches (e.g. 3 * 30s = 90s tolerance)
+ */
+export const SESSION_MAX_MISSED_HEARTBEATS = 3;
+
+/**
+ * Maximum number of concurrent HTTP sessions
+ * Prevents memory exhaustion from too many open sessions
+ */
+export const SESSION_MAX_COUNT = 100;
+
+/**
+ * Maximum number of concurrent Legacy SSE sessions
+ * Separate limit as these hold open connections
+ */
+export const LEGACY_SSE_MAX_SESSIONS = 50;
+
+// ============================================================================
+// Security Configuration
+// ============================================================================
+
+/**
+ * Generates allowed hosts list for DNS rebinding protection.
+ *
+ * Returns the configured allowed hosts or defaults to localhost variants.
+ * The returned list is used by middleware to validate Host headers.
+ *
+ * @returns Array of allowed host strings (e.g., ['localhost:3000', '127.0.0.1:3000'])
+ *
+ * @example
+ * ```typescript
+ * // With default config (localhost binding)
+ * getAllowedHosts(); // ['localhost', '127.0.0.1', '[::1]', 'localhost:3000', ...]
+ *
+ * // With custom MCP_ALLOWED_HOSTS
+ * // MCP_ALLOWED_HOSTS=myapp.example.com,api.example.com
+ * getAllowedHosts(); // ['myapp.example.com', 'api.example.com']
+ * ```
+ */
+export function getAllowedHosts(): string[] {
+  const port = config.MCP_PORT;
+  // prettier-ignore
+  const defaults = [
+    'localhost',
+    '127.0.0.1',
+    '[::1]',
+    `localhost:${port}`,
+    `127.0.0.1:${port}`,
+    `[::1]:${port}`,
+  ];
+
+  if (config.MCP_ALLOWED_HOSTS && config.MCP_ALLOWED_HOSTS.length > 0) {
+    return config.MCP_ALLOWED_HOSTS;
+  }
+
+  return defaults;
+}
+
+/**
+ * Generates allowed origins list for CORS validation
+ * Only used when server is bound to non-localhost addresses
+ *
+ * NOTE: Wildcard '*' is only allowed in development mode.
+ * In production, explicit origins must be specified.
+ */
+export function getAllowedOrigins(): string[] {
+  const port = config.MCP_PORT;
+  // prettier-ignore
+  const defaults = [
+    `http://localhost:${port}`,
+    `http://127.0.0.1:${port}`,
+    `http://[::1]:${port}`,
+  ];
+
+  if (config.MCP_ALLOWED_ORIGINS && config.MCP_ALLOWED_ORIGINS.length > 0) {
+    // Filter out wildcard '*' in production mode
+    if (config.NODE_ENV === 'production') {
+      const filtered = config.MCP_ALLOWED_ORIGINS.filter((origin) => origin !== '*');
+      if (filtered.length !== config.MCP_ALLOWED_ORIGINS.length) {
+        // Log warning about stripped wildcard (use console.warn to avoid circular import)
+        console.warn(
+          '[SECURITY] Wildcard "*" origin is not allowed in production mode. ' +
+            'Please specify explicit allowed origins via MCP_ALLOWED_ORIGINS.',
+        );
+      }
+      return filtered.length > 0 ? filtered : defaults;
+    }
+    return config.MCP_ALLOWED_ORIGINS;
+  }
+
+  return defaults;
+}
+
+/**
+ * Checks if a host is a local loopback address.
+ *
+ * Supports localhost, 127.0.0.1, and IPv6 loopback [::1] with or without port.
+ * Used by middleware to determine if localhost-specific behavior should apply.
+ *
+ * @param host - The host string to check (e.g., 'localhost:3000', '192.168.1.1')
+ * @returns true if the host is a local loopback address
+ *
+ * @example
+ * ```typescript
+ * isLocalHost('localhost:3000');  // true
+ * isLocalHost('127.0.0.1');       // true
+ * isLocalHost('[::1]:8080');      // true
+ * isLocalHost('192.168.1.1');     // false
+ * isLocalHost('myapp.com');       // false
+ * ```
+ */
+export function isLocalHost(host: string): boolean {
+  const cleanHost = host.trim();
+  return (
+    cleanHost.startsWith('localhost:') ||
+    cleanHost === 'localhost' ||
+    cleanHost.startsWith('127.0.0.1:') ||
+    cleanHost === '127.0.0.1' ||
+    cleanHost.startsWith('[::1]:') ||
+    cleanHost === '[::1]'
+  );
+}

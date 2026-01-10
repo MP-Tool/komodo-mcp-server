@@ -1,15 +1,21 @@
+/**
+ * API Module
+ *
+ * Provides the KomodoClient for interacting with the Komodo API.
+ *
+ * @module api
+ */
+
 import { KomodoClient as createKomodoClient } from 'komodo_client';
-import { logger as baseLogger } from '../utils/logger.js';
+import { logger as baseLogger } from '../utils/index.js';
 import { HealthCheckResult } from './types.js';
-import { ServerResource } from './resources/servers.js';
-import { ContainerResource } from './resources/containers.js';
-import { StackResource } from './resources/stacks.js';
-import { DeploymentResource } from './resources/deployments.js';
+import { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
 
 const logger = baseLogger.child({ component: 'api' });
 
 export * from './types.js';
 export * from './utils.js';
+export type { ApiOperationOptions } from './base.js';
 
 /**
  * Main client for interacting with the Komodo API.
@@ -50,6 +56,9 @@ export class KomodoClient {
    */
   static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
     const url = baseUrl.replace(/\/$/, '');
+    const { config } = await import('../config/index.js');
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), config.API_TIMEOUT_MS);
 
     try {
       logger.debug('Authenticating user=%s url=%s', username, url);
@@ -58,6 +67,7 @@ export class KomodoClient {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username, password }),
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -76,8 +86,13 @@ export class KomodoClient {
 
       return new KomodoClient(url, client);
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error(`Login request timed out after ${config.API_TIMEOUT_MS}ms`);
+      }
       logger.error('Login error:', error);
       throw error;
+    } finally {
+      clearTimeout(timeout);
     }
   }
 

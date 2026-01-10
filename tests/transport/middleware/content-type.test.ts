@@ -10,11 +10,11 @@ describe('Content-Type Middleware', () => {
   beforeEach(() => {
     req = {
       method: 'POST',
-      headers: {}
+      headers: {},
     };
     res = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn()
+      json: vi.fn(),
     };
     next = vi.fn();
   });
@@ -40,9 +40,11 @@ describe('Content-Type Middleware', () => {
   it('should reject missing Content-Type', () => {
     validateContentType(req as Request, res as Response, next);
     expect(res.status).toHaveBeenCalledWith(415);
-    expect(res.json).toHaveBeenCalledWith(expect.objectContaining({
-      error: expect.objectContaining({ message: expect.stringContaining('Content-Type must be application/json') })
-    }));
+    expect(res.json).toHaveBeenCalledWith(
+      expect.objectContaining({
+        error: expect.objectContaining({ message: expect.stringContaining('Content-Type must be application/json') }),
+      }),
+    );
     expect(next).not.toHaveBeenCalled();
   });
 

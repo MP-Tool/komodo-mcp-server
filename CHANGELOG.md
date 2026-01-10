@@ -7,6 +7,257 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [1.1.1] (Unreleased)
+
+### Added
+- **Transport Integration Tests** (`tests/integration/transport-*.test.ts`): Comprehensive transport mode testing
+  - `transport-stdio.test.ts`: 9 tests for stdio transport (JSON-RPC over stdin/stdout)
+  - `transport-http.test.ts`: 12 tests for Streamable HTTP Transport (2025-03-26)
+  - `transport-http-sse.test.ts`: 8 tests for Legacy SSE Transport (2024-11-05)
+  - `transport-cross.test.ts`: 8 tests verifying consistent behavior across all transport modes
+  - Tests cover: protocol compliance, session management, concurrent connections, error handling
+- **New Test Script** (`npm run test:transport`): Run all transport integration tests
+- **AbortSignal Propagation**: Full request cancellation support through all layers
+  - `ApiOperationOptions` interface with optional `signal?: AbortSignal` parameter
+  - `BaseResource.checkAborted()` helper method for consistent cancellation checks
+  - All API resource methods (`containers`, `servers`, `stacks`, `deployments`) accept AbortSignal
+  - All 40+ tool handlers pass `abortSignal` to API calls for proper cancellation
+- **Zod Input Validation Schemas** (`src/api/utils.ts`): Centralized input validation for API resources
+  - `serverIdSchema`, `containerNameSchema`, `stackIdSchema`, `deploymentIdSchema` for resource IDs
+  - `tailSchema` for log tail parameter validation (positive integer ≥ 1)
+  - `resourceNameSchema` for generic resource names with min length validation
+  - Helper functions: `validateServerId()`, `validateContainerName()`, etc.
+- **MCP-COMPLIANCE.md**: Comprehensive MCP specification compliance documentation
+  - Compliance matrix for transport, lifecycle, resources, tools, prompts
+  - Security feature documentation (request cancellation, rate limiting)
+  - Testing coverage information and architecture overview
+- **Logger Shutdown** (`Logger.closeStreams()`): Graceful file handle cleanup
+  - Closes stdout/stderr file streams before process exit
+  - Prevents file descriptor leaks on shutdown
+- **Custom Error Classes** (`src/utils/errors/`): Type-safe error hierarchy for better error handling
+  - `KomodoError` base class with code, statusCode, mcpCode, cause chain, and JSON serialization
+  - `ApiError` for Komodo API communication errors (endpoint, method, responseStatus)
+  - `ConnectionError` and `AuthenticationError` for connection/auth failures
+  - `NotFoundError` for resource not found errors with resourceType/resourceId
+  - `ValidationError` with Zod integration and automatic value sanitization
+  - `ConfigurationError` with helpers for missing/invalid env vars
+  - `OperationCancelledError` and `OperationError` for operation lifecycle
+  - `ClientNotConfiguredError` for tool execution without Komodo connection
+- **Structured JSON Logging** (`src/utils/logger/log-schema.ts`): ECS-compatible structured log format
+  - `StructuredLogEntry` interface following Elastic Common Schema (ECS) 8.x
+  - `LogEntryBuilder` fluent API for constructing log entries
+  - Support for service metadata, trace context, HTTP context, error details
+  - Numeric log severity (`log.level`) for easy filtering
+  - `@timestamp` in ISO 8601 format for log aggregation (ELK, Datadog, Splunk)
+- **Dependency Injection Container** (`src/utils/di/`): Lightweight, type-safe DI system
+  - `Container` class with singleton/transient scopes
+  - Token-based registration (string or Symbol)
+  - Factory functions for lazy instantiation
+  - Hierarchical containers (child scopes) for request-level dependencies
+  - `TOKENS` predefined symbols for common services
+  - `createToken<T>()` helper for typed token creation
+- **OpenTelemetry Tracing** (`src/server/telemetry/tracing.ts`): Distributed tracing support
+  - Optional activation via `OTEL_ENABLED=true` environment variable
+  - `withSpan()` and `withSpanSync()` helpers for creating spans
+  - Auto-instrumentation for HTTP, Express, and other modules
+  - OTLP exporter for Jaeger, Zipkin, Datadog compatibility
+  - `MCP_ATTRIBUTES` semantic conventions for MCP operations
+  - Graceful shutdown with `shutdownTelemetry()`
+- **OpenTelemetry Metrics** (`src/server/telemetry/metrics.ts`): Server performance metrics
+  - `ServerMetricsManager` class for centralized metric collection
+  - Request metrics: count, duration histogram, success/failure tracking
+  - Session metrics: active HTTP and SSE session gauges
+  - Connection state metrics: state transition counters
+  - Error metrics: categorized by type and component
+  - `getStats()` method for runtime statistics snapshot
+  - Falls back to in-memory tracking when OpenTelemetry is disabled
+- **Knip Configuration** (`knip.json`): Unused code detection configuration
+  - Project scope: `src/**/*.ts`
+  - Ignores: test files to avoid false positives
+- **Resource Templates (RFC 6570)**: Full support for dynamic resource URIs with variable placeholders
+  - Uses SDK's `ResourceTemplate` class for proper URI template matching
+  - Supports RFC 6570 URI Template syntax (e.g., `komodo://server/{serverId}/logs`)
+  - Argument validation with Zod schemas for type-safe template parameters
+  - Example template: `example-server-logs.ts` demonstrating the pattern
+- **MCP Notification Logger** (`src/utils/logger/mcp-logger.ts`): Reusable logging module for sending log messages to MCP clients
+  - Follows RFC 5424 syslog levels (debug, info, notice, warning, error, critical, alert, emergency)
+  - Multi-server support for concurrent sessions
+  - Configurable minimum log level
+  - Convenience methods: `debug()`, `info()`, `warn()`, `error()`, etc.
+  - Context logger factory for tool handlers
+- **Connection State Manager** (`src/server/utils/connection-state.ts`): Centralized Komodo connection state tracking
+  - State machine: `disconnected` → `connecting` → `connected` | `error`
+  - Listener notifications on state changes
+  - Health check validation during connect
+  - Connection history tracking (last 10 state changes) with circular buffer
+  - **OpenTelemetry integration**: spans and events for connection lifecycle
+  - **Metrics integration**: records state transitions via `serverMetrics`
+- **Dynamic Tool Availability (Tool Gating)**: Tools are now enabled/disabled based on Komodo connection
+  - `requiresClient` property on tool definitions (default: `true`)
+  - `komodo_configure` always available (doesn't require connection)
+  - `tools/list_changed` notification sent when availability changes
+  - MCP clients automatically receive updated tool list
+- **Ping/Pong Handler**: Server responds to MCP ping requests with pong notification
+  - Logs `🏓 pong` via MCP notification (info level)
+  - Useful for client liveness checks
+- **Runtime Environment Credentials**: Fixed Docker `env_file` support
+  - `getKomodoCredentials()` reads credentials at runtime (not module load time)
+  - `getEnv()` safely reads environment variables with empty string handling
+  - Ensures credentials from `env_file` are available after container start
+- **Enhanced Health & Readiness Probes**: Improved container orchestration support
+  - `/health` (Liveness): Always returns 200 if process is running, includes uptime
+  - `/ready` (Readiness): Smart status codes for accurate container health:
+    - `200 OK`: Server is ready to accept traffic
+    - `503 Service Unavailable`: Komodo configured but not connected
+    - `429 Too Many Requests`: Session limits reached (HTTP or SSE)
+  - Docker HEALTHCHECK uses `/ready` for accurate container status reporting
+  - Detailed session information with current/max/atLimit for each transport
+  - `start_period` increased to 10s for reliable container startup
+- **Legacy SSE Transport Support**: Added optional backwards compatibility for older MCP clients using the deprecated HTTP+SSE transport (protocol 2024-11-05).
+  - Enable with `MCP_LEGACY_SSE_ENABLED=true` environment variable
+  - Exposes endpoints: `GET /sse` (SSE stream) and `POST /sse/message` (JSON-RPC messages)
+  - Both modern Streamable HTTP (`/mcp`) and legacy SSE (`/sse`) can run simultaneously
+  - Default: `false` (only Streamable HTTP Transport enabled)
+- **MCP Spec Compliance**: Full implementation of MCP 2025-03-26 transport specification
+  - Request cancellation support via `CancelledNotification`
+  - Progress reporting via `ProgressNotificationSchema`
+  - Resource and Prompt registries with dynamic capability advertising
+  - `RequestManager` (`src/server/utils/request-manager.ts`) for tracking in-flight requests with abort controller support
+- **Session Limits**: Added configurable session limits to prevent memory exhaustion attacks
+  - `SESSION_MAX_COUNT=100` for Streamable HTTP sessions
+  - `LEGACY_SSE_MAX_SESSIONS=50` for Legacy SSE sessions
+- **Example Resources & Prompts**: Renamed and documented example implementations for clarity
+  - `example-server-info.ts` - Example resource demonstrating Resource Registry pattern
+  - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
+- **Formatting Utilities** (`src/utils/format.ts`): Centralized formatting helpers
+  - `formatSessionId()` - Truncates session IDs to 8 chars for consistent logging
+
+### Performance
+- **Logger Regex Pre-Compilation**: Secret scrubbing regex patterns compiled once at module load
+  - `SCRUB_JWT_REGEX`, `SCRUB_BEARER_REGEX`, `SCRUB_KV_REGEX` pre-compiled
+  - Eliminates regex compilation overhead on every log call
+  - ~50-80% faster logging under high volume
+- **Tool Registry Caching**: Cached tool arrays to avoid repeated `Array.from()` calls
+  - `cachedAllTools`, `cachedAvailableTools`, `cachedClientRequired`, `cachedAlwaysAvailable`
+  - Cache invalidation on tool registration and connection state changes
+  - Eliminates O(n) array creation on every tool lookup
+- **Circular Buffer for Connection History**: O(1) history management
+  - Replaced `array.push()` + `array.shift()` with circular buffer
+  - `shift()` was O(n), circular buffer index update is O(1)
+  - Memory-efficient fixed-size history storage
+
+### Security
+- **CORS Wildcard Protection**: Wildcard `*` origin is now blocked in production mode
+  - `getAllowedOrigins()` filters out `*` when `NODE_ENV=production`
+  - Logs security warning when wildcard is stripped
+  - Explicit origins must be specified via `MCP_ALLOWED_ORIGINS` for production
+- **Enhanced DNS Rebinding Documentation**: Added security notes to middleware
+  - Documents need for reverse proxy (nginx, traefik) with TLS in production
+  - Clarifies that MCP endpoint relies on network isolation, not HTTP auth
+
+### Changed
+- **Tool Context**: `setClient()` is now async and returns `Promise<void>`
+  - Triggers connection state change and tool availability update
+  - Validates connection with health check before completing
+- **Configure Tool**: Now shows available tool count after configuration
+  - Displays `🔧 Tools Available: X/Y` in success message
+- **Rate Limiting**: Increased rate limit from 100 to 1000 requests per 15-minute window for better development experience
+- **Session ID Handling**: Fixed SDK compatibility by injecting session IDs into `rawHeaders` for `@hono/node-server`
+- **DNS Rebinding Protection**: Updated middleware to allow localhost origins for development
+- **Prompts Type Safety**: `PromptArguments` type replaces `any` in prompt definitions
+  - `Record<string, string | number | boolean | undefined>` for type-safe prompt args
+- **JSON Logging Format**: Upgraded to ECS-compatible structured logging
+  - `@timestamp` instead of `timestamp` for ECS compliance
+  - `log.level` numeric severity for filtering
+  - `metadata` field for custom data instead of spreading at root level
+  - `labels.request_id` for easy request tracking
+
+### Dependencies
+- **Added**: OpenTelemetry packages for distributed tracing
+  - `@opentelemetry/api` - Core tracing API
+  - `@opentelemetry/sdk-node` - Node.js SDK
+  - `@opentelemetry/auto-instrumentations-node` - Auto instrumentation
+  - `@opentelemetry/exporter-trace-otlp-http` - OTLP exporter
+
+### Fixed
+- **Docker env_file Credentials**: Environment variables from `env_file` are now correctly read at runtime
+  - Previously, credentials were read at module load time (before container fully started)
+  - `getKomodoCredentials()` ensures runtime access to Docker-injected environment variables
+- **Signal Handler**: Fixed duplicate SIGINT handlers causing unpredictable shutdown behavior
+  - Consolidated shutdown logic with `shutdownInProgress` guard flag
+  - Single handler for both SIGINT and SIGTERM signals
+- **API Error Handling**: Removed try/catch blocks with silent returns in API resources
+  - Errors now propagate correctly through the call stack
+  - Consistent error handling across all API methods
+
+### Removed
+- **Unused Utilities** (`src/tools/utils/`): Removed entire directory
+  - `action-factory.ts` - Never used action factory pattern
+  - `index.ts` - Barrel export file
+- **Unused Format Functions** (`src/utils/format.ts`): Removed dead code
+  - `formatDuration()` - Planned but never integrated
+  - `formatBytes()` - Planned but never integrated
+
+### Improved
+- **Configuration Module Refactoring**: Separated config into domain-specific modules
+  - `server.config.ts` - Server identity (SERVER_NAME, SERVER_VERSION)
+  - `tools.config.ts` - Tool defaults (CONTAINER_LOGS_DEFAULTS, LOG_SEARCH_DEFAULTS)
+  - `transport.config.ts` - Moved from `src/transport/config/` to `src/config/`
+  - `errors.config.ts` - Centralized error codes and messages
+- **Error Handling Centralization**: Standardized error codes and messages
+  - `JsonRpcErrorCode` enum (INVALID_REQUEST, SERVER_ERROR, SESSION_NOT_FOUND, etc.)
+  - `HttpStatus` enum (BAD_REQUEST, NOT_FOUND, INTERNAL_SERVER_ERROR, etc.)
+  - `TransportErrorMessage` constants for consistent error responses
+- **TypeScript Type Safety**: Replaced `any` casts with proper interfaces
+  - Added `HeartbeatCapableTransport` interface for type-safe heartbeat access
+  - `TransportSessionManager` now uses generic `Transport` interface (better testability)
+- **Code Organization**: Created index.ts barrel files for transport layer modules
+  - `src/transport/index.ts` - Central exports with architecture documentation
+  - `src/transport/middleware/index.ts` - Middleware exports
+  - `src/transport/utils/index.ts` - Utility exports
+- **Import Consolidation**: All modules now use barrel exports for cleaner imports
+  - `config/index.js` used throughout the codebase
+  - `transport/index.js` for main entry point
+  - `transport/utils/index.js` for middleware utilities
+- **Health Endpoint**: Enhanced `/health` endpoint to report session counts by transport type
+  - Shows `streamableHttp` session count (always)
+  - Shows `legacySse` session count (when enabled)
+- **Code Cleanup**: Removed unused exports identified by knip analysis
+  - Removed `JSON_RPC_ERROR_CODES` (using MCP SDK error codes instead)
+  - Removed `LIMITS` from public exports (kept internally for future use)
+  - Removed unused schema exports (RestartModeSchema, TerminationSignalSchema, etc.)
+  - Removed unused dependency `zod-to-json-schema`
+- **Type Safety Improvements**: Enhanced TypeScript strict typing throughout the codebase
+  - `ResourceTemplate<TArgs>`: Generic type parameter for handler arguments
+  - `ResourceListItem`: New interface for resource list callback results
+  - `KomodoServerState`: Proper type for server state responses (replaces `unknown`)
+  - `ServerState` enum: Re-exported from komodo_client for type-safe status values
+  - Container actions: `const` assertion for type-safe execute API calls
+  - Prune actions: `actionMap` with `as const` for proper literal type inference
+  - `progressToken` extraction: Inline type instead of `as any` cast
+  - Documented `any` usage with `eslint-disable` comments explaining rationale
+- **Module Organization**: Added barrel files (`index.ts`) for cleaner imports
+  - `src/server/index.ts`: Server initialization and exports
+  - `src/server/utils/index.ts`: Connection state, request manager, handlers, client initializer
+  - `src/server/telemetry/index.ts`: OpenTelemetry tracing and metrics exports
+  - `src/server/transport/index.ts`: HTTP server, session manager, transports
+  - `src/server/transport/routes/index.ts`: MCP and health route handlers
+  - `src/server/transport/utils/index.ts`: JSON-RPC helpers, logging utilities
+  - `src/utils/index.ts`: Logger, errors, DI container, format utilities
+  - `src/utils/logger/index.ts`: Logger, MCP logger, log schema
+  - `src/utils/errors/index.ts`: KomodoError hierarchy exports
+  - `src/utils/di/index.ts`: DI container and tokens
+  - `src/api/resources/index.ts`: API resource classes
+  - `src/mcp/tools/index.ts`: Tool registry and tool exports
+- **Code Extraction**: Refactored large functions into dedicated modules
+  - `src/server/utils/handlers.ts`: Cancellation and Ping handlers
+  - `src/server/utils/client-initializer.ts`: Environment-based client initialization
+- **Resource Template Discovery**: Implemented `list` callback for Resource Templates
+  - Templates can now enumerate available resources for MCP clients
+  - Example template demonstrates mock server discovery
+
+--------------------------------------------------------------
+
 ## [1.0.4] (#22)
 
 ### Changed

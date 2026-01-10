@@ -1,23 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { createJsonRpcError, createJsonRpcResult } from '../../../src/transport/utils/json-rpc.js';
+import { createJsonRpcError, createJsonRpcResult, JsonRpcErrorCode } from '../../../src/transport/utils/json-rpc.js';
 
 describe('JSON-RPC Utils', () => {
   describe('createJsonRpcError', () => {
     it('should create error response', () => {
-      const error = createJsonRpcError(-32600, 'Invalid Request', 1);
+      const error = createJsonRpcError(JsonRpcErrorCode.INVALID_REQUEST, 'Invalid Request', 1);
       expect(error).toEqual({
         jsonrpc: '2.0',
-        error: { code: -32600, message: 'Invalid Request' },
-        id: 1
+        error: { code: JsonRpcErrorCode.INVALID_REQUEST, message: 'Invalid Request' },
+        id: 1,
       });
     });
 
     it('should create error response with null id', () => {
-      const error = createJsonRpcError(-32600, 'Invalid Request');
+      const error = createJsonRpcError(JsonRpcErrorCode.INVALID_REQUEST, 'Invalid Request');
       expect(error).toEqual({
         jsonrpc: '2.0',
-        error: { code: -32600, message: 'Invalid Request' },
-        id: null
+        error: { code: JsonRpcErrorCode.INVALID_REQUEST, message: 'Invalid Request' },
+        id: null,
       });
     });
   });
@@ -28,7 +28,7 @@ describe('JSON-RPC Utils', () => {
       expect(result).toEqual({
         jsonrpc: '2.0',
         result: { foo: 'bar' },
-        id: 1
+        id: 1,
       });
     });
 
@@ -37,7 +37,7 @@ describe('JSON-RPC Utils', () => {
       expect(result).toEqual({
         jsonrpc: '2.0',
         result: { foo: 'bar' },
-        id: null
+        id: null,
       });
     });
   });

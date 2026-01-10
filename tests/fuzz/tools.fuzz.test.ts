@@ -1,6 +1,6 @@
 /**
  * Tool Schema Fuzzing Tests
- * 
+ *
  * This test suite iterates over all registered MCP tools and fuzzes their input schemas.
  * It ensures that the Zod schemas defined for each tool can safely handle arbitrary
  * input data without throwing unexpected exceptions (crashes).
@@ -35,14 +35,14 @@ describe('Tool Schema Fuzzing', () => {
             // But Zod schemas *can* throw if they are malformed, or if safeParse is not used.
             // We use safeParse here.
             tool.schema.safeParse(input);
-            
+
             // If it succeeds, the data should match the schema (implicit)
             // If it fails, it should be a ZodError (implicit in safeParse)
             return true;
           } catch (error) {
             return false;
           }
-        })
+        }),
       );
     });
   });

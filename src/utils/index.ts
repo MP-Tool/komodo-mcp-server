@@ -26,7 +26,7 @@ export {
 
 // Error exports
 export {
-  KomodoError,
+  AppError,
   ApiError,
   ConnectionError,
   AuthenticationError,

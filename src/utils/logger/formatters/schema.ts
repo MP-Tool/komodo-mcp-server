@@ -189,7 +189,7 @@ export class LogEntryBuilder {
    */
   withError(error: Error | SerializedError): this {
     if ('toJSON' in error && typeof error.toJSON === 'function') {
-      // KomodoError with serialization
+      // AppError with serialization
       const serialized = error.toJSON() as SerializedError;
       this.entry.error = {
         type: serialized.name,

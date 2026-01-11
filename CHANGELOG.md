@@ -192,6 +192,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `index.ts` - Barrel export file
 
 ### Improved
+- **Error System Architecture Overhaul** (`src/utils/errors/`): Complete restructuring for maintainability and extensibility
+  - **Modular File Structure**: Reorganized flat error files into layered architecture:
+    - `core/` - Base class (`AppError`), types, constants, message registry
+    - `categories/` - Domain-specific error classes (API, Validation, Operation, MCP, System)
+    - `factory.ts` - `ErrorFactory` with sub-factories for consistent error creation
+  - **New Error Categories**:
+    - `McpProtocolError` - Protocol violations and invalid requests
+    - `SessionError` - Session management failures
+    - `TransportError` - Transport layer errors
+    - `InternalError` - Internal server errors
+    - `RegistryError` - Registry/initialization errors
+  - **Enhanced Error Features**:
+    - `errorId` (UUID) - Unique identifier for tracking/support
+    - `recoveryHint` - User-friendly guidance for error resolution
+    - `getMessage()` - Centralized message registry with template interpolation (70+ messages)
+    - Automatic HTTP/MCP status code mapping via `ErrorCodeToHttpStatus`
+  - **ErrorFactory Pattern**: Type-safe error creation with domain-specific sub-factories
+    - `ErrorFactory.api.*` - API-related errors (serverNotFound, connectionFailed, etc.)
+    - `ErrorFactory.validation.*` - Input validation errors (fieldRequired, invalidFormat, etc.)
+    - `ErrorFactory.operation.*` - Operation errors (cancelled, failed, clientNotConfigured)
+    - `ErrorFactory.mcp.*` - MCP protocol errors (invalidRequest, sessionExpired, etc.)
+    - `ErrorFactory.system.*` - System errors (internal, registryError)
+  - **Security**: Sensitive field detection (`isSensitiveField()`) for automatic data redaction
+  - **Constants**: `JsonRpcErrorCode`, `HttpStatus`, `VALIDATION_LIMITS`, `SENSITIVE_FIELD_PATTERNS`
 - **Logger Module Architecture Overhaul** (`src/utils/logger/`): Complete restructuring for maintainability
   - **Modular File Structure**: Split monolithic `logger.ts` (~1200 lines) into focused modules:
     - `core/` - Core types, config, context, format utilities

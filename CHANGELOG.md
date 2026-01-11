@@ -49,13 +49,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Support for service metadata, trace context, HTTP context, error details
   - Numeric log severity (`log.level`) for easy filtering
   - `@timestamp` in ISO 8601 format for log aggregation (ELK, Datadog, Splunk)
-- **Dependency Injection Container** (`src/utils/di/`): Lightweight, type-safe DI system
-  - `Container` class with singleton/transient scopes
-  - Token-based registration (string or Symbol)
-  - Factory functions for lazy instantiation
-  - Hierarchical containers (child scopes) for request-level dependencies
-  - `TOKENS` predefined symbols for common services
-  - `createToken<T>()` helper for typed token creation
 - **OpenTelemetry Tracing** (`src/server/telemetry/tracing.ts`): Distributed tracing support
   - Optional activation via `OTEL_ENABLED=true` environment variable
   - `withSpan()` and `withSpanSync()` helpers for creating spans
@@ -129,8 +122,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Example Resources & Prompts**: Renamed and documented example implementations for clarity
   - `example-server-info.ts` - Example resource demonstrating Resource Registry pattern
   - `example-troubleshoot.ts` - Example prompt demonstrating Prompt Registry pattern
-- **Formatting Utilities** (`src/utils/format.ts`): Centralized formatting helpers
+- **Formatting Utilities** (`src/utils/logger/core/format.ts`): Logger-specific formatting helpers
   - `formatSessionId()` - Truncates session IDs to 8 chars for consistent logging
+  - `formatRequestId()` - Truncates request IDs for log output
+  - `formatTraceId()` - Truncates trace IDs for log output
+  - Configurable length constants (`SESSION_ID_LOG_LENGTH`, `REQUEST_ID_LOG_LENGTH`, `TRACE_ID_LOG_LENGTH`)
 
 ### Performance
 - **Logger Regex Pre-Compilation**: Secret scrubbing regex patterns compiled once at module load
@@ -194,11 +190,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unused Utilities** (`src/tools/utils/`): Removed entire directory
   - `action-factory.ts` - Never used action factory pattern
   - `index.ts` - Barrel export file
-- **Unused Format Functions** (`src/utils/format.ts`): Removed dead code
-  - `formatDuration()` - Planned but never integrated
-  - `formatBytes()` - Planned but never integrated
 
 ### Improved
+- **Logger Module Architecture Overhaul** (`src/utils/logger/`): Complete restructuring for maintainability
+  - **Modular File Structure**: Split monolithic `logger.ts` (~1200 lines) into focused modules:
+    - `core/` - Core types, config, context, format utilities
+    - `formatters/` - TextFormatter, JsonFormatter with strategy pattern
+    - `processors/` - Security (scrubbing, injection guard), LogProcessor pipeline
+    - `writers/` - ConsoleWriter, FileWriter, McpWriter with WriterManager
+    - `factory.ts` - LoggerResources for testable resource management
+  - **Context Management**: Per-context depth tracking via `contextDepth` Map
+    - Fixes cross-context depth pollution in concurrent requests
+    - AsyncLocalStorage store now contains depth per context ID
+  - **Secret Scrubbing Enhancements**:
+    - JWT detection: Header.Payload pattern with `[JWT:xxx...]` replacement
+    - Bearer tokens: `Authorization: Bearer xxx` → `[BEARER:xxx...]`
+    - Key-value patterns: `password=xxx`, `api_key: xxx`, `secret = xxx`
+    - All patterns handle quotes, various delimiters, and edge cases
+  - **Injection Guard (CWE-117)**: Log forging protection
+    - Escapes `\n`, `\r`, `\t` in log messages
+    - Prevents multi-line log injection attacks
+  - **Writer System**: Pluggable output destinations
+    - `ConsoleWriter` - stdout/stderr with transport-aware routing
+    - `FileWriter` - Rotating file output with LOG_DIR support
+    - `McpWriter` - MCP notification logging to connected clients
+    - `WriterManager` - Coordinates multiple writers with level filtering
+  - **Formatter Strategy Pattern**: Swappable output formats
+    - `TextFormatter` - Human-readable with colors and emojis
+    - `JsonFormatter` - ECS-compatible structured JSON
+    - Both implement `LogFormatter` interface
+  - **Factory Pattern** (`LoggerResources`): Dependency injection for testing
+    - Inject custom formatters, writers, context providers
+    - Enables isolated unit tests without global state
 - **Configuration Module Refactoring**: Separated config into domain-specific modules
   - `server.config.ts` - Server identity (SERVER_NAME, SERVER_VERSION)
   - `tools.config.ts` - Tool defaults (CONTAINER_LOGS_DEFAULTS, LOG_SEARCH_DEFAULTS)
@@ -243,10 +266,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `src/server/transport/index.ts`: HTTP server, session manager, transports
   - `src/server/transport/routes/index.ts`: MCP and health route handlers
   - `src/server/transport/utils/index.ts`: JSON-RPC helpers, logging utilities
-  - `src/utils/index.ts`: Logger, errors, DI container, format utilities
-  - `src/utils/logger/index.ts`: Logger, MCP logger, log schema
+  - `src/utils/index.ts`: Logger, errors, format utilities
+  - `src/utils/logger/index.ts`: Logger, MCP logger, log schema, formatSessionId
   - `src/utils/errors/index.ts`: KomodoError hierarchy exports
-  - `src/utils/di/index.ts`: DI container and tokens
   - `src/api/resources/index.ts`: API resource classes
   - `src/mcp/tools/index.ts`: Tool registry and tool exports
 - **Code Extraction**: Refactored large functions into dedicated modules

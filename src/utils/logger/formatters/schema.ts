@@ -1,5 +1,5 @@
 /**
- * Structured Logging Schema
+ * Structured Log Schema Module
  *
  * Defines the JSON log format compatible with ELK Stack, Datadog, Splunk,
  * and other log aggregation platforms.
@@ -9,11 +9,12 @@
  * - OpenTelemetry Semantic Conventions
  * - RFC 5424 Syslog
  *
- * @module utils/log-schema
+ * @module logger/formatters/schema
  */
 
-import type { LogLevel } from './index.js';
-import type { SerializedError } from '../errors/index.js';
+import type { LogLevel } from '../core/types.js';
+import type { SerializedError } from '../../errors/index.js';
+import { LOG_LEVELS } from '../core/constants.js';
 
 /**
  * Structured log entry for JSON output.
@@ -104,19 +105,6 @@ export interface StructuredLogEntry {
 }
 
 /**
- * Log level to numeric severity mapping.
- * Uses RFC 5424-style severity but inverted (higher = more severe).
- * This makes filtering with >= operators intuitive.
- */
-export const LOG_SEVERITY: Record<LogLevel, number> = {
-  trace: 10,
-  debug: 20,
-  info: 30,
-  warn: 40,
-  error: 50,
-};
-
-/**
  * Builder class for creating structured log entries.
  * Provides a fluent API for constructing log entries.
  *
@@ -136,7 +124,7 @@ export class LogEntryBuilder {
     this.entry = {
       '@timestamp': new Date().toISOString(),
       level: level.toUpperCase() as Uppercase<LogLevel>,
-      'log.level': LOG_SEVERITY[level],
+      'log.level': LOG_LEVELS[level],
       message,
       service: {
         name: 'komodo-mcp-server',

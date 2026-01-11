@@ -16,6 +16,9 @@ export {
   createLogEntry,
   LogEntryBuilder,
   LOG_SEVERITY,
+  formatSessionId,
+  formatRequestId,
+  formatTraceId,
   type LogLevel,
   type LogContext,
   type StructuredLogEntry,
@@ -35,11 +38,25 @@ export {
   ClientNotConfiguredError,
 } from './errors/index.js';
 
-// DI exports
-export { container, Container, TOKENS, createToken, type Token } from './di/index.js';
-
 // Server utils (re-export from server/utils for convenience)
 export { connectionManager, requestManager, type ProgressData } from '../server/utils/index.js';
 
-// Format utilities
-export { formatSessionId } from './format.js';
+// Response formatter exports
+export {
+  formatActionResponse,
+  formatListHeader,
+  formatInfoResponse,
+  formatErrorResponse,
+  formatLogsResponse,
+  formatSearchResponse,
+  formatPruneResponse,
+  type ActionType,
+  type ResourceType,
+  type ActionResponseOptions,
+  type ListResponseOptions,
+  type InfoResponseOptions,
+  type ErrorResponseOptions,
+  type LogsResponseOptions,
+  type SearchResponseOptions,
+  type PruneResponseOptions,
+} from './response-formatter.js';

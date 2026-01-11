@@ -1,187 +1,286 @@
+/**
+ * Logger Facade Module
+ *
+ * Provides a unified logging interface that delegates to specialized components:
+ * - Context management via core/context.ts
+ * - Formatting via formatters/ (Text/JSON)
+ * - Output via writers/ (Console/File/MCP)
+ * - Security via scrubbing/ (SecretScrubber/InjectionGuard)
+ * - Resource management via factory.ts (DI-enabled)
+ *
+ * This facade follows the Single Responsibility Principle by coordinating
+ * the logging pipeline without implementing the details itself.
+ *
+ * @module utils/logger
+ */
+
 import * as util from 'util';
-import * as fs from 'fs';
-import * as path from 'path';
-import { AsyncLocalStorage } from 'async_hooks';
 import { config, SERVER_NAME, SERVER_VERSION } from '../../config/index.js';
-import { createLogEntry } from './log-schema.js';
+
+// Core types and utilities
+import type { LogLevel, LogContext, ILogger, LogEntryParams } from './core/types.js';
+import { LOG_LEVELS, MAX_MESSAGE_LENGTH, TRUNCATION_SUFFIX } from './core/constants.js';
+import {
+  runWithContext,
+  getContext,
+  mergeContext,
+  createChildContext,
+  withExtendedContext,
+  withChildContext,
+  getContextDepth,
+} from './core/context.js';
+
+// Factory for DI-enabled resource management
+import {
+  LoggerResources,
+  initializeLoggerResources,
+  hasLoggerResources,
+  getLoggerResources,
+  resetLoggerResources,
+} from './factory.js';
+
+// Re-export factory types for consumers
+export type { LoggerSystemConfig, LoggerDependencies } from './factory.js';
+export { LoggerResources, initializeLoggerResources, resetLoggerResources };
 
 /**
- * Available logging levels ordered by severity.
+ * Logger configuration options.
  */
-export type LogLevel = 'trace' | 'debug' | 'info' | 'warn' | 'error';
-
-/**
- * Context for the current execution (e.g. Request ID, MCP Connection).
- * Used to correlate logs with specific requests or sessions.
- */
-export interface LogContext {
-  requestId?: string;
-  sessionId?: string;
+export interface LoggerOptions {
+  /** Component name for log categorization */
   component?: string;
-  /** Trace ID for distributed tracing (OpenTelemetry compatible) */
-  traceId?: string;
-  /** Span ID for distributed tracing */
-  spanId?: string;
-  /** HTTP request context */
-  http?: {
-    method?: string;
-    path?: string;
-    statusCode?: number;
-    durationMs?: number;
-  };
-  /** Event categorization for structured logs */
-  event?: {
-    category?: string;
-    action?: string;
-    outcome?: 'success' | 'failure' | 'unknown';
-  };
-  sendMcpLog?: (level: LogLevel, message: string) => void;
+  /** Override log level (uses config.LOG_LEVEL by default) */
+  level?: LogLevel;
+  /** Optional resources instance (for testing/DI) */
+  resources?: LoggerResources;
 }
 
 /**
- * Numeric values for log levels to determine if a message should be logged.
+ * Centralized Logger Facade
+ *
+ * Coordinates the logging pipeline:
+ * 1. Level filtering
+ * 2. Message formatting (printf-style)
+ * 3. Metadata extraction
+ * 4. Secret scrubbing
+ * 5. Formatting (Text/JSON)
+ * 6. Injection prevention
+ * 7. Output to writers (Console/File/MCP)
+ *
+ * Now uses LoggerResources for DI-enabled resource management,
+ * eliminating the static state anti-pattern while maintaining
+ * backward compatibility through lazy global initialization.
+ *
+ * @example
+ * ```typescript
+ * // Simple usage (global resources)
+ * const logger = new Logger('api');
+ * logger.info('Request received', { method: 'GET', path: '/health' });
+ *
+ * // DI usage (custom resources for testing)
+ * const resources = new LoggerResources(config, mockDeps);
+ * const testLogger = new Logger({ component: 'test', resources });
+ * ```
  */
-const LOG_LEVELS: Record<LogLevel, number> = {
-  trace: 10,
-  debug: 20,
-  info: 30,
-  warn: 40,
-  error: 50,
-};
+export class Logger implements ILogger {
+  // ============================================================
+  // Instance properties
+  // ============================================================
 
-/**
- * List of keys that are considered sensitive and should be redacted from logs.
- * Includes common authentication and security related terms.
- */
-const SENSITIVE_KEYS = [
-  'password',
-  'apiKey',
-  'apiSecret',
-  'token',
-  'secret',
-  'authorization',
-  'key',
-  'access_token',
-  'refresh_token',
-  'jwt',
-  'bearer',
-];
+  /** Minimum log level (numeric for fast comparison) */
+  private readonly level: number;
 
-/**
- * Pre-compiled regex patterns for secret scrubbing.
- * Performance optimization: compile once at module load instead of on every log call.
- */
-// JWT: eyJ...
-const SCRUB_JWT_REGEX = /\beyJ[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+\.[a-zA-Z0-9-_]+/g;
-// Bearer token
-const SCRUB_BEARER_REGEX = /\bBearer\s+[a-zA-Z0-9._-]+/gi;
-// Key-value pairs for sensitive keys (excluding bearer/authorization which are handled separately)
-const SCRUB_KV_PATTERN = SENSITIVE_KEYS.filter((k) => !['bearer', 'authorization'].includes(k.toLowerCase())).join('|');
-const SCRUB_KV_REGEX = new RegExp(`\\b(${SCRUB_KV_PATTERN})\\b(\\s*[:=]\\s*)(["']?)([^\\s"']+)\\3`, 'gi');
+  /** Component name for this logger instance */
+  private readonly component: string;
 
-/**
- * Centralized logger for the application.
- * Handles log formatting, level filtering, context management, and secret scrubbing.
- * Supports both standard output and MCP client logging.
- */
-export class Logger {
-  private level: number;
-  private static contextStorage = new AsyncLocalStorage<LogContext>();
-  private component: string = 'server';
-  private static streams: Map<string, fs.WriteStream> = new Map();
-  private static initialized = false;
+  /** Resources instance (shared or injected) */
+  private readonly resources: LoggerResources;
+
+  // ============================================================
+  // Constructor and Initialization
+  // ============================================================
 
   /**
-   * Initialize the logger with the configured log level.
+   * Create a new Logger instance.
+   *
+   * @param componentOrOptions - Component name string or options object
    */
-  constructor(component: string = 'server') {
-    this.level = LOG_LEVELS[config.LOG_LEVEL];
-    this.component = component;
-    Logger.initStreams();
-  }
-
-  /**
-   * Initialize file streams if LOG_DIR is configured.
-   */
-  private static initStreams() {
-    /* v8 ignore next - environment-dependent initialization */
-    if (Logger.initialized || !config.LOG_DIR) return;
-
-    try {
-      /* v8 ignore start - file system directory check */
-      if (!fs.existsSync(config.LOG_DIR)) {
-        fs.mkdirSync(config.LOG_DIR, { recursive: true });
-      }
-      /* v8 ignore stop */
-
-      // Create streams for known components
-      ['server', 'api', 'transport'].forEach((comp) => {
-        const stream = fs.createWriteStream(path.join(config.LOG_DIR!, `${comp}.log`), { flags: 'a' });
-        Logger.streams.set(comp, stream);
-      });
-
-      Logger.initialized = true;
-    } catch (err) {
-      console.error('Failed to initialize log streams:', err);
+  constructor(componentOrOptions: string | LoggerOptions = 'server') {
+    if (typeof componentOrOptions === 'string') {
+      this.component = componentOrOptions;
+      this.level = LOG_LEVELS[config.LOG_LEVEL];
+      this.resources = Logger.getOrInitializeResources();
+    } else {
+      this.component = componentOrOptions.component ?? 'server';
+      this.level = LOG_LEVELS[componentOrOptions.level ?? config.LOG_LEVEL];
+      this.resources = componentOrOptions.resources ?? Logger.getOrInitializeResources();
     }
   }
 
   /**
-   * Closes all file streams gracefully.
-   * Should be called during application shutdown to ensure all logs are flushed.
+   * Get or initialize global resources lazily.
+   * Provides backward compatibility with existing code.
+   */
+  private static getOrInitializeResources(): LoggerResources {
+    if (!hasLoggerResources()) {
+      initializeLoggerResources({
+        level: config.LOG_LEVEL,
+        format: config.LOG_FORMAT as 'text' | 'json',
+        transport: config.MCP_TRANSPORT as 'stdio' | 'sse',
+        serviceName: SERVER_NAME,
+        serviceVersion: SERVER_VERSION,
+        environment: config.NODE_ENV,
+        logDir: config.LOG_DIR,
+      });
+    }
+    return getLoggerResources();
+  }
+
+  // ============================================================
+  // Static Lifecycle Methods
+  // ============================================================
+
+  /**
+   * Close all writers gracefully.
+   * Should be called during application shutdown.
    *
-   * @returns Promise that resolves when all streams are closed
+   * @returns Promise that resolves when all writers are closed
    */
   public static async closeStreams(): Promise<void> {
-    const closePromises: Promise<void>[] = [];
-
-    for (const [name, stream] of Logger.streams.entries()) {
-      closePromises.push(
-        new Promise<void>((resolve, reject) => {
-          stream.end(() => {
-            stream.close((err) => {
-              if (err) {
-                console.error(`Failed to close log stream for ${name}:`, err);
-                reject(err);
-              } else {
-                resolve();
-              }
-            });
-          });
-        }),
-      );
+    if (hasLoggerResources()) {
+      await getLoggerResources().close();
+      await resetLoggerResources();
     }
-
-    await Promise.allSettled(closePromises);
-    Logger.streams.clear();
-    Logger.initialized = false;
   }
+
+  /**
+   * Clear the child logger cache.
+   * Useful for testing or when configuration changes.
+   */
+  public static clearChildLoggerCache(): void {
+    if (hasLoggerResources()) {
+      getLoggerResources().clearChildLoggerCache();
+    }
+  }
+
+  /**
+   * Reset static state (for testing purposes).
+   * Fully resets all resources.
+   */
+  public static async resetState(): Promise<void> {
+    await resetLoggerResources();
+  }
+
+  /**
+   * Synchronous reset for backward compatibility.
+   * @deprecated Use resetState() async version instead
+   */
+  public static resetStateSync(): void {
+    // Fire and forget - not ideal but maintains backward compatibility
+    void resetLoggerResources();
+  }
+
+  // ============================================================
+  // Child Logger Factory
+  // ============================================================
 
   /**
    * Create a child logger with a specific component context.
+   * Uses LRU caching to avoid creating new instances while preventing memory leaks.
+   *
+   * @param context - The component context for the child logger
+   * @returns A cached or new Logger instance
    */
   public child(context: { component: string }): Logger {
-    return new Logger(context.component);
+    return this.resources.getOrCreateChildLogger(
+      context.component,
+      () => new Logger({ component: context.component, resources: this.resources }),
+    );
   }
 
+  // ============================================================
+  // Context Management (delegates to core/context.ts)
+  // ============================================================
+
   /**
-   * Run a function within a logging context (e.g. with a Request ID or MCP Logger)
+   * Run a function within a logging context.
+   * All logs within the function will include the context.
+   *
+   * @param context - The context to use for logging
+   * @param fn - The function to execute
+   * @returns The result of the function
    */
   public runWithContext<T>(context: LogContext, fn: () => T): T {
-    return Logger.contextStorage.run(context, fn);
+    return runWithContext(context, fn);
   }
 
   /**
-   * Get the current logging context
+   * Get the current logging context.
+   *
+   * @returns The current context or undefined
    */
   public getContext(): LogContext | undefined {
-    return Logger.contextStorage.getStore();
+    return getContext();
   }
+
+  /**
+   * Merge additional context with the current context.
+   *
+   * @param additionalContext - Context values to add/override
+   * @returns A new merged context
+   */
+  public mergeContext(additionalContext: Partial<LogContext>): LogContext {
+    return mergeContext(additionalContext);
+  }
+
+  /**
+   * Create a child context that inherits from the current context.
+   * Component names are automatically concatenated.
+   *
+   * @param childContext - Context values for the child
+   * @returns A new child context
+   */
+  public createChildContext(childContext: Partial<LogContext>): LogContext {
+    return createChildContext(childContext);
+  }
+
+  /**
+   * Execute a function with an extended context.
+   *
+   * @param additionalContext - Context values to add
+   * @param fn - The function to execute
+   * @returns The result of the function
+   */
+  public withExtendedContext<T>(additionalContext: Partial<LogContext>, fn: () => T): T {
+    return withExtendedContext(additionalContext, fn);
+  }
+
+  /**
+   * Execute a function with a child context.
+   *
+   * @param childContext - Context values for the child scope
+   * @param fn - The function to execute
+   * @returns The result of the function
+   */
+  public withChildContext<T>(childContext: Partial<LogContext>, fn: () => T): T {
+    return withChildContext(childContext, fn);
+  }
+
+  /**
+   * Get the current context nesting depth.
+   *
+   * @returns The current depth
+   */
+  public getContextDepth(): number {
+    return getContextDepth();
+  }
+
+  // ============================================================
+  // Log Level Methods
+  // ============================================================
 
   /**
    * Log a message at TRACE level.
-   * @param message The message to log (supports printf-style formatting)
-   * @param args Additional arguments for formatting or metadata
    */
   public trace(message: string, ...args: unknown[]): void {
     this.log('trace', message, ...args);
@@ -189,8 +288,6 @@ export class Logger {
 
   /**
    * Log a message at DEBUG level.
-   * @param message The message to log (supports printf-style formatting)
-   * @param args Additional arguments for formatting or metadata
    */
   public debug(message: string, ...args: unknown[]): void {
     this.log('debug', message, ...args);
@@ -198,8 +295,6 @@ export class Logger {
 
   /**
    * Log a message at INFO level.
-   * @param message The message to log (supports printf-style formatting)
-   * @param args Additional arguments for formatting or metadata
    */
   public info(message: string, ...args: unknown[]): void {
     this.log('info', message, ...args);
@@ -207,8 +302,6 @@ export class Logger {
 
   /**
    * Log a message at WARN level.
-   * @param message The message to log (supports printf-style formatting)
-   * @param args Additional arguments for formatting or metadata
    */
   public warn(message: string, ...args: unknown[]): void {
     this.log('warn', message, ...args);
@@ -216,208 +309,128 @@ export class Logger {
 
   /**
    * Log a message at ERROR level.
-   * @param message The message to log (supports printf-style formatting)
-   * @param args Additional arguments for formatting or metadata
    */
   public error(message: string, ...args: unknown[]): void {
     this.log('error', message, ...args);
   }
 
+  // ============================================================
+  // Core Logging Pipeline
+  // ============================================================
+
   /**
-   * Internal log handler.
-   * Formats the message, adds context, scrubs secrets, and writes to output.
+   * Internal log handler implementing the logging pipeline.
+   *
+   * Pipeline steps:
+   * 1. Level filtering
+   * 2. Metadata extraction
+   * 3. Printf-style formatting
+   * 4. Message truncation (if exceeds MAX_MESSAGE_LENGTH)
+   * 5. Context retrieval
+   * 6. Secret scrubbing
+   * 7. Format generation (Text/JSON)
+   * 8. Injection prevention
+   * 9. Output to writers
+   * 10. MCP notification (if context has sendMcpLog)
    */
   private log(level: LogLevel, message: string, ...args: unknown[]): void {
+    // Step 1: Level filtering (fast path for disabled levels)
     if (LOG_LEVELS[level] < this.level) {
       return;
     }
 
-    // Separate metadata from format args
-    let meta: Record<string, unknown> = {};
-    let formatArgs = args;
+    // Step 2: Extract metadata from args
+    const { metadata, formatArgs } = this.extractMetadata(args);
 
-    if (args.length > 0 && typeof args[args.length - 1] === 'object' && args[args.length - 1] !== null) {
-      // Check if the last arg is intended as metadata
-      // If the message has fewer placeholders than args, the last one might be metadata
-      // Simple heuristic: if it's an object and not an Error (unless explicitly passed as meta), treat as meta
-      // However, standard Node.js console.log behavior treats objects as part of formatting if %o/%O is used,
-      // or just appends them.
-      // To support `logger.info('msg', { meta: 1 })`, we check if the last arg is an object.
-      const lastArg = args[args.length - 1];
-      if (!util.types.isNativeError(lastArg)) {
-        meta = this.redact(lastArg) as Record<string, unknown>;
-        formatArgs = args.slice(0, -1);
-      }
+    // Step 3: Printf-style message formatting
+    let formattedMessage = util.format(message, ...formatArgs);
+
+    // Step 4: Truncate long messages to prevent memory issues
+    if (formattedMessage.length > MAX_MESSAGE_LENGTH) {
+      formattedMessage = formattedMessage.slice(0, MAX_MESSAGE_LENGTH - TRUNCATION_SUFFIX.length) + TRUNCATION_SUFFIX;
     }
 
-    const timestamp = new Date().toISOString(); // ISO 8601
-    const formattedMessage = util.format(message, ...formatArgs);
-    const context = Logger.contextStorage.getStore();
-    const component = context?.component || this.component;
+    // Step 5: Get context (from AsyncLocalStorage)
+    const context = getContext();
+    const component = context?.component ?? this.component;
 
-    if (config.LOG_FORMAT === 'json') {
-      // Use ECS-compatible structured logging
-      const builder = createLogEntry(level, formattedMessage)
-        .withService(SERVER_NAME, SERVER_VERSION, config.NODE_ENV, component)
-        .withTrace(context?.traceId, context?.spanId)
-        .withSession(context?.sessionId);
+    // Step 6: Scrub secrets from metadata
+    const scrubbedMetadata = metadata
+      ? (this.resources.secretScrubber.scrubObject(metadata) as Record<string, unknown>)
+      : undefined;
 
-      // Add HTTP context if available
-      if (context?.http) {
-        builder.withHttp(context.http.method, context.http.path, context.http.statusCode, context.http.durationMs);
-      }
+    // Step 7: Build log entry params
+    const params: LogEntryParams = {
+      level,
+      message: formattedMessage,
+      component,
+      context,
+      metadata: scrubbedMetadata,
+      timestamp: new Date().toISOString(),
+    };
 
-      // Add event context if available
-      if (context?.event) {
-        builder.withEvent(context.event.category, context.event.action, context.event.outcome);
-      }
+    // Step 8: Format the log entry
+    const formatted = this.resources.getFormatter().format(params);
 
-      // Add metadata
-      if (Object.keys(meta).length > 0) {
-        builder.withMetadata(meta);
-      }
+    // Step 9: Apply injection guard and secret scrubbing to final output
+    const sanitized = this.resources.injectionGuard.sanitize(formatted);
+    const safeOutput = this.resources.secretScrubber.scrub(sanitized);
 
-      // Add request ID as label for easy filtering
-      if (context?.requestId) {
-        builder.withLabels({ request_id: context.requestId });
-      }
+    // Step 10: Write to outputs
+    this.writeToOutputs(level, safeOutput, component);
 
-      this.write(level, builder.toString(), component);
-    } else {
-      // Text format: [YYYY-MM-DD HH:mm:ss.SSS] [LEVEL] [Component] [SessionID:ReqID] Message {meta}
-      const metaStr = Object.keys(meta).length ? ` ${JSON.stringify(meta)}` : '';
-      const displayTimestamp = timestamp.replace('T', ' ').slice(0, -1);
-
-      let contextStr = '';
-      if (context?.sessionId && context?.requestId) {
-        contextStr = ` [${context.sessionId.slice(0, 8)}:${context.requestId.slice(0, 8)}]`;
-      } else if (context?.sessionId) {
-        contextStr = ` [${context.sessionId.slice(0, 8)}]`;
-      } else if (context?.requestId) {
-        contextStr = ` [Req:${context.requestId.slice(0, 8)}]`;
-      }
-
-      // Pad level to 5 chars for alignment
-      const levelStr = level.toUpperCase().padEnd(5);
-
-      const output = `[${displayTimestamp}] [${levelStr}] [${component}]${contextStr} ${formattedMessage}${metaStr}`;
-      this.write(level, output, component);
-    }
-
-    // Send to MCP Client if available in context
+    // Step 11: Send to MCP client if context has sendMcpLog
     if (context?.sendMcpLog) {
-      // We send the scrubbed message to the client
-      const safeMessage = this.scrubSecrets(formattedMessage);
+      const safeMessage = this.resources.secretScrubber.scrub(formattedMessage);
       context.sendMcpLog(level, safeMessage);
     }
   }
 
   /**
-   * Write the formatted log entry to the appropriate output stream.
-   * Handles log injection prevention and final secret scrubbing.
+   * Extract metadata object from log arguments.
+   * The last argument is treated as metadata if it's a plain object (not an Error).
    */
-  private write(level: LogLevel, output: string, component: string): void {
-    // 1. Prevent Log Injection (CWE-117)
-    // Replace newlines to ensure one log entry = one line.
-    // This prevents attackers from forging log entries by injecting newlines.
-    const singleLineOutput = this.preventLogInjection(output);
+  private extractMetadata(args: unknown[]): {
+    metadata: Record<string, unknown> | undefined;
+    formatArgs: unknown[];
+  } {
+    if (args.length === 0) {
+      return { metadata: undefined, formatArgs: [] };
+    }
 
-    // 2. Scrub secrets (like JWTs) from the final output string
-    // This catches secrets in the message body, formatted args, and even metadata values if they leaked
-    const safeOutput = this.scrubSecrets(singleLineOutput);
+    const lastArg = args[args.length - 1];
 
-    // Write to file if configured
+    // Check if last arg is a plain object (not null, not Error)
+    if (
+      lastArg !== null &&
+      typeof lastArg === 'object' &&
+      !util.types.isNativeError(lastArg) &&
+      !Array.isArray(lastArg)
+    ) {
+      return {
+        metadata: lastArg as Record<string, unknown>,
+        formatArgs: args.slice(0, -1),
+      };
+    }
+
+    return { metadata: undefined, formatArgs: args };
+  }
+
+  /**
+   * Write formatted output to all configured writers.
+   */
+  private writeToOutputs(level: LogLevel, output: string, component: string): void {
+    // Console writer
+    this.resources.consoleWriter?.write(level, output, component);
+
+    // File writer (if configured)
     /* v8 ignore start - file logging requires LOG_DIR environment */
-    if (config.LOG_DIR) {
-      const stream = Logger.streams.get(component) || Logger.streams.get('server');
-      if (stream) {
-        stream.write(safeOutput + '\n');
-      }
-    }
+    this.resources.fileWriter?.write(level, output, component);
     /* v8 ignore stop */
-
-    // In Stdio mode, we MUST write to stderr to avoid corrupting JSON-RPC on stdout
-    if (config.MCP_TRANSPORT === 'stdio') {
-      console.error(safeOutput);
-      return;
-    }
-
-    // In SSE mode, we can use stdout for info/debug and stderr for warn/error
-    // This is standard for container logs
-    if (level === 'error' || level === 'warn') {
-      console.error(safeOutput);
-    } else {
-      console.log(safeOutput);
-    }
-  }
-
-  /**
-   * Prevents Log Injection (CWE-117) by escaping newline characters.
-   * This ensures that a single log entry is always written as a single line.
-   */
-  private preventLogInjection(text: string): string {
-    return text.replace(/[\n\r]/g, (match) => (match === '\n' ? '\\n' : '\\r'));
-  }
-
-  /**
-   * Remove sensitive information from text using pre-compiled regex patterns.
-   * Handles JWTs, Bearer tokens, and key-value pairs matching sensitive keys.
-   * Performance: Uses module-level compiled regex instead of compiling per-call.
-   */
-  private scrubSecrets(text: string): string {
-    let scrubbed = text;
-
-    // 1. Known Secret Formats (High Confidence)
-    // JWT: eyJ... - Use pre-compiled regex
-    scrubbed = scrubbed.replace(SCRUB_JWT_REGEX, '**********');
-
-    // 2. Common Auth Headers
-    // Bearer token - Use pre-compiled regex
-    // We run this BEFORE the generic KV scrubber to ensure "Bearer <token>" is handled as a unit
-    scrubbed = scrubbed.replace(SCRUB_BEARER_REGEX, 'Bearer **********');
-
-    // 3. Context-based Scrubbing (Key-Value pairs)
-    // Looks for: key=value, key: value - Use pre-compiled regex
-    scrubbed = scrubbed.replace(SCRUB_KV_REGEX, (match, key, sep, quote, value) => {
-      // Don't redact if it's already redacted (e.g. by Bearer scrubber)
-      if (value.includes('**********')) return match;
-      return `${key}${sep}${quote}**********${quote}`;
-    });
-
-    return scrubbed;
-  }
-
-  /**
-   * Recursively redact sensitive keys in an object.
-   */
-  private redact(obj: unknown): unknown {
-    if (typeof obj !== 'object' || obj === null) {
-      return obj;
-    }
-
-    /* v8 ignore next 3 - recursive array redaction */
-    if (Array.isArray(obj)) {
-      return obj.map((item) => this.redact(item));
-    }
-
-    const redacted: Record<string, unknown> = {};
-    const objRecord = obj as Record<string, unknown>;
-
-    for (const key in objRecord) {
-      /* v8 ignore start - always true for own properties via for...in */
-      if (Object.prototype.hasOwnProperty.call(objRecord, key)) {
-        if (SENSITIVE_KEYS.some((k) => key.toLowerCase().includes(k.toLowerCase()))) {
-          redacted[key] = '**********';
-        } else if (typeof objRecord[key] === 'object') {
-          redacted[key] = this.redact(objRecord[key]);
-        } else {
-          redacted[key] = objRecord[key];
-        }
-      }
-      /* v8 ignore stop */
-    }
-    return redacted;
   }
 }
 
+/**
+ * Default logger instance for the application.
+ */
 export const logger = new Logger();

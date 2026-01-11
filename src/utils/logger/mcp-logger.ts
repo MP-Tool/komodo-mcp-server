@@ -1,5 +1,5 @@
 /**
- * MCP Notification Logger
+ * MCP Notification Logger Module
  *
  * Provides structured logging via MCP notifications/message protocol.
  * This allows MCP clients to receive and display server-side logs.
@@ -14,29 +14,42 @@
  * - info: Informational messages
  * - debug: Debug-level messages
  *
- * @module utils/mcp-logger
+ * @module utils/logger/mcp-logger
  */
 
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { logger as baseLogger, LogLevel } from './logger.js';
+import type { LogLevel, McpLogLevel } from './core/types.js';
+import { LOG_LEVEL_TO_MCP, MCP_LEVEL_ORDER } from './core/constants.js';
+import { secretScrubber as sharedScrubber } from './scrubbing/secret-scrubber.js';
+import { logger as baseLogger } from './logger.js';
 
+// Create a child logger for this module
 const localLogger = baseLogger.child({ component: 'mcp-logger' });
 
-/**
- * MCP Logging levels as defined by the MCP specification (RFC 5424).
- */
-export type McpLogLevel = 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency';
+// ============================================================
+// Constants
+// ============================================================
+
+// Use centralized constants from core/constants.ts
+const LOG_LEVEL_MAP = LOG_LEVEL_TO_MCP;
+
+// ============================================================
+// Types
+// ============================================================
 
 /**
- * Maps internal log levels to MCP logging levels.
+ * Configuration options for MCP Notification Logger.
  */
-const LOG_LEVEL_MAP: Record<LogLevel, McpLogLevel> = {
-  trace: 'debug',
-  debug: 'debug',
-  info: 'info',
-  warn: 'warning',
-  error: 'error',
-};
+export interface McpLoggerConfig {
+  /** Minimum log level to send (default: 'debug') */
+  minLevel?: McpLogLevel;
+  /** Whether logging is enabled (default: true) */
+  enabled?: boolean;
+}
+
+// ============================================================
+// McpNotificationLogger Class
+// ============================================================
 
 /**
  * MCP Notification Logger
@@ -44,24 +57,57 @@ const LOG_LEVEL_MAP: Record<LogLevel, McpLogLevel> = {
  * Sends structured log messages to MCP clients via the notifications/message protocol.
  * Clients that support the logging capability will receive and display these messages.
  *
+ * Features:
+ * - Multi-server support for multi-session scenarios
+ * - Level filtering with configurable minimum level
+ * - Secret scrubbing for security
+ * - Context-aware logger creation for tool handlers
+ *
  * @example
  * ```typescript
  * // Set up with MCP server
- * mcpLogger.setServer(mcpServer);
+ * mcpLogger.addServer(mcpServer);
  *
  * // Log messages (sent to all connected clients)
- * mcpLogger.info('Processing request...');
- * mcpLogger.warn('Resource limit approaching', { current: 80, max: 100 });
- * mcpLogger.error('Failed to connect', { error: 'Connection refused' });
- *
- * // Use in async context
- * await mcpLogger.debug('Query completed', { rows: 42 });
+ * await mcpLogger.info('Processing request...');
+ * await mcpLogger.warn('Resource limit approaching', { current: 80, max: 100 });
+ * await mcpLogger.error('Failed to connect', { error: 'Connection refused' });
  * ```
  */
-class McpNotificationLogger {
-  private servers: Set<McpServer> = new Set();
-  private enabled = true;
-  private minLevel: McpLogLevel = 'debug';
+export class McpNotificationLogger {
+  // ============================================================
+  // Instance Properties
+  // ============================================================
+
+  /** Set of registered MCP server instances */
+  private readonly servers: Set<McpServer> = new Set();
+
+  /** Whether logging is enabled */
+  private enabled: boolean;
+
+  /** Minimum log level to send */
+  private minLevel: McpLogLevel;
+
+  /** Use shared secret scrubber instance for consistency */
+  private readonly secretScrubber = sharedScrubber;
+
+  // ============================================================
+  // Constructor
+  // ============================================================
+
+  /**
+   * Create a new McpNotificationLogger.
+   *
+   * @param config - Optional configuration
+   */
+  constructor(config: McpLoggerConfig = {}) {
+    this.enabled = config.enabled ?? true;
+    this.minLevel = config.minLevel ?? 'debug';
+  }
+
+  // ============================================================
+  // Server Management
+  // ============================================================
 
   /**
    * Register an MCP server instance for receiving log notifications.
@@ -69,9 +115,9 @@ class McpNotificationLogger {
    *
    * @param server - The McpServer instance
    */
-  addServer(server: McpServer): void {
+  public addServer(server: McpServer): void {
     this.servers.add(server);
-    localLogger.debug('MCP server registered for logging (%d total)', this.servers.size);
+    localLogger.debug('MCP server registered for logging', { totalServers: this.servers.size });
   }
 
   /**
@@ -79,17 +125,29 @@ class McpNotificationLogger {
    *
    * @param server - The McpServer instance to remove
    */
-  removeServer(server: McpServer): void {
+  public removeServer(server: McpServer): void {
     this.servers.delete(server);
-    localLogger.debug('MCP server unregistered from logging (%d remaining)', this.servers.size);
+    localLogger.debug('MCP server unregistered from logging', { remainingServers: this.servers.size });
   }
 
   /**
    * Clear all registered servers.
    */
-  clearServers(): void {
+  public clearServers(): void {
     this.servers.clear();
+    localLogger.debug('All MCP servers cleared from logging');
   }
+
+  /**
+   * Get the number of registered servers.
+   */
+  public getServerCount(): number {
+    return this.servers.size;
+  }
+
+  // ============================================================
+  // Configuration
+  // ============================================================
 
   /**
    * Enable or disable MCP logging.
@@ -97,8 +155,15 @@ class McpNotificationLogger {
    *
    * @param enabled - Whether to enable logging
    */
-  setEnabled(enabled: boolean): void {
+  public setEnabled(enabled: boolean): void {
     this.enabled = enabled;
+  }
+
+  /**
+   * Check if logging is enabled.
+   */
+  public isEnabled(): boolean {
+    return this.enabled;
   }
 
   /**
@@ -107,16 +172,27 @@ class McpNotificationLogger {
    *
    * @param level - The minimum log level
    */
-  setMinLevel(level: McpLogLevel): void {
+  public setMinLevel(level: McpLogLevel): void {
     this.minLevel = level;
   }
 
   /**
-   * Check if logging is currently available.
+   * Get the current minimum log level.
    */
-  isAvailable(): boolean {
+  public getMinLevel(): McpLogLevel {
+    return this.minLevel;
+  }
+
+  /**
+   * Check if logging is currently available (enabled and has servers).
+   */
+  public isAvailable(): boolean {
     return this.enabled && this.servers.size > 0;
   }
+
+  // ============================================================
+  // Core Logging Methods
+  // ============================================================
 
   /**
    * Send a log message to all connected MCP clients.
@@ -124,33 +200,22 @@ class McpNotificationLogger {
    * @param level - The MCP log level
    * @param message - The log message
    * @param data - Optional structured data to include
-   * @returns Promise that resolves when all sends complete (or immediately if not available)
+   * @returns Promise that resolves when all sends complete
    */
-  async log(level: McpLogLevel, message: string, data?: Record<string, unknown>): Promise<void> {
-    if (!this.enabled || this.servers.size === 0) {
+  public async log(level: McpLogLevel, message: string, data?: Record<string, unknown>): Promise<void> {
+    // Early return if not available or below minimum level
+    if (!this.enabled || this.servers.size === 0 || !this.shouldLog(level)) {
       return;
     }
 
-    if (!this.shouldLog(level)) {
-      return;
-    }
+    // Format message with optional data and scrub secrets
+    const formattedMessage = this.formatMessage(message, data);
+    const safeMessage = this.secretScrubber.scrub(formattedMessage);
 
-    // Format message with optional data
-    const formattedMessage = data ? `${message} ${JSON.stringify(data)}` : message;
+    // Send to all registered servers in parallel
+    const sendPromises = Array.from(this.servers).map((server) => this.sendToServer(server, level, safeMessage));
 
-    // Send to all registered servers
-    const promises = Array.from(this.servers).map(async (server) => {
-      try {
-        await server.server.sendLoggingMessage({
-          level,
-          data: formattedMessage,
-        });
-      } catch {
-        // Ignore errors (client may have disconnected)
-      }
-    });
-
-    await Promise.all(promises);
+    await Promise.all(sendPromises);
   }
 
   /**
@@ -160,75 +225,63 @@ class McpNotificationLogger {
    * @param message - The log message
    * @param data - Optional structured data
    */
-  async logInternal(level: LogLevel, message: string, data?: Record<string, unknown>): Promise<void> {
+  public async logInternal(level: LogLevel, message: string, data?: Record<string, unknown>): Promise<void> {
     const mcpLevel = LOG_LEVEL_MAP[level];
     return this.log(mcpLevel, message, data);
   }
 
-  // Convenience methods for each log level
+  // ============================================================
+  // Convenience Methods (RFC 5424 Levels)
+  // ============================================================
 
-  /**
-   * Log a debug message.
-   */
-  async debug(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log a debug message */
+  public async debug(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('debug', message, data);
   }
 
-  /**
-   * Log an info message.
-   */
-  async info(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log an info message */
+  public async info(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('info', message, data);
   }
 
-  /**
-   * Log a notice message.
-   */
-  async notice(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log a notice message */
+  public async notice(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('notice', message, data);
   }
 
-  /**
-   * Log a warning message.
-   */
-  async warn(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log a warning message */
+  public async warn(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('warning', message, data);
   }
 
-  /**
-   * Log a warning message (alias for warn).
-   */
-  async warning(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log a warning message (alias for warn) */
+  public async warning(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('warning', message, data);
   }
 
-  /**
-   * Log an error message.
-   */
-  async error(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log an error message */
+  public async error(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('error', message, data);
   }
 
-  /**
-   * Log a critical message.
-   */
-  async critical(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log a critical message */
+  public async critical(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('critical', message, data);
   }
 
-  /**
-   * Log an alert message.
-   */
-  async alert(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log an alert message */
+  public async alert(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('alert', message, data);
   }
 
-  /**
-   * Log an emergency message.
-   */
-  async emergency(message: string, data?: Record<string, unknown>): Promise<void> {
+  /** Log an emergency message */
+  public async emergency(message: string, data?: Record<string, unknown>): Promise<void> {
     return this.log('emergency', message, data);
   }
+
+  // ============================================================
+  // Context Logger Factory
+  // ============================================================
 
   /**
    * Create a context-aware logger function for use in tool handlers.
@@ -236,32 +289,70 @@ class McpNotificationLogger {
    *
    * @param server - The McpServer instance for this context
    * @returns A function compatible with LogContext.sendMcpLog
+   *
+   * @example
+   * ```typescript
+   * const sendMcpLog = mcpLogger.createContextLogger(server);
+   * logger.runWithContext({ sendMcpLog }, () => {
+   *   logger.info('This will also be sent to MCP client');
+   * });
+   * ```
    */
-  createContextLogger(server: McpServer): (level: LogLevel, message: string) => void {
-    return (level: LogLevel, message: string) => {
+  public createContextLogger(server: McpServer): (level: LogLevel, message: string) => void {
+    return (level: LogLevel, message: string): void => {
       const mcpLevel = LOG_LEVEL_MAP[level];
-      server.server.sendLoggingMessage({ level: mcpLevel, data: message }).catch(() => {
-        // Ignore errors (client may have disconnected)
+      const safeMessage = this.secretScrubber.scrub(message);
+
+      server.server.sendLoggingMessage({ level: mcpLevel, data: safeMessage }).catch(() => {
+        // Silently ignore errors (client may have disconnected)
       });
     };
   }
+
+  // ============================================================
+  // Private Helper Methods
+  // ============================================================
 
   /**
    * Check if a log level should be logged based on minimum level.
    */
   private shouldLog(level: McpLogLevel): boolean {
-    const levelOrder: McpLogLevel[] = ['debug', 'info', 'notice', 'warning', 'error', 'critical', 'alert', 'emergency'];
-    const minIndex = levelOrder.indexOf(this.minLevel);
-    const currentIndex = levelOrder.indexOf(level);
+    const minIndex = MCP_LEVEL_ORDER.indexOf(this.minLevel);
+    const currentIndex = MCP_LEVEL_ORDER.indexOf(level);
     return currentIndex >= minIndex;
   }
+
+  /**
+   * Format message with optional data.
+   */
+  private formatMessage(message: string, data?: Record<string, unknown>): string {
+    if (!data || Object.keys(data).length === 0) {
+      return message;
+    }
+    return `${message} ${JSON.stringify(data)}`;
+  }
+
+  /**
+   * Send a log message to a specific server.
+   */
+  private async sendToServer(server: McpServer, level: McpLogLevel, message: string): Promise<void> {
+    try {
+      await server.server.sendLoggingMessage({
+        level,
+        data: message,
+      });
+    } catch {
+      // Silently ignore errors (client may have disconnected)
+    }
+  }
 }
+
+// ============================================================
+// Singleton Export
+// ============================================================
 
 /**
  * Singleton instance of the MCP Notification Logger.
  * Use this for sending log messages to MCP clients.
  */
 export const mcpLogger = new McpNotificationLogger();
-
-// Also export the class for testing
-export { McpNotificationLogger };

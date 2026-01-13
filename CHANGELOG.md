@@ -192,6 +192,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `index.ts` - Barrel export file
 
 ### Improved
+- **Session Module Architecture Overhaul** (`src/server/session/`): Complete restructuring for maintainability and extensibility
+  - **Modular File Structure**: Reorganized session management into layered architecture:
+    - `core/` - Types, constants, events, metrics, errors, Zod schemas
+    - `operations/` - Pure functions for lifecycle, cleanup, heartbeat operations
+    - `utils/` - Formatting and validation utilities
+    - `session-manager.ts` - Main `TransportSessionManager` class
+  - **Enhanced Error Classes**:
+    - `SessionError` base class with MCP error code mapping
+    - `SessionLimitError`, `SessionNotFoundError`, `SessionExpiredError`, `SessionInvalidError`
+    - `SessionManagerShutdownError` for graceful shutdown handling
+    - Type guards for error instance checking
+  - **Observability Features**:
+    - `SessionEventEmitter` for lifecycle event tracking (created, expired, removed, etc.)
+    - `SessionMetricsCollector` with OpenTelemetry integration
+    - `DetailedSessionMetrics` snapshot for monitoring
+  - **Zod Schema Validation** (`core/schemas.ts`):
+    - `SessionConfigSchema` with cross-field validation refinements
+    - `SessionIdSchema` for ID format validation
+    - Helper functions: `parseSessionConfig()`, `validateSessionConfigSafe()`
+    - Validation limits and custom error messages
+  - **Type Safety Improvements**:
+    - `HeartbeatCapableTransport` interface with type guard `hasHeartbeat()`
+    - `ISessionManager` interface for consistent contract
+    - Factory functions for isolated instances (`createSessionMetrics()`, `createSessionEventEmitter()`)
 - **Error System Architecture Overhaul** (`src/utils/errors/`): Complete restructuring for maintainability and extensibility
   - **Modular File Structure**: Reorganized flat error files into layered architecture:
     - `core/` - Base class (`AppError`), types, constants, message registry

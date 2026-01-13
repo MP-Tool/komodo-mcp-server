@@ -5,43 +5,31 @@
  * listeners when the state changes. This enables dynamic tool
  * availability based on connection status.
  *
- * @module utils/connection-state
+ * @module server/connection/connection-state
  */
 
 import { KomodoClient } from '../../api/index.js';
 import { logger as baseLogger } from '../../utils/logger/logger.js';
+import { ConnectionError } from '../../utils/errors/index.js';
 import { withSpan, addSpanAttributes, addSpanEvent, MCP_ATTRIBUTES } from '../telemetry/index.js';
 import { serverMetrics } from '../telemetry/metrics.js';
 
-const logger = baseLogger.child({ component: 'connection' });
+// Import centralized types and constants from core
+import type {
+  ConnectionState,
+  ConnectionStateListener,
+  ConnectionStateEvent,
+} from './core/types.js';
+import {
+  CONNECTION_STATE_CONFIG,
+  CONNECTION_LOG_COMPONENTS,
+  ConnectionStateLogMessages,
+} from './core/constants.js';
 
-/**
- * Possible connection states for the Komodo client.
- */
-export type ConnectionState = 'disconnected' | 'connecting' | 'connected' | 'error';
+const logger = baseLogger.child({ component: CONNECTION_LOG_COMPONENTS.CONNECTION_STATE });
 
-/**
- * Listener function type for connection state changes.
- * @internal
- */
-type ConnectionStateListener = (state: ConnectionState, client: KomodoClient | null, error?: Error) => void;
-
-/**
- * Connection state change event data.
- * @internal
- */
-interface ConnectionStateEvent {
-  /** Previous connection state */
-  previousState: ConnectionState;
-  /** Current connection state */
-  currentState: ConnectionState;
-  /** The Komodo client instance (null if disconnected) */
-  client: KomodoClient | null;
-  /** Error details if state is 'error' */
-  error?: Error;
-  /** Timestamp of the state change */
-  timestamp: Date;
-}
+// Re-export types for backwards compatibility
+export type { ConnectionState } from './core/types.js';
 
 /**
  * Manages the connection state to the Komodo server.
@@ -72,7 +60,7 @@ class ConnectionStateManager {
 
   // Performance: Use circular buffer instead of array with shift()
   // shift() is O(n), circular buffer is O(1)
-  private readonly maxHistorySize = 10;
+  private readonly maxHistorySize = CONNECTION_STATE_CONFIG.MAX_HISTORY_SIZE;
   private stateHistory: (ConnectionStateEvent | null)[] = new Array(this.maxHistorySize).fill(null);
   private historyIndex = 0;
   private historyCount = 0;
@@ -171,7 +159,7 @@ class ConnectionStateManager {
 
           if (health.status !== 'healthy') {
             addSpanEvent('health_check.failed', { 'health.message': health.message || 'unknown' });
-            throw new Error(`Health check failed: ${health.message}`);
+            throw ConnectionError.healthCheckFailed(health.message || 'unknown');
           }
 
           addSpanEvent('health_check.success', {
@@ -180,7 +168,7 @@ class ConnectionStateManager {
           });
 
           /* v8 ignore next - optional API version logging */
-          logger.info('Connection validated: %s (API v%s)', health.details?.url, health.details?.apiVersion);
+          logger.info(ConnectionStateLogMessages.CONNECTED);
         }
 
         this.client = client;
@@ -194,7 +182,7 @@ class ConnectionStateManager {
         this.lastError = error instanceof Error ? error : new Error(String(error));
         this.setState('error', this.lastError);
         span.setAttribute('error.message', this.lastError.message);
-        logger.error('Connection failed: %s', this.lastError.message);
+        logger.error(ConnectionStateLogMessages.ERROR_STATE(this.lastError.message));
 
         return false;
       }
@@ -211,7 +199,7 @@ class ConnectionStateManager {
     this.client = null;
     this.lastError = null;
     this.setState('disconnected');
-    logger.info('Disconnected from Komodo');
+    logger.info(ConnectionStateLogMessages.DISCONNECTED);
   }
 
   /**
@@ -286,14 +274,15 @@ class ConnectionStateManager {
       this.historyCount++;
     }
 
-    logger.debug('Connection state: %s → %s', previousState, newState);
+    logger.debug(ConnectionStateLogMessages.STATE_CHANGE(previousState, newState));
 
     // Notify listeners
     for (const listener of this.listeners) {
       try {
         listener(newState, this.client, error);
       } catch (listenerError) {
-        logger.error('Error in connection state listener:', listenerError);
+        const errorMessage = listenerError instanceof Error ? listenerError.message : String(listenerError);
+        logger.error(ConnectionStateLogMessages.LISTENER_ERROR(errorMessage));
       }
     }
   }

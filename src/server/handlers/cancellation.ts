@@ -16,7 +16,7 @@
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { CancelledNotificationSchema } from '@modelcontextprotocol/sdk/types.js';
 import { logger as baseLogger } from '../../utils/index.js';
-import { requestManager } from '../lifecycle/index.js';
+import { requestManager } from '../connection/index.js';
 import type { HandlerDefinition, CancellationParams } from './core/index.js';
 import {
   HANDLER_NAMES,

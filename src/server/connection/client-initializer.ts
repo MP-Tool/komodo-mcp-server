@@ -4,12 +4,13 @@
  * Handles automatic initialization of the Komodo client from environment variables.
  * Supports both API Key and Username/Password authentication methods.
  *
- * @module server/client-initializer
+ * @module server/connection/client-initializer
  */
 
 import { KomodoClient } from '../../api/index.js';
 import { getKomodoCredentials } from '../../config/index.js';
-import { logger, connectionManager } from '../../utils/index.js';
+import { logger } from '../../utils/index.js';
+import { connectionManager } from './connection-state.js';
 import { toolRegistry } from '../../mcp/tools/index.js';
 
 /**

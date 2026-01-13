@@ -22,7 +22,7 @@
  * // Create spans
  * await withSpan('myOperation', async (span) => {
  *   span.setAttribute('key', 'value');
- *   // ...
+ *   return await doSomething();
  * });
  *
  * // Get trace context for propagation
@@ -32,10 +32,25 @@
  * serverMetrics.recordRequest('tool_name', 150, true);
  * ```
  *
- * @module telemetry
+ * @module server/telemetry
  */
 
-export { initializeTelemetry, shutdownTelemetry, getTelemetryConfig, type TelemetryConfig } from './config.js';
+// ============================================================================
+// SDK Lifecycle
+// ============================================================================
+
+export { initializeTelemetry, shutdownTelemetry, isSdkInitialized } from './sdk.js';
+
+// ============================================================================
+// Configuration
+// ============================================================================
+
+export { getTelemetryConfig, isTelemetryEnabled } from './core/index.js';
+export type { TelemetryConfig } from './core/index.js';
+
+// ============================================================================
+// Tracing
+// ============================================================================
 
 export {
   getTracer,
@@ -45,18 +60,44 @@ export {
   addSpanAttributes,
   addSpanEvent,
   getTraceContext,
-  MCP_ATTRIBUTES,
-  type SpanOptions,
 } from './tracing.js';
+
+export { MCP_ATTRIBUTES } from './core/index.js';
+export type { SpanOptions, TraceContext } from './core/index.js';
+
+// ============================================================================
+// Metrics
+// ============================================================================
 
 export {
   serverMetrics,
   ServerMetricsManager,
-  METRIC_ATTRIBUTES,
-  type ServerMetrics,
-  type ServerStats,
+  createServerMetrics,
+  getServerMetrics,
+  resetServerMetrics,
 } from './metrics.js';
+export { METRIC_ATTRIBUTES } from './core/index.js';
+export type { ServerMetrics, ServerStats } from './core/index.js';
 
-// Re-export useful OpenTelemetry types
+// ============================================================================
+// Constants (for advanced usage)
+// ============================================================================
+
+export {
+  TELEMETRY_DEFAULTS,
+  TELEMETRY_ENV_VARS,
+  METRIC_NAMES,
+  METRIC_DESCRIPTIONS,
+  METRIC_UNITS,
+  TRANSPORT_TYPES,
+  TELEMETRY_LOG_COMPONENTS,
+  SdkLogMessages,
+  MetricsLogMessages,
+} from './core/index.js';
+
+// ============================================================================
+// OpenTelemetry Re-exports
+// ============================================================================
+
 export { SpanKind, SpanStatusCode } from '@opentelemetry/api';
 export type { Span, Attributes, Context } from '@opentelemetry/api';

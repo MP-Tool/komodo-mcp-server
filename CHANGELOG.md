@@ -298,7 +298,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Import Consolidation**: All modules now use barrel exports for cleaner imports
   - `config/index.js` used throughout the codebase
   - `transport/index.js` for main entry point
-  - `transport/utils/index.js` for middleware utilities
+- **Telemetry Module Architecture Overhaul** (`src/server/telemetry/`): Complete restructuring for maintainability
+  - **Modular File Structure**: Reorganized into layered architecture:
+    - `core/config.ts` - Telemetry configuration wrapper
+    - `core/constants.ts` - Centralized constants (OTEL_ATTRIBUTES, MCP_ATTRIBUTES, TELEMETRY_ENV_VARS)
+    - `core/types.ts` - All type definitions (TelemetryConfig, SpanOptions, TraceContext, ServerMetrics)
+    - `core/index.ts` - Barrel exports for core module
+    - `sdk.ts` - SDK lifecycle management (initializeTelemetry, shutdownTelemetry)
+  - **OpenTelemetry Semantic Conventions**: Updated to stable `@opentelemetry/semantic-conventions`
+    - Uses `ATTR_*` exports (stable) instead of deprecated `SEMATTRS_*`
+    - `ATTR_DEPLOYMENT_ENVIRONMENT_NAME` from `/incubating` for environment attribute
+  - **Error Handling in Metrics**: All metric recording wrapped in try/catch
+    - Prevents telemetry failures from crashing the application
+    - Errors logged with context for debugging
+  - **Factory Pattern**: `createServerMetrics()` for isolated, testable instances
+  - **Type Re-exports**: Core OpenTelemetry types (Span, Attributes, Context, SpanKind) re-exported from core/
+ - `transport/utils/index.js` for middleware utilities
 - **Health Endpoint**: Enhanced `/health` endpoint to report session counts by transport type
   - Shows `streamableHttp` session count (always)
   - Shows `legacySse` session count (when enabled)

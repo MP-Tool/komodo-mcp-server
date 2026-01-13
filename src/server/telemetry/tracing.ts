@@ -3,11 +3,12 @@
  *
  * Provides convenient helpers for creating and managing spans.
  *
- * @module telemetry/tracing
+ * @module server/telemetry/tracing
  */
 
-import { trace, context, SpanStatusCode, Span, SpanKind, Attributes, Context } from '@opentelemetry/api';
-import { getTelemetryConfig } from './config.js';
+import { trace, context, SpanStatusCode, SpanKind } from '@opentelemetry/api';
+import type { Span, Attributes, Context } from '@opentelemetry/api';
+import { getTelemetryConfig, type SpanOptions, type TraceContext } from './core/index.js';
 
 /**
  * Get the tracer instance for the Komodo MCP Server.
@@ -15,18 +16,6 @@ import { getTelemetryConfig } from './config.js';
 export function getTracer() {
   const config = getTelemetryConfig();
   return trace.getTracer(config.serviceName, config.serviceVersion);
-}
-
-/**
- * Options for creating a span.
- */
-export interface SpanOptions {
-  /** Span kind (default: INTERNAL) */
-  kind?: SpanKind;
-  /** Initial attributes */
-  attributes?: Attributes;
-  /** Parent context (uses active context if not provided) */
-  parentContext?: Context;
 }
 
 /**
@@ -163,7 +152,7 @@ export function addSpanEvent(name: string, attributes?: Attributes): void {
  * Get the current trace context for propagation.
  * Useful for passing context to external services.
  */
-export function getTraceContext(): { traceId?: string; spanId?: string } | undefined {
+export function getTraceContext(): TraceContext | undefined {
   const span = getActiveSpan();
   if (!span) {
     return undefined;
@@ -175,23 +164,3 @@ export function getTraceContext(): { traceId?: string; spanId?: string } | undef
     spanId: spanContext.spanId,
   };
 }
-
-/**
- * Semantic attribute names for MCP operations.
- */
-export const MCP_ATTRIBUTES = {
-  /** MCP tool name */
-  TOOL_NAME: 'mcp.tool.name',
-  /** MCP request ID */
-  REQUEST_ID: 'mcp.request.id',
-  /** MCP session ID */
-  SESSION_ID: 'mcp.session.id',
-  /** Komodo server being accessed */
-  KOMODO_SERVER: 'komodo.server',
-  /** Komodo resource type */
-  KOMODO_RESOURCE_TYPE: 'komodo.resource.type',
-  /** Komodo resource ID */
-  KOMODO_RESOURCE_ID: 'komodo.resource.id',
-  /** Operation being performed */
-  OPERATION: 'operation',
-} as const;

@@ -8,71 +8,37 @@
  * - Memory and resource usage
  * - Connection state transitions
  *
- * @module telemetry/metrics
+ * @module server/telemetry/metrics
  */
 
-import { metrics, Counter, Histogram, UpDownCounter, Attributes } from '@opentelemetry/api';
-import { getTelemetryConfig } from './config.js';
+import { metrics } from '@opentelemetry/api';
+import type { Counter, Histogram, UpDownCounter, Attributes } from '@opentelemetry/api';
+import {
+  getTelemetryConfig,
+  METRIC_ATTRIBUTES,
+  METRIC_NAMES,
+  METRIC_DESCRIPTIONS,
+  METRIC_UNITS,
+  TRANSPORT_TYPES,
+  TELEMETRY_LOG_COMPONENTS,
+  type ServerMetrics,
+  type ServerStats,
+} from './core/index.js';
+import { logger as baseLogger } from '../../utils/logger/logger.js';
+
+const logger = baseLogger.child({ component: TELEMETRY_LOG_COMPONENTS.METRICS });
 
 /**
- * Server metrics interface for type-safe metric recording.
+ * Internal structure for metric instruments.
+ * @internal
  */
-export interface ServerMetrics {
-  /** Record a request (tool invocation) */
-  recordRequest(toolName: string, durationMs: number, success: boolean): void;
-  /** Record an active session change */
-  recordSessionChange(transport: string, delta: number): void;
-  /** Record a connection state change */
-  recordConnectionStateChange(previousState: string, newState: string): void;
-  /** Record an error */
-  recordError(errorType: string, component: string): void;
-  /** Get current server stats */
-  getStats(): ServerStats;
+interface MetricInstruments {
+  requestCounter?: Counter;
+  requestDuration?: Histogram;
+  sessionGauge?: UpDownCounter;
+  connectionStateCounter?: Counter;
+  errorCounter?: Counter;
 }
-
-/**
- * Server statistics snapshot.
- */
-export interface ServerStats {
-  /** Server uptime in milliseconds */
-  uptimeMs: number;
-  /** Server start time */
-  startTime: Date;
-  /** Total requests processed */
-  totalRequests: number;
-  /** Failed requests */
-  failedRequests: number;
-  /** Active HTTP sessions */
-  activeHttpSessions: number;
-  /** Active Legacy SSE sessions */
-  activeLegacySseSessions: number;
-  /** Connection state changes count */
-  connectionStateChanges: number;
-  /** Current memory usage in bytes */
-  memoryUsageBytes: number;
-  /** Current heap used in bytes */
-  heapUsedBytes: number;
-}
-
-/**
- * Semantic attribute names for server metrics.
- */
-export const METRIC_ATTRIBUTES = {
-  /** Tool name being invoked */
-  TOOL_NAME: 'tool.name',
-  /** Transport type (http, sse, stdio) */
-  TRANSPORT: 'transport',
-  /** Request success status */
-  SUCCESS: 'success',
-  /** Error type */
-  ERROR_TYPE: 'error.type',
-  /** Component where error occurred */
-  COMPONENT: 'component',
-  /** Previous connection state */
-  PREVIOUS_STATE: 'connection.state.previous',
-  /** Current connection state */
-  CURRENT_STATE: 'connection.state.current',
-} as const;
 
 /**
  * Server Metrics Manager
@@ -89,11 +55,7 @@ class ServerMetricsManager implements ServerMetrics {
   private connectionStateChanges = 0;
 
   // OpenTelemetry instruments
-  private requestCounter?: Counter;
-  private requestDuration?: Histogram;
-  private sessionGauge?: UpDownCounter;
-  private connectionStateCounter?: Counter;
-  private errorCounter?: Counter;
+  private instruments: MetricInstruments = {};
 
   constructor() {
     this.startTime = new Date();
@@ -113,40 +75,40 @@ class ServerMetricsManager implements ServerMetrics {
     const meter = metrics.getMeter(config.serviceName, config.serviceVersion);
 
     // Request counter
-    this.requestCounter = meter.createCounter('mcp.server.requests', {
-      description: 'Total number of MCP requests processed',
-      unit: '1',
+    this.instruments.requestCounter = meter.createCounter(METRIC_NAMES.REQUESTS_TOTAL, {
+      description: METRIC_DESCRIPTIONS[METRIC_NAMES.REQUESTS_TOTAL],
+      unit: METRIC_UNITS.COUNT,
     });
 
     // Request duration histogram
-    this.requestDuration = meter.createHistogram('mcp.server.request.duration', {
-      description: 'Duration of MCP requests in milliseconds',
-      unit: 'ms',
+    this.instruments.requestDuration = meter.createHistogram(METRIC_NAMES.REQUEST_DURATION, {
+      description: METRIC_DESCRIPTIONS[METRIC_NAMES.REQUEST_DURATION],
+      unit: METRIC_UNITS.MILLISECONDS,
     });
 
     // Session gauge (up/down counter for active sessions)
-    this.sessionGauge = meter.createUpDownCounter('mcp.server.sessions.active', {
-      description: 'Number of active sessions',
-      unit: '1',
+    this.instruments.sessionGauge = meter.createUpDownCounter(METRIC_NAMES.SESSIONS_ACTIVE, {
+      description: METRIC_DESCRIPTIONS[METRIC_NAMES.SESSIONS_ACTIVE],
+      unit: METRIC_UNITS.COUNT,
     });
 
     // Connection state change counter
-    this.connectionStateCounter = meter.createCounter('mcp.server.connection.state_changes', {
-      description: 'Number of connection state changes',
-      unit: '1',
+    this.instruments.connectionStateCounter = meter.createCounter(METRIC_NAMES.CONNECTION_STATE_CHANGES, {
+      description: METRIC_DESCRIPTIONS[METRIC_NAMES.CONNECTION_STATE_CHANGES],
+      unit: METRIC_UNITS.COUNT,
     });
 
     // Error counter
-    this.errorCounter = meter.createCounter('mcp.server.errors', {
-      description: 'Total number of errors',
-      unit: '1',
+    this.instruments.errorCounter = meter.createCounter(METRIC_NAMES.ERRORS_TOTAL, {
+      description: METRIC_DESCRIPTIONS[METRIC_NAMES.ERRORS_TOTAL],
+      unit: METRIC_UNITS.COUNT,
     });
 
     // Observable gauges for system metrics
     meter
-      .createObservableGauge('mcp.server.uptime', {
-        description: 'Server uptime in seconds',
-        unit: 's',
+      .createObservableGauge(METRIC_NAMES.UPTIME, {
+        description: METRIC_DESCRIPTIONS[METRIC_NAMES.UPTIME],
+        unit: METRIC_UNITS.SECONDS,
       })
       .addCallback((result) => {
         const uptimeSeconds = (Date.now() - this.startTime.getTime()) / 1000;
@@ -154,9 +116,9 @@ class ServerMetricsManager implements ServerMetrics {
       });
 
     meter
-      .createObservableGauge('mcp.server.memory.heap_used', {
-        description: 'Heap memory used in bytes',
-        unit: 'By',
+      .createObservableGauge(METRIC_NAMES.MEMORY_HEAP_USED, {
+        description: METRIC_DESCRIPTIONS[METRIC_NAMES.MEMORY_HEAP_USED],
+        unit: METRIC_UNITS.BYTES,
       })
       .addCallback((result) => {
         const memUsage = process.memoryUsage();
@@ -164,9 +126,9 @@ class ServerMetricsManager implements ServerMetrics {
       });
 
     meter
-      .createObservableGauge('mcp.server.memory.rss', {
-        description: 'Resident set size in bytes',
-        unit: 'By',
+      .createObservableGauge(METRIC_NAMES.MEMORY_RSS, {
+        description: METRIC_DESCRIPTIONS[METRIC_NAMES.MEMORY_RSS],
+        unit: METRIC_UNITS.BYTES,
       })
       .addCallback((result) => {
         const memUsage = process.memoryUsage();
@@ -183,13 +145,19 @@ class ServerMetricsManager implements ServerMetrics {
       this.failedRequests++;
     }
 
-    const attributes: Attributes = {
-      [METRIC_ATTRIBUTES.TOOL_NAME]: toolName,
-      [METRIC_ATTRIBUTES.SUCCESS]: String(success),
-    };
+    try {
+      const attributes: Attributes = {
+        [METRIC_ATTRIBUTES.TOOL_NAME]: toolName,
+        [METRIC_ATTRIBUTES.SUCCESS]: String(success),
+      };
 
-    this.requestCounter?.add(1, attributes);
-    this.requestDuration?.record(durationMs, attributes);
+      this.instruments.requestCounter?.add(1, attributes);
+      this.instruments.requestDuration?.record(durationMs, attributes);
+    } catch (error) {
+      /* v8 ignore next 3 - OTEL error handling */
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to record request metric: ${message}`);
+    }
   }
 
   /**
@@ -198,15 +166,21 @@ class ServerMetricsManager implements ServerMetrics {
    * @param delta - Change in session count (+1 for new, -1 for closed)
    */
   recordSessionChange(transport: string, delta: number): void {
-    if (transport === 'http') {
+    if (transport === TRANSPORT_TYPES.HTTP) {
       this.activeHttpSessions += delta;
-    } else if (transport === 'legacy-sse') {
+    } else if (transport === TRANSPORT_TYPES.LEGACY_SSE) {
       this.activeLegacySseSessions += delta;
     }
 
-    this.sessionGauge?.add(delta, {
-      [METRIC_ATTRIBUTES.TRANSPORT]: transport,
-    });
+    try {
+      this.instruments.sessionGauge?.add(delta, {
+        [METRIC_ATTRIBUTES.TRANSPORT]: transport,
+      });
+    } catch (error) {
+      /* v8 ignore next 3 - OTEL error handling */
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to record session metric: ${message}`);
+    }
   }
 
   /**
@@ -215,20 +189,32 @@ class ServerMetricsManager implements ServerMetrics {
   recordConnectionStateChange(previousState: string, newState: string): void {
     this.connectionStateChanges++;
 
-    this.connectionStateCounter?.add(1, {
-      [METRIC_ATTRIBUTES.PREVIOUS_STATE]: previousState,
-      [METRIC_ATTRIBUTES.CURRENT_STATE]: newState,
-    });
+    try {
+      this.instruments.connectionStateCounter?.add(1, {
+        [METRIC_ATTRIBUTES.PREVIOUS_STATE]: previousState,
+        [METRIC_ATTRIBUTES.CURRENT_STATE]: newState,
+      });
+    } catch (error) {
+      /* v8 ignore next 3 - OTEL error handling */
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to record connection state metric: ${message}`);
+    }
   }
 
   /**
    * Record an error.
    */
   recordError(errorType: string, component: string): void {
-    this.errorCounter?.add(1, {
-      [METRIC_ATTRIBUTES.ERROR_TYPE]: errorType,
-      [METRIC_ATTRIBUTES.COMPONENT]: component,
-    });
+    try {
+      this.instruments.errorCounter?.add(1, {
+        [METRIC_ATTRIBUTES.ERROR_TYPE]: errorType,
+        [METRIC_ATTRIBUTES.COMPONENT]: component,
+      });
+    } catch (error) {
+      /* v8 ignore next 3 - OTEL error handling */
+      const message = error instanceof Error ? error.message : String(error);
+      logger.warn(`Failed to record error metric: ${message}`);
+    }
   }
 
   /**
@@ -263,10 +249,78 @@ class ServerMetricsManager implements ServerMetrics {
   }
 }
 
+// ============================================================================
+// Factory & Singleton
+// ============================================================================
+
+/** Singleton instance - lazily initialized */
+let instance: ServerMetricsManager | null = null;
+
+/**
+ * Create a new ServerMetricsManager instance.
+ *
+ * Use this factory function for testing or when you need
+ * an independent metrics instance.
+ *
+ * @returns A new ServerMetricsManager instance
+ *
+ * @example
+ * ```typescript
+ * // For testing - create isolated instance
+ * const metrics = createServerMetrics();
+ * metrics.recordRequest('test-tool', 100, true);
+ * ```
+ */
+export function createServerMetrics(): ServerMetricsManager {
+  return new ServerMetricsManager();
+}
+
+/**
+ * Get the singleton ServerMetricsManager instance.
+ *
+ * This is the recommended way to access metrics in production code.
+ * The instance is lazily initialized on first access.
+ *
+ * @returns The singleton ServerMetricsManager instance
+ *
+ * @example
+ * ```typescript
+ * import { getServerMetrics } from './telemetry/metrics.js';
+ *
+ * const metrics = getServerMetrics();
+ * metrics.recordRequest('tool_name', 150, true);
+ * ```
+ */
+export function getServerMetrics(): ServerMetricsManager {
+  if (!instance) {
+    instance = new ServerMetricsManager();
+  }
+  return instance;
+}
+
+/**
+ * Reset the singleton instance.
+ *
+ * **Warning**: Only use this for testing purposes.
+ * This will reset all tracked metrics and create a fresh instance.
+ *
+ * @internal
+ */
+export function resetServerMetrics(): void {
+  if (instance) {
+    instance.reset();
+  }
+  instance = null;
+}
+
 /**
  * Singleton instance of the ServerMetricsManager.
+ *
+ * @deprecated Use `getServerMetrics()` instead for lazy initialization.
+ * This export is maintained for backward compatibility.
  */
-export const serverMetrics = new ServerMetricsManager();
+export const serverMetrics = getServerMetrics();
 
 // Export the class for testing
 export { ServerMetricsManager };
+

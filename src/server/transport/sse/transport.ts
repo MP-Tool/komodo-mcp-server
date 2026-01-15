@@ -1,5 +1,5 @@
 /**
- * Legacy SSE Transport Implementation
+ * SSE Transport Implementation
  *
  * This is a custom implementation of the deprecated HTTP+SSE transport
  * from MCP protocol version 2024-11-05. It provides backwards compatibility
@@ -13,20 +13,31 @@
  *
  * This replaces the deprecated SSEServerTransport from @modelcontextprotocol/sdk
  * with a clean, maintainable implementation.
+ *
+ * @module server/transport/sse/transport
  */
 
 import { Transport } from '@modelcontextprotocol/sdk/shared/transport.js';
 import { JSONRPCMessage } from '@modelcontextprotocol/sdk/types.js';
 import { Response, Request } from 'express';
 import { randomUUID } from 'node:crypto';
+import { TransportError } from '../../errors/index.js';
 
 /**
- * Custom Legacy SSE Transport for backwards compatibility with MCP 2024-11-05 clients.
+ * Response object that may have a flush method added by middleware.
+ * Some Express middleware (like compression) add this method.
+ */
+interface FlushableResponse extends Response {
+  flush?: () => void;
+}
+
+/**
+ * Custom SSE Transport for backwards compatibility with MCP 2024-11-05 clients.
  *
  * Implements the Transport interface from the MCP SDK without using
  * the deprecated SSEServerTransport class.
  */
-export class LegacySseTransport implements Transport {
+export class SseTransport implements Transport {
   private _sessionId: string;
   private _res: Response;
   private _messageEndpoint: string;
@@ -38,7 +49,7 @@ export class LegacySseTransport implements Transport {
   onmessage?: (message: JSONRPCMessage) => void;
 
   /**
-   * Creates a new Legacy SSE Transport
+   * Creates a new SSE Transport
    *
    * @param messageEndpoint - The endpoint path where clients should POST messages
    *                          (e.g., '/mcp/message' or '/sse/message')
@@ -72,7 +83,7 @@ export class LegacySseTransport implements Transport {
       return;
     }
     if (this._closed) {
-      throw new Error('LegacySseTransport is closed');
+      throw TransportError.closed();
     }
 
     this._started = true;
@@ -95,10 +106,10 @@ export class LegacySseTransport implements Transport {
    */
   async send(message: JSONRPCMessage): Promise<void> {
     if (this._closed) {
-      throw new Error('LegacySseTransport is closed');
+      throw TransportError.closed();
     }
     if (!this._started) {
-      throw new Error('LegacySseTransport not started');
+      throw TransportError.notStarted();
     }
 
     this._sendSseEvent('message', JSON.stringify(message));
@@ -178,10 +189,5 @@ export class LegacySseTransport implements Transport {
   }
 }
 
-/**
- * Response object that may have a flush method added by middleware.
- * Some Express middleware (like compression) add this method.
- */
-interface FlushableResponse extends Response {
-  flush?: () => void;
-}
+// Backwards compatibility alias
+export { SseTransport as LegacySseTransport };

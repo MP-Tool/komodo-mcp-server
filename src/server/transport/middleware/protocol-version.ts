@@ -4,11 +4,18 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { createJsonRpcError, sanitizeForLog } from '../utils/index.js';
+import { sanitizeForLog } from '../utils/index.js';
 import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../../../config/index.js';
-import { logger as baseLogger } from '../../../utils/logger/logger.js';
+import { logger as baseLogger } from '../../logger/index.js';
+import {
+  HTTP_STATUS,
+  JSON_RPC_ERROR_CODES,
+  TRANSPORT_LOG_COMPONENTS,
+  formatProtocolVersionError,
+} from '../core/index.js';
+import { createJsonRpcError } from '../utils/json-rpc.js';
 
-const logger = baseLogger.child({ component: 'middleware' });
+const logger = baseLogger.child({ component: TRANSPORT_LOG_COMPONENTS.MIDDLEWARE });
 
 /**
  * Validates MCP-Protocol-Version header
@@ -27,11 +34,11 @@ export function validateProtocolVersion(req: Request, res: Response, next: NextF
   if (!SUPPORTED_PROTOCOL_VERSIONS.includes(protocolVersion as (typeof SUPPORTED_PROTOCOL_VERSIONS)[number])) {
     logger.warn('Unsupported protocol version: %s', sanitizeForLog(protocolVersion));
     res
-      .status(400)
+      .status(HTTP_STATUS.BAD_REQUEST)
       .json(
         createJsonRpcError(
-          -32600,
-          `Unsupported MCP-Protocol-Version: ${protocolVersion}. Supported versions: ${SUPPORTED_PROTOCOL_VERSIONS.join(', ')}`,
+          JSON_RPC_ERROR_CODES.INVALID_REQUEST,
+          formatProtocolVersionError(protocolVersion, SUPPORTED_PROTOCOL_VERSIONS),
         ),
       );
     return;

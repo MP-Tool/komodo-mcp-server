@@ -11,6 +11,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { config, getAllowedHosts, getAllowedOrigins, isLocalHost } from '../../../config/index.js';
 import { createJsonRpcError, logSecurityEvent, sanitizeForLog } from '../utils/index.js';
+import { HTTP_STATUS, TRANSPORT_ERROR_CODES, TransportErrorMessages } from '../core/index.js';
 
 /**
  * DNS Rebinding Protection Middleware
@@ -34,7 +35,9 @@ export function dnsRebindingProtection(req: Request, res: Response, next: NextFu
 
   if (!host || !isAllowed) {
     logSecurityEvent(`DNS Rebinding attempt blocked: Host=${sanitizeForLog(host)}`);
-    res.status(403).json(createJsonRpcError(-32000, 'Forbidden: Invalid Host header'));
+    res
+      .status(HTTP_STATUS.FORBIDDEN)
+      .json(createJsonRpcError(TRANSPORT_ERROR_CODES.DNS_REBINDING, TransportErrorMessages.DNS_REBINDING_BLOCKED));
     return;
   }
 
@@ -49,7 +52,9 @@ export function dnsRebindingProtection(req: Request, res: Response, next: NextFu
       // Note: Wildcard '*' is filtered out in production mode by getAllowedOrigins()
       if (!allowedOrigins.includes('*') && !allowedOrigins.includes(origin)) {
         logSecurityEvent(`Invalid Origin blocked: ${origin}`);
-        res.status(403).json(createJsonRpcError(-32000, 'Forbidden: Invalid Origin header'));
+        res
+          .status(HTTP_STATUS.FORBIDDEN)
+          .json(createJsonRpcError(TRANSPORT_ERROR_CODES.INVALID_ORIGIN, TransportErrorMessages.ORIGIN_NOT_ALLOWED));
         return;
       }
     }

@@ -19,9 +19,9 @@
 
 import { Router } from 'express';
 import { config, getKomodoCredentials } from '../../../config/index.js';
-import type { TransportSessionManager } from '../session-manager.js';
-import { getLegacySseSessionCount, isLegacySseEnabled } from './mcp.js';
-import { connectionManager } from '../../../utils/index.js';
+import type { TransportSessionManager } from '../../session/index.js';
+import { getSseSessionCount, isSseEnabled } from '../sse/index.js';
+import { komodoConnectionManager } from '../../../app/index.js';
 import { SESSION_MAX_COUNT, LEGACY_SSE_MAX_SESSIONS } from '../../../config/transport.config.js';
 
 /**
@@ -54,9 +54,9 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
       },
     };
 
-    // Include Legacy SSE session count if enabled
-    if (isLegacySseEnabled()) {
-      (response.sessions as Record<string, number>).legacySse = getLegacySseSessionCount();
+    // Include SSE session count if enabled
+    if (isSseEnabled()) {
+      (response.sessions as Record<string, number>).sse = getSseSessionCount();
     }
 
     res.status(200).json(response);
@@ -77,14 +77,14 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
    * - Load balancers to determine backend availability
    */
   router.get('/ready', (_req, res) => {
-    const connectionState = connectionManager.getState();
+    const connectionState = komodoConnectionManager.getState();
     const isKomodoConnected = connectionState === 'connected';
 
     // Check session limits
     const httpSessionCount = sessionManager.size;
-    const sseSessionCount = isLegacySseEnabled() ? getLegacySseSessionCount() : 0;
+    const sseSessionCount = isSseEnabled() ? getSseSessionCount() : 0;
     const httpSessionsAtLimit = httpSessionCount >= SESSION_MAX_COUNT;
-    const sseSessionsAtLimit = isLegacySseEnabled() && sseSessionCount >= LEGACY_SSE_MAX_SESSIONS;
+    const sseSessionsAtLimit = isSseEnabled() && sseSessionCount >= LEGACY_SSE_MAX_SESSIONS;
     const sessionsAtLimit = httpSessionsAtLimit || sseSessionsAtLimit;
 
     // Determine readiness
@@ -127,8 +127,8 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
           max: SESSION_MAX_COUNT,
           atLimit: httpSessionsAtLimit,
         },
-        ...(isLegacySseEnabled() && {
-          legacySse: {
+        ...(isSseEnabled() && {
+          sse: {
             current: sseSessionCount,
             max: LEGACY_SSE_MAX_SESSIONS,
             atLimit: sseSessionsAtLimit,

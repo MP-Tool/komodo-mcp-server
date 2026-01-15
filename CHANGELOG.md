@@ -22,12 +22,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - **Config separation**: Split environment configuration into framework and app layers
     - `env.framework.ts`: Transport, OTEL, logging, rate limiting (generic MCP config)
     - `env.app.ts`: KOMODO_URL, KOMODO_USERNAME, KOMODO_PASSWORD, KOMODO_API_KEY
-  - **New `src/server/transport/core/` module**: Centralized transport constants
+  - **New `src/server/transport/core/` module**: Centralized transport core with error handling
+    - `TransportError` class extending `AppError` with MCP/HTTP code mapping
+    - `TransportErrorCodes`: 12 transport-specific error codes
     - `JSON_RPC_ERROR_CODES`: Standard JSON-RPC 2.0 error codes
     - `TRANSPORT_ERROR_CODES`: MCP-specific error codes
-    - `HTTP_STATUS`: Common HTTP status codes
     - `TRANSPORT_LOG_COMPONENTS`: Centralized logger component names
+    - `TransportErrorMessages`: Centralized error messages
     - `McpServerFactory`, `TransportType`, `TransportConfig` types
+  - **New `src/server/transport/sse/` module**: SSE transport extracted from monolithic routes
+    - `SseTransport` class implementing MCP SDK `Transport` interface
+    - `lifecycle/` module with types and constants for SSE connection management
+    - Routes, handlers, and session tracking for SSE protocol (2024-11-05)
+  - **New `src/server/transport/streamable-http/` module**: Streamable HTTP transport extracted
+    - `lifecycle/` module with types and constants for HTTP session management
+    - Routes for POST, GET, DELETE on `/mcp` endpoint (2025-03-26 spec)
+    - Separated from SSE for clean protocol boundaries
   - **Generic ConnectionStateManager**: Now `ConnectionStateManager<TClient extends IApiClient>`
     - Type-safe client storage and retrieval
     - Works with any API client implementing `IApiClient`
@@ -196,6 +206,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Clarifies that MCP endpoint relies on network isolation, not HTTP auth
 
 ### Refactored
+- **Transport Module Architecture** (`src/server/transport/`): Complete modular restructuring
+  - **Extracted SSE Transport** to `transport/sse/`:
+    - Moved from monolithic `routes/mcp.ts` to dedicated module
+    - `SseTransport` class with clean Transport interface implementation
+    - `lifecycle/` subfolder with `types.ts` and `constants.ts`
+    - Backwards compatibility aliases (`LegacySseTransport`, `createLegacySseRouter`)
+  - **Extracted Streamable HTTP** to `transport/streamable-http/`:
+    - Separated from SSE for clean protocol boundaries
+    - `lifecycle/` subfolder with transport state management types
+    - Dedicated router creation with `createStreamableHttpRouter()`
+  - **Core Module** (`transport/core/`):
+    - `base.ts` - `TransportError` extending `AppError` with domain error codes
+    - `types.ts` - Single source for `McpServerFactory`, `TransportType`, etc.
+    - `constants.ts` - Centralized error messages and log components
+    - Removed duplicate type definitions across modules
+  - **Deleted Files**:
+    - `routes/mcp.ts` - Logic moved to `sse/routes.ts` and `streamable-http/routes.ts`
+    - `session-manager.ts` - Now re-exported from `src/server/session/`
+  - **Updated Imports**: All middleware and utilities now use framework-internal paths
+    - `../../logger/index.js` instead of `../../../utils/logger/logger.js`
+    - `../core/index.js` for constants and types
 - **Error System Architecture** (`src/server/errors/`): Complete restructuring from `src/utils/errors/`
   - Moved from `utils/errors/` to `server/errors/` for framework/app separation
   - Split monolithic `constants.ts` and `types.ts` into domain-specific modules:

@@ -7,10 +7,3 @@
  */
 
 export { createHealthRouter } from './health.js';
-export {
-  createMcpRouter,
-  createLegacySseRouter,
-  closeAllLegacySseSessions,
-  isLegacySseEnabled,
-  getLegacySseSessionCount,
-} from './mcp.js';

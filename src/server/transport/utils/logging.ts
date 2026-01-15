@@ -1,6 +1,7 @@
-import { logger as baseLogger } from '../../../utils/logger/logger.js';
+import { logger as baseLogger } from '../../logger/index.js';
+import { TRANSPORT_LOG_COMPONENTS } from '../core/index.js';
 
-const logger = baseLogger.child({ component: 'transport' });
+const logger = baseLogger.child({ component: TRANSPORT_LOG_COMPONENTS.HTTP_SERVER });
 
 /**
  * Logging utilities for transport layer

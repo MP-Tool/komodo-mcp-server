@@ -5,6 +5,7 @@
 
 import rateLimit from 'express-rate-limit';
 import { config } from '../../../config/index.js';
+import { TransportErrorMessages } from '../core/index.js';
 
 /**
  * Creates rate limiter for MCP endpoint
@@ -18,7 +19,7 @@ import { config } from '../../../config/index.js';
 export const mcpRateLimiter = rateLimit({
   windowMs: config.MCP_RATE_LIMIT_WINDOW_MS,
   max: config.MCP_RATE_LIMIT_MAX,
-  message: 'Too many requests from this IP, please try again later.',
+  message: TransportErrorMessages.RATE_LIMIT_EXCEEDED,
   standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
   legacyHeaders: false, // Disable the `X-RateLimit-*` headers
   // Skip rate limiting for health checks

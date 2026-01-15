@@ -5,10 +5,10 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { createJsonRpcError, JsonRpcErrorCode, sanitizeForLog } from '../utils/index.js';
-import { logger as baseLogger } from '../../../utils/logger/logger.js';
-import { HttpStatus, TransportErrorMessage } from '../../../config/index.js';
+import { logger as baseLogger } from '../../logger/index.js';
+import { HTTP_STATUS, TRANSPORT_LOG_COMPONENTS, TransportErrorMessages } from '../core/index.js';
 
-const logger = baseLogger.child({ component: 'middleware' });
+const logger = baseLogger.child({ component: TRANSPORT_LOG_COMPONENTS.MIDDLEWARE });
 
 /**
  * Validates Accept header
@@ -34,8 +34,8 @@ export function validateAcceptHeader(req: Request, res: Response, next: NextFunc
   if (!accept) {
     logger.debug('Accept header missing for %s /mcp', req.method);
     res
-      .status(HttpStatus.BAD_REQUEST)
-      .json(createJsonRpcError(JsonRpcErrorCode.INVALID_REQUEST, TransportErrorMessage.MISSING_ACCEPT_HEADER));
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json(createJsonRpcError(JsonRpcErrorCode.INVALID_REQUEST, TransportErrorMessages.MISSING_ACCEPT_HEADER));
     return;
   }
 
@@ -48,13 +48,8 @@ export function validateAcceptHeader(req: Request, res: Response, next: NextFunc
   if (!hasJson && !hasSSE && !acceptsAll) {
     logger.debug('Invalid Accept header: %s', sanitizeForLog(accept));
     res
-      .status(HttpStatus.BAD_REQUEST)
-      .json(
-        createJsonRpcError(
-          JsonRpcErrorCode.INVALID_REQUEST,
-          'Accept header must include application/json or text/event-stream',
-        ),
-      );
+      .status(HTTP_STATUS.BAD_REQUEST)
+      .json(createJsonRpcError(JsonRpcErrorCode.INVALID_REQUEST, TransportErrorMessages.INVALID_ACCEPT_HEADER));
     return;
   }
 

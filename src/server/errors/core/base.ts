@@ -13,18 +13,14 @@
  * - Serialization for logging
  * - Environment-aware stack traces
  *
- * @module errors/core/base
+ * @module server/errors/core/base
  */
 
 import { randomUUID } from 'node:crypto';
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
-import {
-  ErrorCodes,
-  ErrorCodeToHttpStatus,
-  type ErrorCodeType,
-  type BaseErrorOptions,
-  type SerializedError,
-} from './types.js';
+import { ErrorCodes, type ErrorCodeType } from './error-codes.js';
+import { ErrorCodeToHttpStatus } from './http.js';
+import type { BaseErrorOptions, SerializedError } from './types.js';
 
 // ============================================================================
 // Base Error Class

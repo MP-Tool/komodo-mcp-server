@@ -10,6 +10,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **Framework/App Architecture Separation**: Prepared `server/` module for future extraction as reusable MCP framework
+  - **New `src/server/types/` module**: Generic framework interfaces
+    - `IApiClient`: Generic API client interface with `healthCheck()` and `clientType`
+    - `IToolContext<TClient>`: Generic tool context with typed client support
+    - `IHealthCheckResult`: Generic health check result interface
+    - `isApiClient()`: Type guard for runtime API client validation
+  - **New `src/app/` layer**: Komodo-specific bootstrap logic (moved from server/)
+    - `komodoConnectionManager`: Typed `ConnectionStateManager<KomodoClient>` instance
+    - `initializeKomodoClientFromEnv()`: Komodo-specific client initialization
+  - **Config separation**: Split environment configuration into framework and app layers
+    - `env.framework.ts`: Transport, OTEL, logging, rate limiting (generic MCP config)
+    - `env.app.ts`: KOMODO_URL, KOMODO_USERNAME, KOMODO_PASSWORD, KOMODO_API_KEY
+  - **New `src/server/transport/core/` module**: Centralized transport constants
+    - `JSON_RPC_ERROR_CODES`: Standard JSON-RPC 2.0 error codes
+    - `TRANSPORT_ERROR_CODES`: MCP-specific error codes
+    - `HTTP_STATUS`: Common HTTP status codes
+    - `TRANSPORT_LOG_COMPONENTS`: Centralized logger component names
+    - `McpServerFactory`, `TransportType`, `TransportConfig` types
+  - **Generic ConnectionStateManager**: Now `ConnectionStateManager<TClient extends IApiClient>`
+    - Type-safe client storage and retrieval
+    - Works with any API client implementing `IApiClient`
+  - **Typed Tool Context**: `ToolContext = IToolContext<KomodoClient>` with Komodo-specific typing
 - **Transport Integration Tests** (`tests/integration/transport-*.test.ts`): Comprehensive transport mode testing
   - `transport-stdio.test.ts`: 9 tests for stdio transport (JSON-RPC over stdin/stdout)
   - `transport-http.test.ts`: 12 tests for Streamable HTTP Transport (2025-03-26)
@@ -34,15 +56,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Logger Shutdown** (`Logger.closeStreams()`): Graceful file handle cleanup
   - Closes stdout/stderr file streams before process exit
   - Prevents file descriptor leaks on shutdown
-- **Custom Error Classes** (`src/utils/errors/`): Type-safe error hierarchy for better error handling
-  - `KomodoError` base class with code, statusCode, mcpCode, cause chain, and JSON serialization
-  - `ApiError` for Komodo API communication errors (endpoint, method, responseStatus)
-  - `ConnectionError` and `AuthenticationError` for connection/auth failures
-  - `NotFoundError` for resource not found errors with resourceType/resourceId
-  - `ValidationError` with Zod integration and automatic value sanitization
-  - `ConfigurationError` with helpers for missing/invalid env vars
-  - `OperationCancelledError` and `OperationError` for operation lifecycle
-  - `ClientNotConfiguredError` for tool execution without Komodo connection
+- **Framework Error System** (`src/server/errors/`): Complete modular error architecture for MCP framework
+  - **Modular Core Structure** (`core/`): Clean separation of concerns
+    - `error-codes.ts` - Application error codes (`ErrorCodes`) and categories (`ErrorCategory`)
+    - `http.ts` - HTTP status codes (`HttpStatus`) and error code mapping (`ErrorCodeToHttpStatus`)
+    - `json-rpc.ts` - JSON-RPC 2.0 spec-compliant error codes with validation helpers
+    - `validation.ts` - Validation constants and sensitive field redaction utilities
+    - `types.ts` - Pure TypeScript type definitions (interfaces only, no runtime values)
+    - `messages.ts` - Framework error messages with interpolation support
+    - `base.ts` - `AppError` base class with unique error IDs and serialization
+    - `index.ts` - Barrel file for clean imports
+  - **Error Category Classes** (`categories/`):
+    - `McpProtocolError`, `SessionError`, `TransportError` - MCP protocol errors
+    - `ValidationError`, `ConfigurationError` - Input validation errors
+    - `InternalError`, `RegistryError` - System/internal errors
+    - `OperationError`, `OperationCancelledError` - Operation lifecycle errors
+    - `FrameworkConnectionError` - Generic connection errors (extendable for app-specific)
+  - **FrameworkErrorFactory** (`factory.ts`): Centralized error creation with fluent API
+    - Category-organized factory methods (`mcp.`, `session.`, `validation.`, etc.)
+    - Type guards and normalization utilities
+  - **Design Principles**: DRY, single source of truth for constants, barrel file exports
+- **Test Configurations**: Multiple Vitest configurations for different test scenarios
+  - `vitest.ci.config.ts` - CI/CD optimized with JUnit reporter and coverage thresholds
+  - `vitest.e2e.config.ts` - E2E tests with extended timeouts and sequential execution
+  - `vitest.extended.config.ts` - Extended test suite including smoke, security, load tests
+- **Transport Layer Tests** (`tests/unit/server/transport/`):
+  - `session.test.ts` - Session management lifecycle tests
+  - `utils/json-rpc.test.ts` - JSON-RPC utility function tests
+  - `utils/logging.test.ts` - Transport logging utility tests
+- **Utility Tests** (`tests/unit/utils/`):
+  - `env-helpers.test.ts` - Environment variable helper tests
+  - `response-formatter.test.ts` - Response formatting utility tests
 - **Structured JSON Logging** (`src/utils/logger/log-schema.ts`): ECS-compatible structured log format
   - `StructuredLogEntry` interface following Elastic Common Schema (ECS) 8.x
   - `LogEntryBuilder` fluent API for constructing log entries
@@ -150,6 +194,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Enhanced DNS Rebinding Documentation**: Added security notes to middleware
   - Documents need for reverse proxy (nginx, traefik) with TLS in production
   - Clarifies that MCP endpoint relies on network isolation, not HTTP auth
+
+### Refactored
+- **Error System Architecture** (`src/server/errors/`): Complete restructuring from `src/utils/errors/`
+  - Moved from `utils/errors/` to `server/errors/` for framework/app separation
+  - Split monolithic `constants.ts` and `types.ts` into domain-specific modules:
+    - `error-codes.ts` - Error codes and categories (no HTTP/JSON-RPC concerns)
+    - `http.ts` - HTTP status codes with typed mapping to error codes
+    - `json-rpc.ts` - JSON-RPC error codes with spec validation helpers
+    - `validation.ts` - Validation limits and sensitive field detection
+    - `types.ts` - Pure type definitions (interfaces only)
+  - Introduced barrel files (`index.ts`) for clean sub-module imports
+  - Removed duplication: HTTP status codes now defined once with typed mapping
+  - `FrameworkErrorFactory` replaces `ErrorFactory` with framework-agnostic API
+- **Transport Middleware**: All middleware now uses centralized constants from `transport/core/constants.ts`
+  - Replaced magic numbers with `HTTP_STATUS.*` and `JSON_RPC_ERROR_CODES.*`
+  - Consistent logger component names via `TRANSPORT_LOG_COMPONENTS`
+- **Connection Module**: Extracted app-specific logic to `src/app/`
+  - `initializeClientFromEnv()` moved to `src/app/client-initializer.ts` as `initializeKomodoClientFromEnv()`
+  - Connection manager instance moved to `src/app/connection.ts`
+  - Framework-level `ConnectionStateManager` is now generic and reusable
+- **Tool Base Module**: Simplified with Komodo-specific type aliases
+  - `ToolContext = IToolContext<KomodoClient>` for cleaner tool implementations
+  - `Tool<T, TClient = KomodoClient>` interface with sensible defaults
+- **Health Check Tool**: Added type guard `isKomodoHealthCheckDetails()` for type-safe detail access
 
 ### Changed
 - **Tool Context**: `setClient()` is now async and returns `Promise<void>`

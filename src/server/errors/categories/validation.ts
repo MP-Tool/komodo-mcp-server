@@ -5,15 +5,13 @@
  * - ValidationError: Input validation failures
  * - ConfigurationError: Configuration/environment errors
  *
- * @module errors/categories/validation
+ * @module server/errors/categories/validation
  */
 
 import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
 import { ZodError } from 'zod';
-import { AppError } from '../core/base.js';
-import { ErrorCodes, type ValidationErrorOptions, type ValidationIssue, type BaseErrorOptions } from '../core/types.js';
-import { getMessage } from '../core/messages.js';
-import { VALIDATION_LIMITS, isSensitiveField } from '../core/constants.js';
+import { AppError, ErrorCodes, VALIDATION_LIMITS, isSensitiveField, getFrameworkMessage } from '../core/index.js';
+import type { ValidationErrorOptions, ValidationIssue, BaseErrorOptions } from '../core/index.js';
 
 // ============================================================================
 // Validation Error
@@ -122,7 +120,7 @@ export class ValidationError extends AppError {
     }));
 
     const primaryIssue = issues[0];
-    const errorMessage = message || primaryIssue?.message || getMessage('VALIDATION_FAILED');
+    const errorMessage = message || primaryIssue?.message || getFrameworkMessage('VALIDATION_FAILED');
 
     return new ValidationError(errorMessage, {
       field: primaryIssue?.path,
@@ -136,7 +134,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for a required field.
    */
   static fieldRequired(field: string): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_REQUIRED', { field }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_REQUIRED', { field }), {
       field,
       recoveryHint: `Provide a value for the required field '${field}'.`,
     });
@@ -146,7 +144,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for an invalid field value.
    */
   static fieldInvalid(field: string, value?: unknown): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_INVALID', { field }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_INVALID', { field }), {
       field,
       value,
       recoveryHint: `Check the value provided for '${field}' and ensure it meets the requirements.`,
@@ -157,7 +155,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for a type mismatch.
    */
   static fieldTypeMismatch(field: string, expectedType: string): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_TYPE', { field, expectedType }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_TYPE', { field, expectedType }), {
       field,
       recoveryHint: `Field '${field}' must be of type '${expectedType}'.`,
     });
@@ -167,7 +165,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for minimum value constraint.
    */
   static fieldMin(field: string, min: number): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_MIN', { field, min: String(min) }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_MIN', { field, min: String(min) }), {
       field,
       recoveryHint: `Provide a value of at least ${min} for '${field}'.`,
     });
@@ -177,7 +175,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for maximum value constraint.
    */
   static fieldMax(field: string, max: number): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_MAX', { field, max: String(max) }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_MAX', { field, max: String(max) }), {
       field,
       recoveryHint: `Provide a value of at most ${max} for '${field}'.`,
     });
@@ -187,7 +185,7 @@ export class ValidationError extends AppError {
    * Create a ValidationError for pattern mismatch.
    */
   static fieldPattern(field: string): ValidationError {
-    return new ValidationError(getMessage('VALIDATION_FIELD_PATTERN', { field }), {
+    return new ValidationError(getFrameworkMessage('VALIDATION_FIELD_PATTERN', { field }), {
       field,
       recoveryHint: `Ensure '${field}' matches the expected format.`,
     });
@@ -218,11 +216,11 @@ export class ValidationError extends AppError {
  *
  * @example
  * ```typescript
- * throw new ConfigurationError('Missing required environment variable: KOMODO_URL');
+ * throw new ConfigurationError('Missing required environment variable: API_URL');
  *
  * // Using factory methods
- * throw ConfigurationError.missingEnvVar('KOMODO_URL');
- * throw ConfigurationError.invalidEnvVar('KOMODO_PORT', 'must be a number');
+ * throw ConfigurationError.missingEnvVar('API_URL');
+ * throw ConfigurationError.invalidEnvVar('API_PORT', 'must be a number');
  * ```
  */
 export class ConfigurationError extends AppError {
@@ -252,7 +250,7 @@ export class ConfigurationError extends AppError {
    * Create a ConfigurationError for a missing environment variable.
    */
   static missingEnvVar(varName: string): ConfigurationError {
-    return new ConfigurationError(getMessage('CONFIG_MISSING_ENV', { varName }), {
+    return new ConfigurationError(getFrameworkMessage('CONFIG_MISSING_ENV', { varName }), {
       configKey: varName,
       recoveryHint: `Set the environment variable '${varName}' in your configuration.`,
     });
@@ -262,7 +260,7 @@ export class ConfigurationError extends AppError {
    * Create a ConfigurationError for an invalid environment variable value.
    */
   static invalidEnvVar(varName: string, reason: string): ConfigurationError {
-    return new ConfigurationError(getMessage('CONFIG_INVALID_ENV', { varName, reason }), {
+    return new ConfigurationError(getFrameworkMessage('CONFIG_INVALID_ENV', { varName, reason }), {
       configKey: varName,
       recoveryHint: `Check the value of '${varName}': ${reason}.`,
     });
@@ -272,7 +270,7 @@ export class ConfigurationError extends AppError {
    * Create a ConfigurationError with a custom message.
    */
   static invalid(message: string): ConfigurationError {
-    return new ConfigurationError(getMessage('CONFIG_INVALID', { message }), {
+    return new ConfigurationError(getFrameworkMessage('CONFIG_INVALID', { message }), {
       recoveryHint: 'Review your configuration settings and correct any issues.',
     });
   }

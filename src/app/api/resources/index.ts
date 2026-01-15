@@ -1,9 +1,10 @@
 /**
  * API Resources Module
  *
- * Exports all Komodo API resource classes.
+ * Exports all Komodo API resource classes for managing
+ * servers, containers, stacks, and deployments.
  *
- * @module api/resources
+ * @module app/api/resources
  */
 
 export { ServerResource } from './servers.js';

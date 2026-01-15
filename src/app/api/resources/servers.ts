@@ -1,6 +1,22 @@
-import { BaseResource, ApiOperationOptions } from '../base.js';
-import { KomodoServer, KomodoServerListItem, KomodoServerState, ServerState } from '../types.js';
-import { validateServerId, validateResourceName } from '../utils.js';
+/**
+ * Server Resource
+ *
+ * Provides CRUD operations and state management for Komodo servers.
+ * Handles validation, cancellation, and error handling for all server operations.
+ *
+ * @module app/api/resources/servers
+ */
+
+import { BaseResource, ServerState, validateServerId, validateResourceName } from '../index.js';
+import { NotFoundError } from '../../errors/index.js';
+import type { ApiOperationOptions } from '../index.js';
+import type { Types } from 'komodo_client';
+
+// Type aliases for Komodo types
+type ServerListItem = Types.ServerListItem;
+type Server = Types.Server;
+type GetServerStateResponse = Types.GetServerStateResponse;
+type Update = Types.Update;
 
 /**
  * Resource for managing Servers.
@@ -13,9 +29,8 @@ export class ServerResource extends BaseResource {
    * @returns A list of server items
    * @throws Error on API failure or cancellation
    */
-  async list(options?: ApiOperationOptions): Promise<KomodoServerListItem[]> {
+  async list(options?: ApiOperationOptions): Promise<ServerListItem[]> {
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('ListServers', {});
     return response || [];
   }
@@ -29,10 +44,9 @@ export class ServerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async get(serverId: string, options?: ApiOperationOptions): Promise<KomodoServer> {
+  async get(serverId: string, options?: ApiOperationOptions): Promise<Server> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('GetServer', { server: serverId });
     return response;
   }
@@ -50,16 +64,15 @@ export class ServerResource extends BaseResource {
     this.checkAborted(options?.signal);
 
     const server = await this.get(serverId, options);
-
     if (!server) {
-      throw new Error(`Server '${serverId}' not found`);
+      throw NotFoundError.server(serverId);
     }
 
     // Server exists, check state separately if needed
-    const state = await this.getState(serverId, options);
-    const serverState = state as { status?: string };
-    if (serverState.status && serverState.status !== 'Ok') {
-      this.logger.warn(`Server '${serverId}' status is '${serverState.status}', attempting operation anyway`);
+    const stateResponse = await this.getState(serverId, options);
+
+    if (stateResponse.status && stateResponse.status !== ServerState.Ok) {
+      this.logger.warn(`Server '${serverId}' status is '${stateResponse.status}', attempting operation anyway`);
     }
   }
 
@@ -73,15 +86,14 @@ export class ServerResource extends BaseResource {
    * @throws ZodError if name is invalid
    * @throws Error on API failure or cancellation
    */
-  async create(name: string, config?: Record<string, unknown>, options?: ApiOperationOptions): Promise<KomodoServer> {
+  async create(name: string, config?: Partial<Types.ServerConfig>, options?: ApiOperationOptions): Promise<Server> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('CreateServer', {
       name,
       config,
     });
-    return response as KomodoServer;
+    return response;
   }
 
   /**
@@ -94,19 +106,14 @@ export class ServerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async update(
-    serverId: string,
-    config: Record<string, unknown>,
-    options?: ApiOperationOptions,
-  ): Promise<KomodoServer> {
+  async update(serverId: string, config: Partial<Types.ServerConfig>, options?: ApiOperationOptions): Promise<Server> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('UpdateServer', {
       id: serverId,
       config,
     });
-    return response as KomodoServer;
+    return response;
   }
 
   /**
@@ -118,12 +125,11 @@ export class ServerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async delete(serverId: string, options?: ApiOperationOptions): Promise<KomodoServer> {
+  async delete(serverId: string, options?: ApiOperationOptions): Promise<Server> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('DeleteServer', { id: serverId });
-    return response as KomodoServer;
+    return response;
   }
 
   /**
@@ -135,10 +141,9 @@ export class ServerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async getState(serverId: string, options?: ApiOperationOptions): Promise<KomodoServerState> {
+  async getState(serverId: string, options?: ApiOperationOptions): Promise<GetServerStateResponse> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('GetServerState', { server: serverId });
     /* v8 ignore start - defensive fallback */
     return response || { status: ServerState.NotOk };

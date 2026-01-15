@@ -1,21 +1,21 @@
 /**
- * API Module
+ * Komodo Client
  *
- * Provides the KomodoClient for interacting with the Komodo API.
+ * Main client for interacting with the Komodo API.
+ * Acts as a facade providing access to various resources
+ * (servers, containers, stacks, deployments) through a unified interface.
  *
- * @module api
+ * @module app/api/client
  */
 
 import { KomodoClient as createKomodoClient } from 'komodo_client';
 import { logger as baseLogger } from '../utils/index.js';
+import { AuthenticationError, ConnectionError } from '../errors/index.js';
+import type { IApiClient } from '../../server/types/index.js';
 import { HealthCheckResult } from './types.js';
 import { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
 
-const logger = baseLogger.child({ component: 'api' });
-
-export * from './types.js';
-export * from './utils.js';
-export type { ApiOperationOptions } from './base.js';
+const logger = baseLogger.child({ component: 'KomodoClient' });
 
 /**
  * Main client for interacting with the Komodo API.
@@ -23,8 +23,29 @@ export type { ApiOperationOptions } from './base.js';
  * This class acts as a facade, providing access to various resources
  * (servers, containers, stacks, deployments) through a unified interface.
  * It handles authentication and connection management.
+ *
+ * Implements IApiClient for generic MCP server framework compatibility.
+ *
+ * @example
+ * ```typescript
+ * // Login with username/password
+ * const client = await KomodoClient.login('http://localhost:9120', 'admin', 'password');
+ *
+ * // Or connect with API key
+ * const client = KomodoClient.connectWithApiKey('http://localhost:9120', 'key', 'secret');
+ *
+ * // Use resources
+ * const servers = await client.servers.list();
+ * const containers = await client.containers.list('server-id');
+ * ```
  */
-export class KomodoClient {
+export class KomodoClient implements IApiClient {
+  /**
+   * Client type identifier for IApiClient interface.
+   * Used for logging and telemetry attribution.
+   */
+  readonly clientType = 'komodo' as const;
+
   private client: ReturnType<typeof createKomodoClient>;
   private baseUrl: string;
 
@@ -46,19 +67,32 @@ export class KomodoClient {
   }
 
   /**
+   * Gets the base URL of the connected Komodo server.
+   */
+  getBaseUrl(): string {
+    return this.baseUrl;
+  }
+
+  /**
    * Authenticates with the Komodo server using username and password.
    *
    * @param baseUrl - The base URL of the Komodo server (e.g., http://localhost:9120)
    * @param username - The username for authentication
    * @param password - The password for authentication
+   * @param timeoutMs - Optional timeout in milliseconds (default: 30000)
    * @returns A new instance of KomodoClient
-   * @throws Error if login fails or no JWT is received
+   * @throws AuthenticationError if login fails or no JWT is received
+   * @throws ConnectionError if connection times out
    */
-  static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
+  static async login(
+    baseUrl: string,
+    username: string,
+    password: string,
+    timeoutMs: number = 30_000,
+  ): Promise<KomodoClient> {
     const url = baseUrl.replace(/\/$/, '');
-    const { config } = await import('../config/index.js');
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), config.API_TIMEOUT_MS);
+    const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
     try {
       logger.debug('Authenticating user=%s url=%s', username, url);
@@ -71,12 +105,12 @@ export class KomodoClient {
       });
 
       if (!response.ok) {
-        throw new Error(`Login failed: ${response.status} ${response.statusText}`);
+        throw AuthenticationError.loginFailed(response.status, response.statusText);
       }
 
       const data = (await response.json()) as { jwt: string };
       if (!data.jwt) {
-        throw new Error('Login successful but no JWT token received');
+        throw AuthenticationError.noToken();
       }
 
       const client = createKomodoClient(url, {
@@ -84,10 +118,11 @@ export class KomodoClient {
         params: { jwt: data.jwt },
       });
 
+      logger.info('Successfully authenticated to %s', url);
       return new KomodoClient(url, client);
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
-        throw new Error(`Login request timed out after ${config.API_TIMEOUT_MS}ms`);
+        throw ConnectionError.timeout(url, timeoutMs);
       }
       logger.error('Login error:', error);
       throw error;
@@ -114,11 +149,14 @@ export class KomodoClient {
       params: { key, secret },
     });
 
+    logger.info('Connected with API key to %s', url);
     return new KomodoClient(url, client);
   }
 
   /**
    * Performs a health check on the connection to the Komodo server.
+   *
+   * Implements IApiClient.healthCheck() for framework compatibility.
    *
    * @returns A HealthCheckResult object containing status and details
    */

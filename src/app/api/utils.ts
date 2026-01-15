@@ -1,10 +1,11 @@
 import { z } from 'zod';
-import { KomodoUpdate } from './types.js';
+import { Update } from './types.js';
+import { VALIDATION_LIMITS } from '../config/index.js';
 
 /**
  * Helper to extract the MongoDB ObjectId string from an Update object
  */
-export function extractUpdateId(update: KomodoUpdate): string {
+export function extractUpdateId(update: Update): string {
   return update._id?.$oid || 'unknown';
 }
 
@@ -19,7 +20,7 @@ export function extractUpdateId(update: KomodoUpdate): string {
 export const serverIdSchema = z
   .string()
   .min(1, 'Server ID cannot be empty')
-  .max(100, 'Server ID is too long')
+  .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, 'Server ID is too long')
   .regex(/^[a-zA-Z0-9_.-]+$/, 'Server ID contains invalid characters');
 
 /**
@@ -41,7 +42,7 @@ export const containerNameSchema = z
 export const stackIdSchema = z
   .string()
   .min(1, 'Stack ID cannot be empty')
-  .max(100, 'Stack ID is too long')
+  .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, 'Stack ID is too long')
   .regex(/^[a-zA-Z0-9_.-]+$/, 'Stack ID contains invalid characters');
 
 /**
@@ -50,7 +51,7 @@ export const stackIdSchema = z
 export const deploymentIdSchema = z
   .string()
   .min(1, 'Deployment ID cannot be empty')
-  .max(100, 'Deployment ID is too long')
+  .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, 'Deployment ID is too long')
   .regex(/^[a-zA-Z0-9_.-]+$/, 'Deployment ID contains invalid characters');
 
 /**
@@ -60,7 +61,7 @@ export const tailSchema = z.coerce
   .number()
   .int('Tail must be an integer')
   .min(1, 'Tail must be at least 1')
-  .max(10000, 'Tail cannot exceed 10000');
+  .max(VALIDATION_LIMITS.MAX_LOG_TAIL, `Tail cannot exceed ${VALIDATION_LIMITS.MAX_LOG_TAIL}`);
 
 /**
  * Validates resource name for creation.
@@ -68,7 +69,7 @@ export const tailSchema = z.coerce
 export const resourceNameSchema = z
   .string()
   .min(1, 'Name cannot be empty')
-  .max(100, 'Name is too long')
+  .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, 'Name is too long')
   .regex(
     /^[a-zA-Z0-9][a-zA-Z0-9_.-]*$/,
     'Name must start with alphanumeric and contain only alphanumeric, underscores, dots, or hyphens',

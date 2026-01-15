@@ -1,6 +1,22 @@
-import { BaseResource, ApiOperationOptions } from '../base.js';
-import { KomodoDeployment, KomodoDeploymentListItem, KomodoUpdate } from '../types.js';
-import { validateDeploymentId, validateResourceName } from '../utils.js';
+/**
+ * Deployment Resource
+ *
+ * Provides operations for managing Komodo deployments.
+ * Supports full lifecycle management: create, deploy, start, stop, restart,
+ * pause, unpause, pull, and destroy.
+ *
+ * @module app/api/resources/deployments
+ */
+
+import { BaseResource, validateDeploymentId, validateResourceName } from '../index.js';
+import type { ApiOperationOptions } from '../base.js';
+import type { Types } from 'komodo_client';
+
+// Type aliases for Komodo types
+type DeploymentListItem = Types.DeploymentListItem;
+type Deployment = Types.Deployment;
+type DeploymentConfig = Types.DeploymentConfig;
+type Update = Types.Update;
 
 /**
  * Resource for managing Deployments.
@@ -13,9 +29,8 @@ export class DeploymentResource extends BaseResource {
    * @returns A list of deployment items
    * @throws Error on API failure or cancellation
    */
-  async list(options?: ApiOperationOptions): Promise<KomodoDeploymentListItem[]> {
+  async list(options?: ApiOperationOptions): Promise<DeploymentListItem[]> {
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('ListDeployments', {});
     return response || [];
   }
@@ -29,10 +44,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async get(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoDeployment> {
+  async get(deploymentId: string, options?: ApiOperationOptions): Promise<Deployment> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('GetDeployment', { deployment: deploymentId });
     return response;
   }
@@ -47,19 +61,14 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if name is invalid
    * @throws Error on API failure or cancellation
    */
-  async create(
-    name: string,
-    config?: Record<string, unknown>,
-    options?: ApiOperationOptions,
-  ): Promise<KomodoDeployment> {
+  async create(name: string, config?: Partial<DeploymentConfig>, options?: ApiOperationOptions): Promise<Deployment> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('CreateDeployment', {
       name,
       config,
     });
-    return response as KomodoDeployment;
+    return response;
   }
 
   /**
@@ -74,17 +83,16 @@ export class DeploymentResource extends BaseResource {
    */
   async update(
     deploymentId: string,
-    config: Record<string, unknown>,
+    config: Partial<DeploymentConfig>,
     options?: ApiOperationOptions,
-  ): Promise<KomodoDeployment> {
+  ): Promise<Deployment> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('UpdateDeployment', {
       id: deploymentId,
       config,
     });
-    return response as KomodoDeployment;
+    return response;
   }
 
   /**
@@ -96,12 +104,11 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async delete(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoDeployment> {
+  async delete(deploymentId: string, options?: ApiOperationOptions): Promise<Deployment> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.write('DeleteDeployment', { id: deploymentId });
-    return response as KomodoDeployment;
+    return response;
   }
 
   /**
@@ -113,10 +120,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async deploy(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async deploy(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('Deploy', {
       deployment: deploymentId,
     });
@@ -132,10 +138,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async pull(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async pull(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('PullDeployment', {
       deployment: deploymentId,
     });
@@ -151,10 +156,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async start(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async start(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('StartDeployment', {
       deployment: deploymentId,
     });
@@ -170,10 +174,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async restart(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async restart(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('RestartDeployment', {
       deployment: deploymentId,
     });
@@ -189,10 +192,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async pause(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async pause(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('PauseDeployment', {
       deployment: deploymentId,
     });
@@ -208,10 +210,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async unpause(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async unpause(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('UnpauseDeployment', {
       deployment: deploymentId,
     });
@@ -227,10 +228,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async stop(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async stop(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('StopDeployment', {
       deployment: deploymentId,
     });
@@ -246,10 +246,9 @@ export class DeploymentResource extends BaseResource {
    * @throws ZodError if deploymentId is invalid
    * @throws Error on API failure or cancellation
    */
-  async destroy(deploymentId: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async destroy(deploymentId: string, options?: ApiOperationOptions): Promise<Update> {
     validateDeploymentId(deploymentId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute('DestroyDeployment', {
       deployment: deploymentId,
     });

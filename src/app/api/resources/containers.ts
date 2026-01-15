@@ -1,11 +1,54 @@
-import { BaseResource, ApiOperationOptions } from '../base.js';
-import { KomodoContainer, KomodoContainerListItem, KomodoUpdate, KomodoLog } from '../types.js';
+/**
+ * Container Resource
+ *
+ * Provides operations for managing Docker containers on Komodo servers.
+ * Supports lifecycle management (start, stop, restart, pause, unpause),
+ * inspection, log retrieval, and resource pruning.
+ *
+ * @module app/api/resources/containers
+ */
+
+import { BaseResource } from '../base.js';
 import { validateServerId, validateContainerName, validateTail } from '../utils.js';
+import type { ApiOperationOptions } from '../base.js';
+import type { Types } from 'komodo_client';
+
+// Type aliases for Komodo types
+type ContainerListItem = Types.ContainerListItem;
+type Container = Types.Container;
+type Log = Types.Log;
+type Update = Types.Update;
+
+/**
+ * Prune target types for resource cleanup.
+ */
+export type PruneType = 'containers' | 'images' | 'volumes' | 'networks' | 'system' | 'all';
+
+/**
+ * Prune action types for execute API.
+ */
+type PruneAction = 'PruneContainers' | 'PruneImages' | 'PruneVolumes' | 'PruneNetworks' | 'PruneSystem';
+
+/**
+ * Container action types for execute API.
+ */
+type ContainerAction = 'StartContainer' | 'StopContainer' | 'RestartContainer' | 'PauseContainer' | 'UnpauseContainer';
 
 /**
  * Resource for managing Docker containers.
  */
 export class ContainerResource extends BaseResource {
+  /**
+   * Supported container actions for the execute API.
+   */
+  static CONTAINER_ACTIONS: ContainerAction[] = [
+    'StartContainer',
+    'StopContainer',
+    'RestartContainer',
+    'PauseContainer',
+    'UnpauseContainer',
+  ];
+
   /**
    * Lists all containers on a specific server.
    *
@@ -15,10 +58,9 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async list(serverId: string, options?: ApiOperationOptions): Promise<KomodoContainerListItem[]> {
+  async list(serverId: string, options?: ApiOperationOptions): Promise<ContainerListItem[]> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('ListDockerContainers', { server: serverId });
     return response || [];
   }
@@ -33,11 +75,10 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async inspect(serverId: string, containerId: string, options?: ApiOperationOptions): Promise<KomodoContainer> {
+  async inspect(serverId: string, containerId: string, options?: ApiOperationOptions): Promise<Container> {
     validateServerId(serverId);
     validateContainerName(containerId);
     this.checkAborted(options?.signal);
-
     const response = await this.client.read('InspectDockerContainer', {
       server: serverId,
       container: containerId,
@@ -55,7 +96,7 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async start(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async start(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     validateContainerName(containerName);
     return this.executeAction('StartContainer', serverId, containerName, options);
@@ -71,7 +112,7 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async stop(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async stop(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     validateContainerName(containerName);
     return this.executeAction('StopContainer', serverId, containerName, options);
@@ -87,7 +128,7 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async restart(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async restart(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     validateContainerName(containerName);
     return this.executeAction('RestartContainer', serverId, containerName, options);
@@ -103,7 +144,7 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async pause(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async pause(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     validateContainerName(containerName);
     return this.executeAction('PauseContainer', serverId, containerName, options);
@@ -119,7 +160,7 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if inputs are invalid
    * @throws Error on API failure or cancellation
    */
-  async unpause(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<KomodoUpdate> {
+  async unpause(serverId: string, containerName: string, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     validateContainerName(containerName);
     return this.executeAction('UnpauseContainer', serverId, containerName, options);
@@ -135,29 +176,25 @@ export class ContainerResource extends BaseResource {
    * @throws ZodError if serverId is invalid
    * @throws Error on API failure or cancellation
    */
-  async prune(
-    serverId: string,
-    type: 'containers' | 'images' | 'volumes' | 'networks' | 'system' | 'all',
-    options?: ApiOperationOptions,
-  ): Promise<KomodoUpdate> {
+  async prune(serverId: string, type: PruneType, options?: ApiOperationOptions): Promise<Update> {
     validateServerId(serverId);
     this.checkAborted(options?.signal);
 
     // Map prune type to Komodo execute action
-    const actionMap = {
+    const actionMap: Record<PruneType, PruneAction> = {
       containers: 'PruneContainers',
       images: 'PruneImages',
       volumes: 'PruneVolumes',
       networks: 'PruneNetworks',
       system: 'PruneSystem',
       all: 'PruneSystem',
-    } as const;
+    };
 
     const action = actionMap[type];
     const response = await this.client.execute(action, {
       server: serverId,
     });
-    return response as KomodoUpdate;
+    return response as Update;
   }
 
   /**
@@ -178,7 +215,7 @@ export class ContainerResource extends BaseResource {
     tail: number = 100,
     timestamps: boolean = false,
     options?: ApiOperationOptions,
-  ): Promise<KomodoLog> {
+  ): Promise<Log> {
     validateServerId(serverId);
     validateContainerName(containerName);
     validateTail(tail);
@@ -189,33 +226,31 @@ export class ContainerResource extends BaseResource {
       container: containerName,
       tail,
       timestamps,
-    })) as KomodoLog;
+    })) as Log;
     return response;
   }
 
   /**
-   * Supported container actions for the execute API
+   * Executes a container action.
+   *
+   * @param action - The action to execute
+   * @param serverId - The ID of the server
+   * @param containerName - The name of the container
+   * @param options - Operation options including abort signal
+   * @returns The update status
+   * @throws Error on API failure or cancellation
    */
-  private static readonly CONTAINER_ACTIONS = [
-    'StartContainer',
-    'StopContainer',
-    'RestartContainer',
-    'PauseContainer',
-    'UnpauseContainer',
-  ] as const;
-
   private async executeAction(
-    action: (typeof ContainerResource.CONTAINER_ACTIONS)[number],
+    action: ContainerAction,
     serverId: string,
     containerName: string,
     options?: ApiOperationOptions,
-  ): Promise<KomodoUpdate> {
+  ): Promise<Update> {
     this.checkAborted(options?.signal);
-
     const response = await this.client.execute(action, {
       server: serverId,
       container: containerName,
     });
-    return response as KomodoUpdate;
+    return response as Update;
   }
 }

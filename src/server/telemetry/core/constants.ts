@@ -52,6 +52,9 @@ export const TELEMETRY_ENV_VARS = {
 /**
  * Semantic attribute names for MCP operations.
  * Follow OpenTelemetry semantic conventions pattern.
+ *
+ * Note: Application-specific attributes should be defined in the
+ * app layer (src/app/telemetry.ts) to keep the framework generic.
  */
 export const MCP_ATTRIBUTES = {
   /** MCP tool name */
@@ -60,12 +63,6 @@ export const MCP_ATTRIBUTES = {
   REQUEST_ID: 'mcp.request.id',
   /** MCP session ID */
   SESSION_ID: 'mcp.session.id',
-  /** Komodo server being accessed */
-  KOMODO_SERVER: 'komodo.server',
-  /** Komodo resource type */
-  KOMODO_RESOURCE_TYPE: 'komodo.resource.type',
-  /** Komodo resource ID */
-  KOMODO_RESOURCE_ID: 'komodo.resource.id',
   /** Operation being performed */
   OPERATION: 'operation',
 } as const;

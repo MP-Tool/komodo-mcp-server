@@ -1,177 +1,35 @@
 /**
  * Session Errors Module
  *
- * Custom error classes for session management operations.
- * These errors provide specific context and recovery hints for
- * session-related failures.
+ * Specialized error classes for session management operations.
+ * All errors extend SessionError which integrates with the framework error system.
  *
  * ## Error Hierarchy
  *
  * ```
- * SessionError (base)
- * ├── SessionLimitError     - Max sessions reached
- * ├── SessionNotFoundError  - Session ID not found
- * ├── SessionExpiredError   - Session has expired
- * └── SessionInvalidError   - Invalid session data/config
+ * AppError (framework)
+ * └── SessionError (base - see ./base.ts)
+ *     ├── SessionLimitError     - Max sessions reached
+ *     ├── SessionNotFoundError  - Session ID not found
+ *     ├── SessionExpiredError   - Session has expired
+ *     ├── SessionInvalidError   - Invalid session data/config
+ *     └── SessionManagerShutdownError - Manager is shut down
  * ```
  *
  * @module session/core/errors
  */
 
-import { ErrorCode } from '@modelcontextprotocol/sdk/types.js';
+import { SessionError, SessionErrorCodes, type SessionErrorOptions } from './base.js';
 
 // ============================================================================
-// Error Codes
+// Re-exports from base module
 // ============================================================================
 
-/**
- * Session-specific error codes.
- */
-export const SessionErrorCodes = {
-  /** Session limit has been reached */
-  SESSION_LIMIT_REACHED: 'SESSION_LIMIT_REACHED',
-  /** Session not found */
-  SESSION_NOT_FOUND: 'SESSION_NOT_FOUND',
-  /** Session has expired */
-  SESSION_EXPIRED: 'SESSION_EXPIRED',
-  /** Invalid session data or configuration */
-  SESSION_INVALID: 'SESSION_INVALID',
-  /** Session manager is shut down */
-  SESSION_MANAGER_SHUTDOWN: 'SESSION_MANAGER_SHUTDOWN',
-  /** Heartbeat failed */
-  SESSION_HEARTBEAT_FAILED: 'SESSION_HEARTBEAT_FAILED',
-} as const;
-
-export type SessionErrorCode = (typeof SessionErrorCodes)[keyof typeof SessionErrorCodes];
+export { SessionError, SessionErrorCodes, getMcpCodeForSessionError } from './base.js';
+export type { SessionErrorCode, SessionErrorOptions } from './base.js';
 
 // ============================================================================
-// Error Options
-// ============================================================================
-
-/**
- * Options for creating session errors.
- */
-export interface SessionErrorOptions {
-  /** Session ID related to the error */
-  sessionId?: string;
-  /** Additional context for debugging */
-  context?: Record<string, unknown>;
-  /** Original error that caused this error */
-  cause?: Error;
-  /** Recovery hint for users */
-  recoveryHint?: string;
-}
-
-// ============================================================================
-// Base Session Error
-// ============================================================================
-
-/**
- * Base error class for all session-related errors.
- *
- * Provides consistent error handling with:
- * - Session-specific error codes
- * - MCP error code mapping
- * - Recovery hints
- * - Context information
- *
- * @example
- * ```typescript
- * throw new SessionError('Session operation failed', {
- *   code: SessionErrorCodes.SESSION_INVALID,
- *   sessionId: 'abc-123',
- *   context: { operation: 'heartbeat' }
- * });
- * ```
- */
-export class SessionError extends Error {
-  /** Session-specific error code */
-  readonly code: SessionErrorCode;
-
-  /** MCP error code for JSON-RPC responses */
-  readonly mcpCode: ErrorCode;
-
-  /** Session ID related to this error */
-  readonly sessionId?: string;
-
-  /** Additional context for debugging */
-  readonly context?: Record<string, unknown>;
-
-  /** Original error that caused this error */
-  override readonly cause?: Error;
-
-  /** Timestamp when the error occurred */
-  readonly timestamp: Date;
-
-  /** Recovery hint for users */
-  readonly recoveryHint?: string;
-
-  constructor(
-    message: string,
-    options: SessionErrorOptions & { code: SessionErrorCode } = {
-      code: SessionErrorCodes.SESSION_INVALID,
-    },
-  ) {
-    super(message);
-    this.name = 'SessionError';
-    this.code = options.code;
-    this.mcpCode = this.mapToMcpCode(options.code);
-    this.sessionId = options.sessionId;
-    this.context = options.context;
-    this.cause = options.cause;
-    this.timestamp = new Date();
-    this.recoveryHint = options.recoveryHint;
-
-    // Maintain proper stack trace in V8 environments
-    /* v8 ignore start - V8-specific runtime feature */
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
-    }
-    /* v8 ignore stop */
-  }
-
-  /**
-   * Maps session error codes to MCP error codes.
-   */
-  private mapToMcpCode(code: SessionErrorCode): ErrorCode {
-    switch (code) {
-      case SessionErrorCodes.SESSION_LIMIT_REACHED:
-        return ErrorCode.InvalidRequest;
-      case SessionErrorCodes.SESSION_NOT_FOUND:
-        return ErrorCode.InvalidParams;
-      case SessionErrorCodes.SESSION_EXPIRED:
-        return ErrorCode.InvalidParams;
-      case SessionErrorCodes.SESSION_INVALID:
-        return ErrorCode.InvalidParams;
-      case SessionErrorCodes.SESSION_MANAGER_SHUTDOWN:
-        return ErrorCode.InternalError;
-      case SessionErrorCodes.SESSION_HEARTBEAT_FAILED:
-        return ErrorCode.InternalError;
-      default:
-        return ErrorCode.InternalError;
-    }
-  }
-
-  /**
-   * Serializes the error for logging or API response.
-   */
-  toJSON(): Record<string, unknown> {
-    return {
-      name: this.name,
-      message: this.message,
-      code: this.code,
-      mcpCode: this.mcpCode,
-      sessionId: this.sessionId,
-      context: this.context,
-      timestamp: this.timestamp.toISOString(),
-      recoveryHint: this.recoveryHint,
-      stack: process.env.NODE_ENV !== 'production' ? this.stack : undefined,
-    };
-  }
-}
-
-// ============================================================================
-// Specific Session Errors
+// Session Limit Error
 // ============================================================================
 
 /**
@@ -192,17 +50,20 @@ export class SessionLimitError extends SessionError {
   readonly currentSessions: number;
 
   constructor(maxSessions: number, currentSessions: number, options?: SessionErrorOptions) {
-    super(`Session limit reached: ${currentSessions}/${maxSessions} sessions active`, {
-      ...options,
-      code: SessionErrorCodes.SESSION_LIMIT_REACHED,
-      context: {
-        ...options?.context,
-        maxSessions,
-        currentSessions,
+    super(
+      `Session limit reached: ${currentSessions}/${maxSessions} sessions active`,
+      SessionErrorCodes.SESSION_LIMIT_REACHED,
+      {
+        ...options,
+        context: {
+          ...options?.context,
+          maxSessions,
+          currentSessions,
+        },
+        recoveryHint:
+          options?.recoveryHint ?? 'Wait for existing sessions to expire or close, or increase the session limit.',
       },
-      recoveryHint:
-        options?.recoveryHint ?? 'Wait for existing sessions to expire or close, or increase the session limit.',
-    });
+    );
     this.name = 'SessionLimitError';
     this.maxSessions = maxSessions;
     this.currentSessions = currentSessions;
@@ -218,11 +79,14 @@ export class SessionLimitError extends SessionError {
     options?: SessionErrorOptions,
   ): SessionLimitError {
     const error = new SessionLimitError(maxSessions, currentSessions, options);
-    // Override the message
     Object.defineProperty(error, 'message', { value: message });
     return error;
   }
 }
+
+// ============================================================================
+// Session Not Found Error
+// ============================================================================
 
 /**
  * Error thrown when a session is not found.
@@ -237,10 +101,9 @@ export class SessionLimitError extends SessionError {
  */
 export class SessionNotFoundError extends SessionError {
   constructor(sessionId: string, options?: Omit<SessionErrorOptions, 'sessionId'>) {
-    super(`Session not found: ${sessionId}`, {
+    super(`Session not found: ${sessionId}`, SessionErrorCodes.SESSION_NOT_FOUND, {
       ...options,
       sessionId,
-      code: SessionErrorCodes.SESSION_NOT_FOUND,
       recoveryHint:
         options?.recoveryHint ??
         'The session may have expired or been removed. Please reconnect to establish a new session.',
@@ -266,6 +129,10 @@ export class SessionNotFoundError extends SessionError {
     });
   }
 }
+
+// ============================================================================
+// Session Expired Error
+// ============================================================================
 
 /**
  * Error thrown when a session has expired.
@@ -297,20 +164,23 @@ export class SessionExpiredError extends SessionError {
     const elapsedMinutes = Math.round(elapsedMs / 60000);
     const timeoutMinutes = Math.round(timeoutMs / 60000);
 
-    super(`Session expired: ${sessionId} (inactive for ${elapsedMinutes}min, timeout: ${timeoutMinutes}min)`, {
-      ...options,
-      sessionId,
-      code: SessionErrorCodes.SESSION_EXPIRED,
-      context: {
-        ...options?.context,
-        lastActivity: lastActivity.toISOString(),
-        timeoutMs,
-        elapsedMs,
+    super(
+      `Session expired: ${sessionId} (inactive for ${elapsedMinutes}min, timeout: ${timeoutMinutes}min)`,
+      SessionErrorCodes.SESSION_EXPIRED,
+      {
+        ...options,
+        sessionId,
+        context: {
+          ...options?.context,
+          lastActivity: lastActivity.toISOString(),
+          timeoutMs,
+          elapsedMs,
+        },
+        recoveryHint:
+          options?.recoveryHint ??
+          'The session has expired due to inactivity. Please reconnect to establish a new session.',
       },
-      recoveryHint:
-        options?.recoveryHint ??
-        'The session has expired due to inactivity. Please reconnect to establish a new session.',
-    });
+    );
     this.name = 'SessionExpiredError';
     this.lastActivity = lastActivity;
     this.timeoutMs = timeoutMs;
@@ -342,6 +212,10 @@ export class SessionExpiredError extends SessionError {
   }
 }
 
+// ============================================================================
+// Session Invalid Error
+// ============================================================================
+
 /**
  * Error thrown when session data or configuration is invalid.
  *
@@ -359,12 +233,11 @@ export class SessionInvalidError extends SessionError {
   readonly field?: string;
 
   /** Invalid value (if applicable) */
-  readonly value?: unknown;
+  readonly invalidValue?: unknown;
 
   constructor(message: string, options?: SessionErrorOptions & { field?: string; value?: unknown }) {
-    super(message, {
+    super(message, SessionErrorCodes.SESSION_INVALID, {
       ...options,
-      code: SessionErrorCodes.SESSION_INVALID,
       context: {
         ...options?.context,
         field: options?.field,
@@ -374,7 +247,7 @@ export class SessionInvalidError extends SessionError {
     });
     this.name = 'SessionInvalidError';
     this.field = options?.field;
-    this.value = options?.value;
+    this.invalidValue = options?.value;
   }
 
   /**
@@ -433,6 +306,10 @@ export class SessionInvalidError extends SessionError {
   }
 }
 
+// ============================================================================
+// Session Manager Shutdown Error
+// ============================================================================
+
 /**
  * Error thrown when the session manager has been shut down.
  *
@@ -448,9 +325,8 @@ export class SessionManagerShutdownError extends SessionError {
   readonly operation: string;
 
   constructor(operation: string, options?: SessionErrorOptions) {
-    super(`Cannot perform '${operation}': session manager is shut down`, {
+    super(`Cannot perform '${operation}': session manager is shut down`, SessionErrorCodes.SESSION_MANAGER_SHUTDOWN, {
       ...options,
-      code: SessionErrorCodes.SESSION_MANAGER_SHUTDOWN,
       context: {
         ...options?.context,
         operation,

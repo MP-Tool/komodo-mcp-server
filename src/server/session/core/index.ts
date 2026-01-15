@@ -1,17 +1,21 @@
 /**
  * Session Core Module
  *
- * Exports the fundamental types, constants, and utilities
- * for the session management system. This is the foundation
- * that all other session components build upon.
+ * Re-exports all core session system components:
+ * - Types and interfaces
+ * - Constants and configuration
+ * - Schemas for validation
+ * - Events for observability
+ * - Metrics for monitoring
+ * - Base error class
+ * - Specialized error classes
  *
  * @module session/core
  */
 
-// ============================================================================
-// Types
-// ============================================================================
-
+// ─────────────────────────────────────────────────────────────────────────
+// Types & Interfaces
+// ─────────────────────────────────────────────────────────────────────────
 export type {
   // Transport types
   HeartbeatCapableTransport,
@@ -26,10 +30,9 @@ export type {
   SessionEvent,
 } from './types.js';
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────
 // Constants
-// ============================================================================
-
+// ─────────────────────────────────────────────────────────────────────────
 export {
   // Timeout configuration
   DEFAULT_SESSION_TIMEOUT_MS,
@@ -47,10 +50,9 @@ export {
   SessionLogMessages,
 } from './constants.js';
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────
 // Events
-// ============================================================================
-
+// ─────────────────────────────────────────────────────────────────────────
 export type { SessionLifecycleEvent, SessionCloseReason, SessionMetricsSnapshot, SessionEventMap } from './events.js';
 
 export {
@@ -61,10 +63,9 @@ export {
   DEFAULT_MAX_LISTENERS,
 } from './events.js';
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────
 // Metrics
-// ============================================================================
-
+// ─────────────────────────────────────────────────────────────────────────
 export type { SessionMetricsCollector, SessionMetricsManager, DetailedSessionMetrics } from './metrics.js';
 
 export {
@@ -75,17 +76,17 @@ export {
   resetSessionMetrics,
 } from './metrics.js';
 
-// ============================================================================
-// Errors
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────
+// Base Error Class
+// ─────────────────────────────────────────────────────────────────────────
+export type { SessionErrorCode, SessionErrorOptions } from './base.js';
 
-export type { SessionErrorCode, SessionErrorOptions } from './errors.js';
+export { SessionError, SessionErrorCodes, getMcpCodeForSessionError, getHttpStatusForSessionError } from './base.js';
 
+// ─────────────────────────────────────────────────────────────────────────
+// Specialized Error Classes
+// ─────────────────────────────────────────────────────────────────────────
 export {
-  // Error codes
-  SessionErrorCodes,
-  // Error classes
-  SessionError,
   SessionLimitError,
   SessionNotFoundError,
   SessionExpiredError,
@@ -100,10 +101,9 @@ export {
   isSessionManagerShutdownError,
 } from './errors.js';
 
-// ============================================================================
+// ─────────────────────────────────────────────────────────────────────────
 // Schemas
-// ============================================================================
-
+// ─────────────────────────────────────────────────────────────────────────
 export type {
   ValidatedSessionConfig,
   PartialValidatedSessionConfig,
@@ -140,5 +140,6 @@ export {
   isValidKeepAliveInterval,
   isValidMaxMissedHeartbeats,
   isValidMaxCount,
+  isValidSessionId,
   formatValidationErrors,
 } from './schemas.js';

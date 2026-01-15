@@ -25,7 +25,7 @@ export interface SerializedError {
   /** Unique error ID for tracking/support */
   errorId: string;
   /** Application-specific error code */
-  code: ErrorCodeType;
+  code: ErrorCodeType | string;
   /** HTTP status code (if applicable) */
   statusCode?: number;
   /** MCP error code (if applicable) */
@@ -51,7 +51,7 @@ export interface SerializedError {
  */
 export interface BaseErrorOptions {
   /** Application error code */
-  code?: ErrorCodeType;
+  code?: ErrorCodeType | string;
   /** HTTP status code override */
   statusCode?: number;
   /** MCP error code override */

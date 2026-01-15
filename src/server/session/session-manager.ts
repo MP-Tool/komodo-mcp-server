@@ -50,8 +50,8 @@ import {
   SESSION_KEEP_ALIVE_INTERVAL_MS,
   SESSION_MAX_MISSED_HEARTBEATS,
   SESSION_MAX_COUNT,
-} from '../../config/index.js';
-import { logger as baseLogger } from '../../utils/index.js';
+} from '../config/index.js';
+import { logger as baseLogger } from '../logger/index.js';
 
 // Import all session core types and utilities from barrel file
 import type {

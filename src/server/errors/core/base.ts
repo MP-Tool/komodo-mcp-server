@@ -48,7 +48,7 @@ export class AppError extends Error {
   readonly errorId: string;
 
   /** Application-specific error code */
-  readonly code: ErrorCodeType;
+  readonly code: ErrorCodeType | string;
 
   /** HTTP status code for REST API responses */
   readonly statusCode: number;
@@ -73,7 +73,7 @@ export class AppError extends Error {
     this.name = this.constructor.name;
     this.errorId = randomUUID();
     this.code = options.code ?? ErrorCodes.INTERNAL_ERROR;
-    this.statusCode = options.statusCode ?? ErrorCodeToHttpStatus[this.code] ?? 500;
+    this.statusCode = options.statusCode ?? ErrorCodeToHttpStatus[this.code as ErrorCodeType] ?? 500;
     this.mcpCode = options.mcpCode ?? ErrorCode.InternalError;
     this.cause = options.cause;
     this.context = options.context;

@@ -11,8 +11,11 @@
  */
 
 import type { SessionData } from '../core/index.js';
-import { DEFAULT_SESSION_MAX_COUNT, validateSessionIdSafe } from '../core/index.js';
-import { isValidSessionId as isValidSessionIdZod } from '../core/schemas.js';
+import {
+  DEFAULT_SESSION_MAX_COUNT,
+  validateSessionIdSafe,
+  isValidSessionId as isValidSessionIdZod,
+} from '../core/index.js';
 
 // ============================================================================
 // Session ID Validation

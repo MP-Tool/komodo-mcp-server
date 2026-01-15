@@ -8,7 +8,7 @@
  * @module session/operations/cleanup
  */
 
-import { logger as baseLogger } from '../../../utils/index.js';
+import { logger as baseLogger } from '../../logger/index.js';
 import type { SessionData } from '../core/index.js';
 import { SESSION_LOG_COMPONENT, SessionLogMessages } from '../core/index.js';
 import { formatSessionId } from '../utils/index.js';

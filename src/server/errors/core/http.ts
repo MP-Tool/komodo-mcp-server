@@ -79,7 +79,7 @@ export type HttpStatusType = (typeof HttpStatus)[keyof typeof HttpStatus];
  * This mapping is used by the base error class to automatically
  * derive HTTP status codes from error codes when not explicitly specified.
  */
-export const ErrorCodeToHttpStatus: Record<ErrorCodeType, HttpStatusType> = {
+export const ErrorCodeToHttpStatus: Partial<Record<ErrorCodeType, HttpStatusType>> & Record<string, HttpStatusType> = {
   // Client errors (4xx)
   [ErrorCodes.VALIDATION_ERROR]: HttpStatus.BAD_REQUEST,
   [ErrorCodes.INVALID_REQUEST]: HttpStatus.BAD_REQUEST,

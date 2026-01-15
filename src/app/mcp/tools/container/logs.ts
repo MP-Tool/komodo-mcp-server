@@ -1,11 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import {
-  CONTAINER_LOGS_DEFAULTS,
-  ERROR_MESSAGES,
-  PARAM_DESCRIPTIONS,
-  LOG_DESCRIPTIONS,
-} from '../../../config/index.js';
+import { CONTAINER_LOGS_DEFAULTS, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../../config/index.js';
+import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
  * Tool to get logs from a container.
@@ -31,11 +27,16 @@ export const getContainerLogsTool: Tool = {
       .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const validClient = requireClient(client, 'komodo_get_container_logs');
 
-    const result = await client.containers.logs(args.server, args.container, args.tail, args.timestamps, {
-      signal: abortSignal,
-    });
+    const result = await wrapApiCall(
+      'getContainerLogs',
+      () =>
+        validClient.containers.logs(args.server, args.container, args.tail, args.timestamps, {
+          signal: abortSignal,
+        }),
+      abortSignal,
+    );
 
     // Extract stdout and stderr from Log object
     // Combine stdout and stderr with labels if both exist
@@ -57,13 +58,6 @@ export const getContainerLogsTool: Tool = {
       logContent = 'No logs available';
     }
 
-    return {
-      content: [
-        {
-          type: 'text' as const,
-          text: logContent,
-        },
-      ],
-    };
+    return successResponse(logContent);
   },
 };

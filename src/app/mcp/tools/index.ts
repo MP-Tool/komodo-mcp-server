@@ -128,3 +128,20 @@ export function registerTools() {
 
 // Export registry and types
 export { toolRegistry, type Tool, type ToolContext } from './base.js';
+
+// Export factory functions
+export {
+  createStackActionTool,
+  createDeploymentActionTool,
+  createContainerActionTool,
+  createStackActionTools,
+  createDeploymentActionTools,
+  createContainerActionTools,
+  type FactoryActionType,
+  type StackActionConfig,
+  type DeploymentActionConfig,
+  type ContainerActionConfig,
+  type StackActionMethod,
+  type DeploymentActionMethod,
+  type ContainerActionMethod,
+} from './factory.js';

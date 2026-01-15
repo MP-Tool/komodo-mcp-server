@@ -23,6 +23,24 @@ export {
   type BlobResourceContent,
 } from './base.js';
 
+// Export factory functions
+export {
+  createTextResource,
+  createJsonResource,
+  createMarkdownResource,
+  createDynamicResource,
+  registerTextResource,
+  registerJsonResource,
+  registerMarkdownResource,
+  registerDynamicResource,
+  createTextResources,
+  createJsonResources,
+  type TextResourceConfig,
+  type JsonResourceConfig,
+  type MarkdownResourceConfig,
+  type DynamicResourceConfig,
+} from './factory.js';
+
 import { registerExampleResource } from './example-server-info.js';
 import { registerExampleTemplateResource } from './example-server-logs.js';
 

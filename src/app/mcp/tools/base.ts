@@ -1,50 +1,32 @@
 import { z } from 'zod';
-import { KomodoClient } from '../../api/index.js';
+import type { KomodoClient } from '../../api/index.js';
+import type { IToolContext } from '../../../server/types/index.js';
 import type { ProgressData } from '../../utils/index.js';
+import { logger as baseLogger } from '../../utils/index.js';
+import { RegistryError } from '../../../server/errors/index.js';
+
+const logger = baseLogger.child({ component: 'tools' });
 
 /**
  * Context passed to tool handlers.
- * Contains the Komodo client instance, progress reporting, and cancellation support.
+ * Extends the generic IToolContext with Komodo-specific client typing.
+ *
+ * This is the Komodo-specific tool context that tools receive at runtime.
+ * It provides the KomodoClient instance and all progress/cancellation support.
  */
-export interface ToolContext {
-  /** The authenticated Komodo client (null if not configured) */
-  client: KomodoClient | null;
-  /**
-   * Sets a new Komodo client instance (used by configure tool).
-   * This updates the connection state and triggers tool availability changes.
-   */
-  setClient: (client: KomodoClient) => Promise<void>;
-
-  /**
-   * Reports progress for long-running operations.
-   * Only available if the client requested progress via _meta.progressToken.
-   *
-   * Per MCP Spec:
-   * - Progress value MUST increase with each notification
-   * - Progress and total MAY be floating point
-   * - Message SHOULD provide relevant human-readable progress information
-   *
-   * @param data - Progress data to report
-   * @returns true if sent, false if not available or rate-limited
-   */
-  reportProgress?: (data: ProgressData) => Promise<boolean>;
-
-  /**
-   * AbortSignal that is triggered when the request is cancelled.
-   * Tools SHOULD check this signal periodically for long-running operations
-   * and abort if signaled.
-   */
-  abortSignal?: AbortSignal;
-}
+export type ToolContext = IToolContext<KomodoClient>;
 
 /**
- * Definition of an MCP Tool.
+ * Definition of an MCP Tool for Komodo.
  *
  * @typeParam T - The type of arguments the tool accepts (inferred from schema).
  *                Defaults to `unknown` to allow flexible schema definitions while
  *                maintaining type inference at the handler level via Zod.
  *
  * @remarks
+ * This Tool interface is Komodo-specific with KomodoClient as the client type.
+ * For framework-level tools, use the generic IToolContext<TClient> directly.
+ *
  * The `any` default is intentional here because:
  * 1. Zod schemas handle runtime validation
  * 2. TypeScript cannot infer complex schema types at compile time
@@ -112,11 +94,11 @@ class ToolRegistry {
 
   /**
    * Registers a new tool.
-   * @throws Error if a tool with the same name is already registered.
+   * @throws RegistryError if a tool with the same name is already registered.
    */
   register(tool: Tool): void {
     if (this.tools.has(tool.name)) {
-      throw new Error(`Tool ${tool.name} is already registered`);
+      throw RegistryError.duplicate('Tool', tool.name);
     }
     this.tools.set(tool.name, tool);
     this.invalidateCache(); // Invalidate cache when new tool is registered
@@ -168,7 +150,7 @@ class ToolRegistry {
   }
 
   /**
-   * Returns tools that require a Komodo connection.
+   * Returns tools that require an API connection.
    * Results are cached for performance.
    */
   getClientRequiredTools(): Tool[] {
@@ -252,7 +234,7 @@ class ToolRegistry {
         listener(availableTools);
       } catch (error) {
         // Log but don't throw - one listener failure shouldn't affect others
-        console.error('Error in tool availability listener:', error);
+        logger.error('Error in tool availability listener:', error);
       }
     }
   }

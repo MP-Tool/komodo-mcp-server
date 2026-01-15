@@ -1,8 +1,9 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../../api/index.js';
-import { ERROR_MESSAGES, PARAM_DESCRIPTIONS } from '../../../config/index.js';
+import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
 import { pruneTargetSchema } from '../schemas/index.js';
+import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
  * Tool to prune unused resources.
@@ -16,15 +17,14 @@ export const pruneResourcesTool: Tool = {
     pruneTarget: pruneTargetSchema,
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.prune(args.server, args.pruneTarget, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `🧹 Pruned ${args.pruneTarget} on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
-        },
-      ],
-    };
+    const validClient = requireClient(client, 'komodo_prune');
+    const result = await wrapApiCall(
+      'pruneResources',
+      () => validClient.containers.prune(args.server, args.pruneTarget, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(
+      `🧹 Pruned ${args.pruneTarget} on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+    );
   },
 };

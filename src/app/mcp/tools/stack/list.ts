@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoStackListItem } from '../../../api/index.js';
+import { Types } from '../../../api/index.js';
 import { requireClient, wrapApiCall } from '../utils.js';
+
+type StackListItem = Types.StackListItem;
 
 /**
  * Tool to list all Compose stacks.
@@ -23,7 +25,7 @@ export const listStacksTool: Tool = {
         {
           type: 'text',
           text: `📚 Docker Compose stacks:\n\n${
-            stacks.map((s: KomodoStackListItem) => `• ${s.name} (${s.id}) - State: ${s.info.state}`).join('\n') ||
+            stacks.map((s: StackListItem) => `• ${s.name} (${s.id}) - State: ${s.info.state}`).join('\n') ||
             'No stacks found.'
           }`,
         },

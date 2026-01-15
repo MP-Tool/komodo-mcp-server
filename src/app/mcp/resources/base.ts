@@ -19,6 +19,7 @@
  */
 
 import { z } from 'zod';
+import { RegistryError } from '../../../server/errors/index.js';
 
 /**
  * Resource content types
@@ -126,22 +127,22 @@ class ResourceRegistry {
 
   /**
    * Registers a static resource.
-   * @throws Error if a resource with the same URI is already registered.
+   * @throws RegistryError if a resource with the same URI is already registered.
    */
   register(resource: Resource): void {
     if (this.resources.has(resource.uri)) {
-      throw new Error(`Resource ${resource.uri} is already registered`);
+      throw RegistryError.duplicate('Resource', resource.uri);
     }
     this.resources.set(resource.uri, resource);
   }
 
   /**
    * Registers a resource template (dynamic resource).
-   * @throws Error if a template with the same URI is already registered.
+   * @throws RegistryError if a template with the same URI is already registered.
    */
   registerTemplate<TArgs = Record<string, string | string[]>>(template: ResourceTemplate<TArgs>): void {
     if (this.templates.has(template.uriTemplate)) {
-      throw new Error(`Resource template ${template.uriTemplate} is already registered`);
+      throw RegistryError.duplicate('ResourceTemplate', template.uriTemplate);
     }
     // Type erasure: Store generic template as base type for uniform Map storage.
     // Type safety is ensured at registration time via the generic constraint.

@@ -10,12 +10,8 @@
  */
 
 import type { KomodoClient } from '../../api/index.js';
-import {
-  ClientNotConfiguredError,
-  ApiError,
-  ConnectionError,
-  OperationCancelledError,
-} from '../../utils/errors/index.js';
+import { ClientNotConfiguredError, ApiError, ConnectionError } from '../../errors/index.js';
+import { OperationCancelledError } from '../../../server/errors/index.js';
 
 /**
  * Validates that the Komodo client is configured and returns it.
@@ -100,19 +96,12 @@ export async function wrapApiCall<T>(operation: string, apiCall: () => Promise<T
         errorCode === 'ERR_NETWORK';
 
       if (isConnectionError) {
-        throw new ConnectionError(`Connection failed during ${operation}`, {
-          cause: error,
-          context: { operation },
-        });
+        throw ConnectionError.failed(operation, `Connection error: ${errorCode}`);
       }
 
       // Check for timeout
       if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
-        throw new ConnectionError(`Request timed out during ${operation}`, {
-          isTimeout: true,
-          cause: error,
-          context: { operation },
-        });
+        throw ConnectionError.timeout(operation);
       }
     }
 

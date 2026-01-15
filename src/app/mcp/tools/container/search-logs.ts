@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { LOG_SEARCH_DEFAULTS, ERROR_MESSAGES, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../../config/index.js';
+import { LOG_SEARCH_DEFAULTS, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../../config/index.js';
+import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
  * Tool to search container logs with client-side filtering.
@@ -27,9 +28,13 @@ export const searchContainerLogsTool: Tool = {
       .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const validClient = requireClient(client, 'komodo_search_logs');
 
-    const result = await client.containers.logs(args.server, args.container, args.tail, false, { signal: abortSignal });
+    const result = await wrapApiCall(
+      'searchContainerLogs',
+      () => validClient.containers.logs(args.server, args.container, args.tail, false, { signal: abortSignal }),
+      abortSignal,
+    );
 
     // Combine stdout and stderr for searching
     const logContent = result.stdout + (result.stderr ? '\n' + result.stderr : '');
@@ -46,13 +51,6 @@ export const searchContainerLogsTool: Tool = {
     const matchCount = filteredLines.length;
     const filteredContent = filteredLines.join('\n');
 
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Found ${matchCount} matching line(s):\n\n${filteredContent}`,
-        },
-      ],
-    };
+    return successResponse(`Found ${matchCount} matching line(s):\n\n${filteredContent}`);
   },
 };

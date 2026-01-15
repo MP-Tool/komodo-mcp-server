@@ -1,7 +1,9 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoDeploymentListItem } from '../../../api/index.js';
+import { Types } from '../../../api/index.js';
 import { requireClient, wrapApiCall } from '../utils.js';
+
+type DeploymentListItem = Types.DeploymentListItem;
 
 /**
  * Tool to list all deployments.
@@ -24,7 +26,7 @@ export const listDeploymentsTool: Tool = {
           type: 'text',
           text: `🚢 Deployments:\n\n${
             deployments
-              .map((d: KomodoDeploymentListItem) => `• ${d.name} (${d.id}) - State: ${d.info?.state || 'Unknown'}`)
+              .map((d: DeploymentListItem) => `• ${d.name} (${d.id}) - State: ${d.info?.state || 'Unknown'}`)
               .join('\n') || 'No deployments found.'
           }`,
         },

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { ERROR_MESSAGES, PARAM_DESCRIPTIONS } from '../../../config/index.js';
+import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
+import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
  * Tool to inspect a container.
@@ -14,15 +15,12 @@ export const inspectContainerTool: Tool = {
     container: z.string().describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.containers.inspect(args.server, args.container, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
+    const validClient = requireClient(client, 'komodo_inspect_container');
+    const result = await wrapApiCall(
+      'inspectContainer',
+      () => validClient.containers.inspect(args.server, args.container, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(JSON.stringify(result, null, 2));
   },
 };

@@ -18,6 +18,7 @@
  */
 
 import { z } from 'zod';
+import { RegistryError } from '../../../server/errors/index.js';
 
 /**
  * Message role in a prompt
@@ -127,11 +128,11 @@ class PromptRegistry {
   /**
    * Registers a prompt.
    * @param prompt - The prompt to register
-   * @throws Error if a prompt with the same name is already registered.
+   * @throws RegistryError if a prompt with the same name is already registered.
    */
   register<TArgs extends PromptArguments>(prompt: Prompt<TArgs>): void {
     if (this.prompts.has(prompt.name)) {
-      throw new Error(`Prompt ${prompt.name} is already registered`);
+      throw RegistryError.duplicate('Prompt', prompt.name);
     }
     // Store as base type - runtime validation ensures type safety
     this.prompts.set(prompt.name, prompt as unknown as Prompt<PromptArguments>);

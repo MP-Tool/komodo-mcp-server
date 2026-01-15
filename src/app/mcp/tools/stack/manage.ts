@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { ERROR_MESSAGES, PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../../config/index.js';
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from '../../../config/index.js';
 import { PartialStackConfigSchema, CreateStackConfigSchema } from '../schemas/index.js';
+import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
  * Tool to get detailed information about a stack.
@@ -14,16 +15,13 @@ export const getStackInfoTool: Tool = {
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.get(args.stack, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: JSON.stringify(result, null, 2),
-        },
-      ],
-    };
+    const validClient = requireClient(client, 'komodo_get_stack_info');
+    const result = await wrapApiCall(
+      'getStackInfo',
+      () => validClient.stacks.get(args.stack, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(JSON.stringify(result, null, 2));
   },
 };
 
@@ -58,7 +56,7 @@ COMMON CONFIG OPTIONS:
     config: CreateStackConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_CREATE),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
+    const validClient = requireClient(client, 'komodo_create_stack');
 
     // Build the config object
     const stackConfig: Record<string, unknown> = {
@@ -68,15 +66,14 @@ COMMON CONFIG OPTIONS:
       stackConfig.server_id = args.server_id;
     }
 
-    const result = await client.stacks.create(args.name, stackConfig, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Stack "${args.name}" created successfully.\n\nStack Name: ${result.name}\n\nFull Result:\n${JSON.stringify(result, null, 2)}`,
-        },
-      ],
-    };
+    const result = await wrapApiCall(
+      'createStack',
+      () => validClient.stacks.create(args.name, stackConfig, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(
+      `Stack "${args.name}" created successfully.\n\nStack Name: ${result.name}\n\nFull Result:\n${JSON.stringify(result, null, 2)}`,
+    );
   },
 };
 
@@ -103,16 +100,13 @@ COMMON UPDATE SCENARIOS:
     config: PartialStackConfigSchema.describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_PARTIAL),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.update(args.stack, args.config, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Stack "${args.stack}" updated successfully.\n\nResult: ${JSON.stringify(result, null, 2)}`,
-        },
-      ],
-    };
+    const validClient = requireClient(client, 'komodo_update_stack');
+    const result = await wrapApiCall(
+      'updateStack',
+      () => validClient.stacks.update(args.stack, args.config, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(`Stack "${args.stack}" updated successfully.\n\nResult: ${JSON.stringify(result, null, 2)}`);
   },
 };
 
@@ -127,15 +121,14 @@ export const deleteStackTool: Tool = {
     stack: z.string().describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
   handler: async (args, { client, abortSignal }) => {
-    if (!client) throw new Error(ERROR_MESSAGES.CLIENT_NOT_INITIALIZED);
-    const result = await client.stacks.delete(args.stack, { signal: abortSignal });
-    return {
-      content: [
-        {
-          type: 'text',
-          text: `Stack "${args.stack}" deleted successfully.\n\nDeleted Stack:\n${JSON.stringify(result, null, 2)}`,
-        },
-      ],
-    };
+    const validClient = requireClient(client, 'komodo_delete_stack');
+    const result = await wrapApiCall(
+      'deleteStack',
+      () => validClient.stacks.delete(args.stack, { signal: abortSignal }),
+      abortSignal,
+    );
+    return successResponse(
+      `Stack "${args.stack}" deleted successfully.\n\nDeleted Stack:\n${JSON.stringify(result, null, 2)}`,
+    );
   },
 };

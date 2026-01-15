@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { KomodoContainerListItem } from '../../../api/index.js';
+import { Types } from '../../../api/index.js';
 import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
+
+type ContainerListItem = Types.ContainerListItem;
 
 /**
  * Tool to list all Docker containers on a server.
@@ -24,9 +26,8 @@ export const listContainersTool: Tool = {
     );
 
     const containerList =
-      containers
-        .map((c: KomodoContainerListItem) => `• ${c.name} (${c.state}) - ${c.image || 'Unknown Image'}`)
-        .join('\n') || 'No containers found.';
+      containers.map((c: ContainerListItem) => `• ${c.name} (${c.state}) - ${c.image || 'Unknown Image'}`).join('\n') ||
+      'No containers found.';
 
     return successResponse(`📦 Containers on server "${args.server}":\n\n${containerList}`);
   },

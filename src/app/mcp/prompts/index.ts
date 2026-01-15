@@ -16,6 +16,20 @@ export {
   type PromptRole,
 } from './base.js';
 
+// Export factory functions
+export {
+  createTroubleshootingPrompt,
+  createWorkflowPrompt,
+  createInfoPrompt,
+  registerTroubleshootingPrompt,
+  registerWorkflowPrompt,
+  registerInfoPrompt,
+  type PromptArgumentConfig,
+  type TroubleshootingPromptConfig,
+  type WorkflowPromptConfig,
+  type InfoPromptConfig,
+} from './factory.js';
+
 import { registerExamplePrompt } from './example-troubleshoot.js';
 
 /**

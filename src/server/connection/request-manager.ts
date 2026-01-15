@@ -11,7 +11,7 @@
  */
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { logger as baseLogger } from '../../utils/logger/logger.js';
+import { logger as baseLogger } from '../logger/index.js';
 
 // Import centralized types and constants from core
 import type {

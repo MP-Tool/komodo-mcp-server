@@ -14,7 +14,7 @@
 
 import type { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { PingRequestSchema } from '@modelcontextprotocol/sdk/types.js';
-import { logger as baseLogger, mcpLogger } from '../../utils/index.js';
+import { logger as baseLogger, mcpLogger } from '../logger/index.js';
 import type { HandlerDefinition, PingResult } from './core/index.js';
 import {
   HANDLER_NAMES,

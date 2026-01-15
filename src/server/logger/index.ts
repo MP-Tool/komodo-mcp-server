@@ -1,7 +1,7 @@
 /**
  * Logger Module
  *
- * Centralized logging utilities for the Komodo MCP Server.
+ * Centralized logging utilities for the MCP server framework.
  *
  * ## Architecture
  *
@@ -17,7 +17,17 @@
  * ## Usage
  *
  * ```typescript
- * import { logger } from './utils/logger/index.js';
+ * import { logger, configureLogger } from './server/logger/index.js';
+ *
+ * // Configure logger at app startup
+ * configureLogger({
+ *   LOG_LEVEL: 'info',
+ *   LOG_FORMAT: 'text',
+ *   MCP_TRANSPORT: 'http',
+ *   NODE_ENV: 'production',
+ *   SERVER_NAME: 'my-mcp-server',
+ *   SERVER_VERSION: '1.0.0',
+ * });
  *
  * // Basic logging
  * logger.info('Server started on port %d', 3000);
@@ -33,7 +43,7 @@
  * });
  * ```
  *
- * @module utils/logger
+ * @module server/logger
  */
 
 // =============================================================================
@@ -65,6 +75,7 @@ export {
   DEFAULT_COMPONENT,
   DEFAULT_SERVICE_NAME,
   DEFAULT_LOG_COMPONENTS,
+  LOGGER_COMPONENTS,
   // Transport configuration
   TRANSPORT_MODES,
   DEFAULT_TRANSPORT,
@@ -145,6 +156,9 @@ export { InjectionGuard, injectionGuard, sanitizeForLogging } from './scrubbing/
 // =============================================================================
 
 export { logger, Logger } from './logger.js';
+
+// Global configuration
+export { configureLogger, getLoggerConfig, resetLoggerConfig, type GlobalLoggerConfig } from './logger.js';
 
 // Factory & DI
 export {

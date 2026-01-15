@@ -22,9 +22,10 @@ import type { LogLevel, McpLogLevel } from './core/types.js';
 import { LOG_LEVEL_TO_MCP, MCP_LEVEL_ORDER } from './core/constants.js';
 import { secretScrubber as sharedScrubber } from './scrubbing/secret-scrubber.js';
 import { logger as baseLogger } from './logger.js';
+import { LOGGER_COMPONENTS } from './core/constants.js';
 
 // Create a child logger for this module
-const localLogger = baseLogger.child({ component: 'mcp-logger' });
+const localLogger = baseLogger.child({ component: LOGGER_COMPONENTS.MCP_LOGGER });
 
 // ============================================================
 // Constants

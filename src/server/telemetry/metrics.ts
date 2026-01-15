@@ -24,7 +24,7 @@ import {
   type ServerMetrics,
   type ServerStats,
 } from './core/index.js';
-import { logger as baseLogger } from '../../utils/logger/logger.js';
+import { logger as baseLogger } from '../logger/index.js';
 
 const logger = baseLogger.child({ component: TELEMETRY_LOG_COMPONENTS.METRICS });
 
@@ -323,4 +323,3 @@ export const serverMetrics = getServerMetrics();
 
 // Export the class for testing
 export { ServerMetricsManager };
-

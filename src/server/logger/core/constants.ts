@@ -79,7 +79,7 @@ export const DEFAULT_COMPONENT = 'server';
 /**
  * Default service name for structured logs.
  */
-export const DEFAULT_SERVICE_NAME = 'komodo-mcp-server';
+export const DEFAULT_SERVICE_NAME = 'mcp-server';
 
 // ============================================================================
 // Transport Configuration
@@ -124,6 +124,19 @@ export const LOG_FILE_EXTENSION = '.log';
  * Streams will be created for each component.
  */
 export const DEFAULT_LOG_COMPONENTS = ['server', 'api', 'transport', 'tools'] as const;
+
+/**
+ * Logger component names for the logging system.
+ * Used for consistent log categorization across the logger module.
+ */
+export const LOGGER_COMPONENTS = {
+  /** MCP protocol logger */
+  MCP_LOGGER: 'McpLogger',
+  /** File writer component */
+  FILE_WRITER: 'FileWriter',
+  /** Console writer component */
+  CONSOLE_WRITER: 'ConsoleWriter',
+} as const;
 
 // ============================================================================
 // Security Constants (Secret Scrubbing)

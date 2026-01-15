@@ -11,15 +11,20 @@
  * This facade follows the Single Responsibility Principle by coordinating
  * the logging pipeline without implementing the details itself.
  *
- * @module utils/logger
+ * @module server/logger
  */
 
 import * as util from 'util';
-import { config, SERVER_NAME, SERVER_VERSION } from '../../config/index.js';
 
 // Core types and utilities
 import type { LogLevel, LogContext, ILogger, LogEntryParams } from './core/types.js';
-import { LOG_LEVELS, MAX_MESSAGE_LENGTH, TRUNCATION_SUFFIX } from './core/constants.js';
+import {
+  LOG_LEVELS,
+  MAX_MESSAGE_LENGTH,
+  TRUNCATION_SUFFIX,
+  DEFAULT_LOG_LEVEL,
+  DEFAULT_SERVICE_NAME,
+} from './core/constants.js';
 import {
   runWithContext,
   getContext,
@@ -42,6 +47,86 @@ import {
 // Re-export factory types for consumers
 export type { LoggerSystemConfig, LoggerDependencies } from './factory.js';
 export { LoggerResources, initializeLoggerResources, resetLoggerResources };
+
+// ============================================================================
+// Global Logger Configuration
+// ============================================================================
+
+/**
+ * Global logger configuration.
+ * Must be set before creating logger instances.
+ */
+export interface GlobalLoggerConfig {
+  /** Log level */
+  LOG_LEVEL: LogLevel;
+  /** Log format */
+  LOG_FORMAT: 'text' | 'json';
+  /** Transport mode */
+  MCP_TRANSPORT: 'stdio' | 'http';
+  /** Node environment */
+  NODE_ENV: 'development' | 'production' | 'test';
+  /** Log directory (optional) */
+  LOG_DIR?: string;
+  /** Server name */
+  SERVER_NAME: string;
+  /** Server version */
+  SERVER_VERSION: string;
+}
+
+/**
+ * Default logger configuration.
+ * Used when no explicit config is provided.
+ */
+const DEFAULT_LOGGER_CONFIG: GlobalLoggerConfig = {
+  LOG_LEVEL: DEFAULT_LOG_LEVEL,
+  LOG_FORMAT: 'text',
+  MCP_TRANSPORT: 'http',
+  NODE_ENV: (process.env.NODE_ENV as GlobalLoggerConfig['NODE_ENV']) ?? 'development',
+  SERVER_NAME: DEFAULT_SERVICE_NAME,
+  SERVER_VERSION: '0.0.0',
+};
+
+/** Global logger configuration storage */
+let globalLoggerConfig: GlobalLoggerConfig = { ...DEFAULT_LOGGER_CONFIG };
+
+/**
+ * Configure the global logger settings.
+ * Should be called once at application startup before creating loggers.
+ *
+ * @param config - Logger configuration options
+ *
+ * @example
+ * ```typescript
+ * // In app initialization
+ * configureLogger({
+ *   LOG_LEVEL: config.LOG_LEVEL,
+ *   LOG_FORMAT: config.LOG_FORMAT,
+ *   MCP_TRANSPORT: config.MCP_TRANSPORT,
+ *   NODE_ENV: config.NODE_ENV,
+ *   LOG_DIR: config.LOG_DIR,
+ *   SERVER_NAME: 'komodo-mcp-server',
+ *   SERVER_VERSION: '1.0.0',
+ * });
+ * ```
+ */
+export function configureLogger(config: Partial<GlobalLoggerConfig>): void {
+  globalLoggerConfig = { ...globalLoggerConfig, ...config };
+}
+
+/**
+ * Get the current global logger configuration.
+ */
+export function getLoggerConfig(): GlobalLoggerConfig {
+  return globalLoggerConfig;
+}
+
+/**
+ * Reset the global logger configuration to defaults.
+ * Primarily for testing.
+ */
+export function resetLoggerConfig(): void {
+  globalLoggerConfig = { ...DEFAULT_LOGGER_CONFIG };
+}
 
 /**
  * Logger configuration options.
@@ -106,13 +191,14 @@ export class Logger implements ILogger {
    * @param componentOrOptions - Component name string or options object
    */
   constructor(componentOrOptions: string | LoggerOptions = 'server') {
+    const cfg = getLoggerConfig();
     if (typeof componentOrOptions === 'string') {
       this.component = componentOrOptions;
-      this.level = LOG_LEVELS[config.LOG_LEVEL];
+      this.level = LOG_LEVELS[cfg.LOG_LEVEL];
       this.resources = Logger.getOrInitializeResources();
     } else {
       this.component = componentOrOptions.component ?? 'server';
-      this.level = LOG_LEVELS[componentOrOptions.level ?? config.LOG_LEVEL];
+      this.level = LOG_LEVELS[componentOrOptions.level ?? cfg.LOG_LEVEL];
       this.resources = componentOrOptions.resources ?? Logger.getOrInitializeResources();
     }
   }
@@ -123,14 +209,15 @@ export class Logger implements ILogger {
    */
   private static getOrInitializeResources(): LoggerResources {
     if (!hasLoggerResources()) {
+      const cfg = getLoggerConfig();
       initializeLoggerResources({
-        level: config.LOG_LEVEL,
-        format: config.LOG_FORMAT as 'text' | 'json',
-        transport: config.MCP_TRANSPORT as 'stdio' | 'sse',
-        serviceName: SERVER_NAME,
-        serviceVersion: SERVER_VERSION,
-        environment: config.NODE_ENV,
-        logDir: config.LOG_DIR,
+        level: cfg.LOG_LEVEL,
+        format: cfg.LOG_FORMAT,
+        transport: cfg.MCP_TRANSPORT === 'http' ? 'sse' : 'stdio',
+        serviceName: cfg.SERVER_NAME,
+        serviceVersion: cfg.SERVER_VERSION,
+        environment: cfg.NODE_ENV,
+        logDir: cfg.LOG_DIR,
       });
     }
     return getLoggerResources();

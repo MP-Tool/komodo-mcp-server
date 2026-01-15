@@ -24,7 +24,7 @@ import { ATTR_SERVICE_NAME, ATTR_SERVICE_VERSION } from '@opentelemetry/semantic
 import { ATTR_DEPLOYMENT_ENVIRONMENT_NAME } from '@opentelemetry/semantic-conventions/incubating';
 import { diag, DiagConsoleLogger, DiagLogLevel } from '@opentelemetry/api';
 
-import { logger as baseLogger } from '../../utils/logger/logger.js';
+import { logger as baseLogger } from '../logger/index.js';
 import { getTelemetryConfig, TELEMETRY_LOG_COMPONENTS, SdkLogMessages } from './core/index.js';
 
 const logger = baseLogger.child({ component: TELEMETRY_LOG_COMPONENTS.SDK });

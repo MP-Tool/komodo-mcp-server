@@ -88,9 +88,9 @@ export const CONNECTION_MCP_SPEC = {
 export const ConnectionStateLogMessages = {
   // State transitions
   STATE_CHANGE: (from: string, to: string) => `State transition: ${from} → ${to}`,
-  CONNECTING: 'Initiating connection to Komodo server',
-  CONNECTED: 'Successfully connected to Komodo server',
-  DISCONNECTED: 'Disconnected from Komodo server',
+  CONNECTING: 'Initiating connection to API server',
+  CONNECTED: 'Successfully connected to API server',
+  DISCONNECTED: 'Disconnected from API server',
   ERROR_STATE: (message: string) => `Connection error: ${message}`,
 
   // Health check
@@ -144,14 +144,14 @@ export const RequestManagerLogMessages = {
  */
 export const ClientInitializerLogMessages = {
   // Initialization
-  INIT_START: 'Initializing Komodo client from environment variables',
+  INIT_START: 'Initializing API client from environment variables',
   INIT_SUCCESS: (method: string) => `Client initialized successfully using ${method}`,
   INIT_FAILED: (reason: string) => `Client initialization failed: ${reason}`,
 
   // Configuration
   CONFIG_MISSING: 'Missing required configuration',
-  CONFIG_URL_MISSING: 'KOMODO_URL environment variable not set',
-  CONFIG_AUTH_MISSING: 'No authentication method configured (need KOMODO_API_KEY or KOMODO_USERNAME/KOMODO_PASSWORD)',
+  CONFIG_URL_MISSING: 'API URL environment variable not set',
+  CONFIG_AUTH_MISSING: 'No authentication method configured (need API_KEY or USERNAME/PASSWORD)',
 
   // Authentication
   AUTH_API_KEY: 'Using API key authentication',

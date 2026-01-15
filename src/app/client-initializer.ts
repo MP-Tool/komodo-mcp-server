@@ -4,14 +4,16 @@
  * Handles automatic initialization of the Komodo client from environment variables.
  * Supports both API Key and Username/Password authentication methods.
  *
- * @module server/connection/client-initializer
+ * This is the application-specific layer that uses KomodoClient and komodoConnectionManager.
+ *
+ * @module app/client-initializer
  */
 
-import { KomodoClient } from '../../api/index.js';
-import { getKomodoCredentials } from '../../config/index.js';
-import { logger } from '../../utils/index.js';
-import { connectionManager } from './connection-state.js';
-import { toolRegistry } from '../../mcp/tools/index.js';
+import { KomodoClient } from '../api/index.js';
+import { getKomodoCredentials } from '../config/index.js';
+import { logger } from '../utils/index.js';
+import { komodoConnectionManager } from './connection.js';
+import { toolRegistry } from '../mcp/tools/index.js';
 
 /**
  * Attempts to initialize the Komodo client from environment variables.
@@ -20,7 +22,7 @@ import { toolRegistry } from '../../mcp/tools/index.js';
  *
  * @returns Promise that resolves when initialization is complete (success or failure)
  */
-export async function initializeClientFromEnv(): Promise<void> {
+export async function initializeKomodoClientFromEnv(): Promise<void> {
   // Read credentials at runtime (important for Docker containers where
   // env_file variables are only available after container start)
   const creds = getKomodoCredentials();
@@ -52,8 +54,8 @@ export async function initializeClientFromEnv(): Promise<void> {
       return;
     }
 
-    // Connect via connectionManager (validates with health check)
-    const success = await connectionManager.connect(client);
+    // Connect via komodoConnectionManager (validates with health check)
+    const success = await komodoConnectionManager.connect(client);
 
     if (success) {
       logger.info('✅ Auto-configuration successful - %d tools now available', toolRegistry.getAvailableTools().length);
@@ -64,3 +66,8 @@ export async function initializeClientFromEnv(): Promise<void> {
     logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
   }
 }
+
+/**
+ * @deprecated Use initializeKomodoClientFromEnv instead. Will be removed in v2.0.
+ */
+export const initializeClientFromEnv = initializeKomodoClientFromEnv;

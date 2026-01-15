@@ -1,20 +1,21 @@
 /**
  * Connection Module Types
  *
- * Centralized type definitions for the Komodo API connection module.
+ * Centralized type definitions for the API connection module.
  * Includes connection state management and request tracking types.
+ * Generic types work with any API client implementing IApiClient.
  *
  * @module server/connection/core/types
  */
 
-import type { KomodoClient } from '../../../api/index.js';
+import type { IApiClient } from '../../types/index.js';
 
 // ============================================================================
 // Connection State Types
 // ============================================================================
 
 /**
- * Possible connection states for the Komodo client.
+ * Possible connection states for the API client.
  *
  * State Machine:
  * ```
@@ -35,27 +36,30 @@ export const CONNECTION_STATES = ['disconnected', 'connecting', 'connected', 'er
 /**
  * Listener function signature for connection state changes.
  *
+ * @typeParam TClient - The API client type (must implement IApiClient)
  * @param state - The new connection state
- * @param client - The Komodo client (null if not connected)
+ * @param client - The API client (null if not connected)
  * @param error - Error object if state is 'error'
  */
-export type ConnectionStateListener = (
+export type ConnectionStateListener<TClient extends IApiClient = IApiClient> = (
   state: ConnectionState,
-  client: KomodoClient | null,
-  error?: Error
+  client: TClient | null,
+  error?: Error,
 ) => void;
 
 /**
  * Event object representing a connection state transition.
  * Used for history tracking and debugging.
+ *
+ * @typeParam TClient - The API client type (must implement IApiClient)
  */
-export interface ConnectionStateEvent {
+export interface ConnectionStateEvent<TClient extends IApiClient = IApiClient> {
   /** The previous connection state */
   readonly previousState: ConnectionState;
   /** The new (current) connection state */
   readonly currentState: ConnectionState;
-  /** The Komodo client at the time of transition */
-  readonly client: KomodoClient | null;
+  /** The API client at the time of transition */
+  readonly client: TClient | null;
   /** Error that caused the transition (if applicable) */
   readonly error?: Error;
   /** Timestamp when the transition occurred */
@@ -166,36 +170,4 @@ export interface ProgressNotificationParams {
 export interface RateLimitEntry {
   /** Timestamp of last notification */
   lastNotification: number;
-}
-
-// ============================================================================
-// Client Initializer Types
-// ============================================================================
-
-/**
- * Result of client initialization from environment variables.
- */
-export interface ClientInitResult {
-  /** Whether initialization was successful */
-  readonly success: boolean;
-  /** The initialized client if successful */
-  readonly client?: KomodoClient;
-  /** Error message if initialization failed */
-  readonly error?: string;
-  /** Authentication method used */
-  readonly authMethod?: 'api-key' | 'credentials';
-}
-
-/**
- * Environment variable configuration for client initialization.
- */
-export interface ClientEnvConfig {
-  /** Komodo server URL */
-  readonly url?: string;
-  /** API key for authentication */
-  readonly apiKey?: string;
-  /** Username for credential authentication */
-  readonly username?: string;
-  /** Password for credential authentication */
-  readonly password?: string;
 }

@@ -1,30 +1,24 @@
 /**
  * Connection State Manager
  *
- * Manages the connection state to the Komodo server and notifies
+ * Manages the connection state to an API server and notifies
  * listeners when the state changes. This enables dynamic tool
  * availability based on connection status.
+ *
+ * Generic implementation works with any API client implementing IApiClient.
  *
  * @module server/connection/connection-state
  */
 
-import { KomodoClient } from '../../api/index.js';
-import { logger as baseLogger } from '../../utils/logger/logger.js';
-import { ConnectionError } from '../../utils/errors/index.js';
+import type { IApiClient } from '../types/index.js';
+import { logger as baseLogger } from '../logger/index.js';
+import { FrameworkConnectionError } from '../errors/index.js';
 import { withSpan, addSpanAttributes, addSpanEvent, MCP_ATTRIBUTES } from '../telemetry/index.js';
-import { serverMetrics } from '../telemetry/metrics.js';
+import { serverMetrics } from '../telemetry/index.js';
 
 // Import centralized types and constants from core
-import type {
-  ConnectionState,
-  ConnectionStateListener,
-  ConnectionStateEvent,
-} from './core/types.js';
-import {
-  CONNECTION_STATE_CONFIG,
-  CONNECTION_LOG_COMPONENTS,
-  ConnectionStateLogMessages,
-} from './core/constants.js';
+import type { ConnectionState, ConnectionStateListener, ConnectionStateEvent } from './core/types.js';
+import { CONNECTION_STATE_CONFIG, CONNECTION_LOG_COMPONENTS, ConnectionStateLogMessages } from './core/constants.js';
 
 const logger = baseLogger.child({ component: CONNECTION_LOG_COMPONENTS.CONNECTION_STATE });
 
@@ -32,7 +26,9 @@ const logger = baseLogger.child({ component: CONNECTION_LOG_COMPONENTS.CONNECTIO
 export type { ConnectionState } from './core/types.js';
 
 /**
- * Manages the connection state to the Komodo server.
+ * Manages the connection state to an API server.
+ *
+ * Generic implementation that works with any client implementing IApiClient.
  *
  * Features:
  * - Tracks connection state (disconnected, connecting, connected, error)
@@ -41,27 +37,32 @@ export type { ConnectionState } from './core/types.js';
  * - Supports health check validation
  * - Uses circular buffer for efficient history management (O(1) operations)
  *
+ * @typeParam TClient - The API client type (must implement IApiClient)
+ *
  * @example
  * ```typescript
- * connectionManager.onStateChange((state, client) => {
+ * const manager = new ConnectionStateManager<KomodoClient>();
+ * manager.onStateChange((state, client) => {
  *   if (state === 'connected') {
- *     console.log('Connected to Komodo!');
+ *     console.log('Connected!');
  *   }
  * });
+ * await manager.connect(apiClient);
  *
- * await connectionManager.connect(komodoClient);
+ * // With any IApiClient implementation
+ * const genericManager = new ConnectionStateManager<MyApiClient>();
  * ```
  */
-class ConnectionStateManager {
+class ConnectionStateManager<TClient extends IApiClient = IApiClient> {
   private state: ConnectionState = 'disconnected';
-  private client: KomodoClient | null = null;
+  private client: TClient | null = null;
   private lastError: Error | null = null;
-  private listeners: Set<ConnectionStateListener> = new Set();
+  private listeners: Set<ConnectionStateListener<TClient>> = new Set();
 
   // Performance: Use circular buffer instead of array with shift()
   // shift() is O(n), circular buffer is O(1)
   private readonly maxHistorySize = CONNECTION_STATE_CONFIG.MAX_HISTORY_SIZE;
-  private stateHistory: (ConnectionStateEvent | null)[] = new Array(this.maxHistorySize).fill(null);
+  private stateHistory: (ConnectionStateEvent<TClient> | null)[] = new Array(this.maxHistorySize).fill(null);
   private historyIndex = 0;
   private historyCount = 0;
 
@@ -73,10 +74,10 @@ class ConnectionStateManager {
   }
 
   /**
-   * Get the current Komodo client instance.
+   * Get the current API client instance.
    * Returns null if not connected.
    */
-  getClient(): KomodoClient | null {
+  getClient(): TClient | null {
     return this.client;
   }
 
@@ -99,9 +100,9 @@ class ConnectionStateManager {
    * Returns the most recent state changes (up to maxHistorySize).
    * History is returned in chronological order (oldest first).
    */
-  getHistory(): readonly ConnectionStateEvent[] {
+  getHistory(): readonly ConnectionStateEvent<TClient>[] {
     // Reconstruct array from circular buffer in chronological order
-    const result: ConnectionStateEvent[] = [];
+    const result: ConnectionStateEvent<TClient>[] = [];
     for (let i = 0; i < this.historyCount; i++) {
       // Calculate the actual index in circular buffer
       const index = (this.historyIndex - this.historyCount + i + this.maxHistorySize) % this.maxHistorySize;
@@ -121,7 +122,7 @@ class ConnectionStateManager {
    * @param listener - Function to call when state changes
    * @returns Unsubscribe function
    */
-  onStateChange(listener: ConnectionStateListener): () => void {
+  onStateChange(listener: ConnectionStateListener<TClient>): () => void {
     this.listeners.add(listener);
     return () => this.listeners.delete(listener);
   }
@@ -139,16 +140,17 @@ class ConnectionStateManager {
    * Validates the connection with a health check before completing.
    * Includes OpenTelemetry tracing for the connection process.
    *
-   * @param client - The authenticated Komodo client
+   * @param client - The authenticated API client
    * @param skipHealthCheck - Skip health check validation (for testing)
    * @returns true if connection was successful
    */
-  async connect(client: KomodoClient, skipHealthCheck = false): Promise<boolean> {
-    return withSpan('komodo.connection.connect', async (span) => {
+  async connect(client: TClient, skipHealthCheck = false): Promise<boolean> {
+    return withSpan('api.connection.connect', async (span) => {
       this.setState('connecting');
       addSpanAttributes({
         [MCP_ATTRIBUTES.OPERATION]: 'connect',
         'connection.skip_health_check': skipHealthCheck,
+        'connection.client_type': client.clientType,
       });
 
       try {
@@ -159,12 +161,12 @@ class ConnectionStateManager {
 
           if (health.status !== 'healthy') {
             addSpanEvent('health_check.failed', { 'health.message': health.message || 'unknown' });
-            throw ConnectionError.healthCheckFailed(health.message || 'unknown');
+            throw FrameworkConnectionError.healthCheckFailed(health.message || 'unknown');
           }
 
           addSpanEvent('health_check.success', {
-            'health.url': health.details?.url || 'unknown',
-            'health.api_version': health.details?.apiVersion || 'unknown',
+            'health.status': health.status,
+            'health.message': health.message || 'ok',
           });
 
           /* v8 ignore next - optional API version logging */
@@ -191,7 +193,7 @@ class ConnectionStateManager {
   }
 
   /**
-   * Disconnect from the Komodo server.
+   * Disconnect from the API server.
    * Clears the client reference and sets state to 'disconnected'.
    */
   disconnect(): void {
@@ -259,7 +261,7 @@ class ConnectionStateManager {
       'connection.error': error?.message,
     });
 
-    const event: ConnectionStateEvent = {
+    const event: ConnectionStateEvent<TClient> = {
       previousState,
       currentState: newState,
       client: this.client,
@@ -290,9 +292,12 @@ class ConnectionStateManager {
 
 /**
  * Singleton instance of the ConnectionStateManager.
- * Use this for managing the Komodo client connection throughout the application.
+ * Use this for managing the API client connection throughout the application.
+ *
+ * Note: This uses IApiClient as the generic type for maximum flexibility.
+ * For type-safe access to specific client methods, cast or use a typed manager.
  */
-export const connectionManager = new ConnectionStateManager();
+export const connectionManager = new ConnectionStateManager<IApiClient>();
 
-// Also export the class for testing
+// Also export the class for testing and custom instances
 export { ConnectionStateManager };

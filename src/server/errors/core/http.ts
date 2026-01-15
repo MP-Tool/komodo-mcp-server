@@ -45,6 +45,8 @@ export const HttpStatus = {
   METHOD_NOT_ALLOWED: 405,
   /** Media type not supported */
   UNSUPPORTED_MEDIA_TYPE: 415,
+  /** Request could not be completed due to a conflict (RFC 9110) */
+  CONFLICT: 409,
   /** Precondition Required (RFC 6585) */
   PRECONDITION_REQUIRED: 428,
   /** Too Many Requests (Rate Limiting - RFC 6585) */

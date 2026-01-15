@@ -1,10 +1,10 @@
 /**
- * Komodo API Connection Module
+ * API Connection Module
  *
- * Manages Komodo API connection including connection state, request tracking, and client initialization.
- * Provides centralized types and constants for the connection module.
+ * Manages API connection state and request lifecycle for the MCP framework.
+ * This module is generic and client-agnostic - it works with any IApiClient.
  *
- * This module handles the connection to the Komodo Core API server, NOT the MCP transport layer.
+ * This module handles the connection to backend API servers, NOT the MCP transport layer.
  * For transport lifecycle, see the transport-specific modules (sse/lifecycle, streamable-http/lifecycle).
  *
  * @module server/connection
@@ -30,12 +30,20 @@ export type {
   RequestManagerStats,
   ProgressNotificationParams,
   RateLimitEntry,
-  // Client Initializer Types
-  ClientInitResult,
-  ClientEnvConfig,
+  // Connection Error Types
+  ConnectionErrorCode,
+  ConnectionErrorOptions,
 } from './core/index.js';
 
-// Re-export constants from core (new naming)
+// Re-export error classes from core
+export {
+  ConnectionErrorCodes,
+  ConnectionError,
+  getMcpCodeForConnectionError,
+  getHttpStatusForConnectionError,
+} from './core/index.js';
+
+// Re-export constants from core
 export {
   CONNECTION_STATES,
   CONNECTION_STATE_CONFIG,
@@ -49,7 +57,7 @@ export {
 } from './core/index.js';
 
 // ============================================================================
-// Connection State Management
+// Connection State Management (generic)
 // ============================================================================
 
 export { connectionManager, ConnectionStateManager } from './connection-state.js';
@@ -59,9 +67,3 @@ export { connectionManager, ConnectionStateManager } from './connection-state.js
 // ============================================================================
 
 export { requestManager, RequestManager } from './request-manager.js';
-
-// ============================================================================
-// Client Initialization
-// ============================================================================
-
-export { initializeClientFromEnv } from './client-initializer.js';

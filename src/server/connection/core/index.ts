@@ -22,12 +22,19 @@ export type {
   RequestManagerStats,
   ProgressNotificationParams,
   RateLimitEntry,
-  // Client Initializer Types
-  ClientInitResult,
-  ClientEnvConfig,
 } from './types.js';
 
 export { CONNECTION_STATES } from './types.js';
+
+// Base Error Classes
+export {
+  ConnectionErrorCodes,
+  ConnectionError,
+  getMcpCodeForConnectionError,
+  getHttpStatusForConnectionError,
+  type ConnectionErrorCode,
+  type ConnectionErrorOptions,
+} from './base.js';
 
 // Constants
 export {

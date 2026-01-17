@@ -1,5 +1,5 @@
 # Multi-stage build for Komodo MCP server
-FROM node:22-alpine AS builder
+FROM node:25-alpine AS builder
 
 # Upgrade OS packages and install build dependencies
 RUN apk upgrade --no-cache && apk add --no-cache python3 make g++
@@ -20,7 +20,7 @@ COPY . .
 RUN npm run build
 
 # Development stage (for DevContainer)
-FROM node:22-alpine AS development
+FROM node:25-alpine AS development
 
 # Upgrade OS packages and install development tools
 RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
@@ -53,7 +53,7 @@ ENV MCP_TRANSPORT=http
 CMD ["npm", "run", "dev"]
 
 # Production stage
-FROM node:22-alpine AS production
+FROM node:25-alpine AS production
 
 # Upgrade OS packages to fix vulnerabilities
 RUN apk upgrade --no-cache && apk add --no-cache curl

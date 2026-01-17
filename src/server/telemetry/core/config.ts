@@ -8,7 +8,20 @@
  */
 
 import type { TelemetryConfig } from './types.js';
-import { config } from '../../../app/config/index.js';
+import { parseFrameworkEnv, type FrameworkEnvConfig } from '../../config/index.js';
+
+/** Cached config for performance (lazy initialization) */
+let cachedConfig: FrameworkEnvConfig | undefined;
+
+/**
+ * Gets or creates cached framework config
+ */
+function getConfig(): FrameworkEnvConfig {
+  if (!cachedConfig) {
+    cachedConfig = parseFrameworkEnv();
+  }
+  return cachedConfig;
+}
 
 /**
  * Get telemetry configuration from centralized application config.
@@ -23,6 +36,7 @@ import { config } from '../../../app/config/index.js';
  * @returns Telemetry configuration object
  */
 export function getTelemetryConfig(): TelemetryConfig {
+  const config = getConfig();
   return {
     enabled: config.OTEL_ENABLED,
     serviceName: config.OTEL_SERVICE_NAME,
@@ -39,5 +53,5 @@ export function getTelemetryConfig(): TelemetryConfig {
  * @returns true if OTEL_ENABLED=true
  */
 export function isTelemetryEnabled(): boolean {
-  return config.OTEL_ENABLED;
+  return getConfig().OTEL_ENABLED;
 }

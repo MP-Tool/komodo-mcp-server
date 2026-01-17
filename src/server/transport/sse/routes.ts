@@ -17,12 +17,24 @@ import { SseTransport } from './transport.js';
 import { createJsonRpcError, JsonRpcErrorCode } from '../utils/index.js';
 import { logger as baseLogger } from '../../logger/index.js';
 import { HttpStatus, TransportErrorMessage } from '../../errors/index.js';
-import { config } from '../../../app/config/index.js';
-import { LEGACY_SSE_MAX_SESSIONS } from '../../config/index.js';
+import { parseFrameworkEnv, LEGACY_SSE_MAX_SESSIONS, type FrameworkEnvConfig } from '../../config/index.js';
 import type { McpServerFactory } from './types.js';
 import { TRANSPORT_LOG_COMPONENTS } from '../core/index.js';
 
 const logger = baseLogger.child({ component: TRANSPORT_LOG_COMPONENTS.SSE });
+
+/** Cached config for performance (lazy initialization) */
+let cachedConfig: FrameworkEnvConfig | undefined;
+
+/**
+ * Gets or creates cached framework config
+ */
+function getConfig(): FrameworkEnvConfig {
+  if (!cachedConfig) {
+    cachedConfig = parseFrameworkEnv();
+  }
+  return cachedConfig;
+}
 
 // Store active SSE transports by session ID (separate from Streamable HTTP sessions)
 const sseTransports = new Map<string, SseTransport>();
@@ -59,7 +71,7 @@ export { closeAllSseSessions as closeAllLegacySseSessions };
  * Check if SSE mode is enabled
  */
 export function isSseEnabled(): boolean {
-  return config.MCP_LEGACY_SSE_ENABLED;
+  return getConfig().MCP_LEGACY_SSE_ENABLED;
 }
 
 // Backwards compatibility alias
@@ -166,6 +178,7 @@ export { handleSseConnection as handleLegacySseConnection };
  */
 export function createSseRouter(mcpServerFactory: McpServerFactory): Router {
   const router = Router();
+  const config = getConfig();
 
   if (!config.MCP_LEGACY_SSE_ENABLED) {
     // Return router with endpoints that indicate feature is disabled

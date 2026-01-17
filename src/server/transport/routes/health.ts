@@ -9,7 +9,7 @@
  *
  * /ready - Readiness probe (can the server handle requests?)
  *   - 200 OK: Server is ready for traffic
- *   - 503 Service Unavailable: Komodo configured but not connected
+ *   - 503 Service Unavailable: API configured but not connected
  *   - 429 Too Many Requests: Session limit reached
  *   - Use: Kubernetes readinessProbe, Docker HEALTHCHECK, load balancer health checks
  *
@@ -18,11 +18,29 @@
  */
 
 import { Router } from 'express';
-import { config, getKomodoCredentials } from '../../../app/config/index.js';
 import type { TransportSessionManager } from '../../session/index.js';
+import type { ConnectionStateManager } from '../../connection/index.js';
+import type { IApiClient } from '../../types/index.js';
 import { getSseSessionCount, isSseEnabled } from '../sse/index.js';
-import { komodoConnectionManager } from '../../../app/index.js';
-import { SESSION_MAX_COUNT, LEGACY_SSE_MAX_SESSIONS } from '../../config/transport.config.js';
+import {
+  parseFrameworkEnv,
+  SESSION_MAX_COUNT,
+  LEGACY_SSE_MAX_SESSIONS,
+  type FrameworkEnvConfig,
+} from '../../config/index.js';
+
+/** Cached config for performance (lazy initialization) */
+let cachedConfig: FrameworkEnvConfig | undefined;
+
+/**
+ * Gets or creates cached framework config
+ */
+function getConfig(): FrameworkEnvConfig {
+  if (!cachedConfig) {
+    cachedConfig = parseFrameworkEnv();
+  }
+  return cachedConfig;
+}
 
 /**
  * Readiness status codes
@@ -33,7 +51,64 @@ enum ReadinessStatus {
   TOO_MANY_REQUESTS = 429,
 }
 
-export function createHealthRouter(sessionManager: TransportSessionManager): Router {
+/**
+ * Options for creating the health router
+ */
+export interface HealthRouterOptions<TClient extends IApiClient = IApiClient> {
+  /** Session manager for tracking active sessions */
+  sessionManager: TransportSessionManager;
+
+  /**
+   * Optional connection manager for API health checks.
+   * If not provided, API connectivity checks are skipped.
+   */
+  connectionManager?: ConnectionStateManager<TClient>;
+
+  /**
+   * Function to check if API is configured.
+   * Reads from runtime environment to support Docker env_file.
+   * If not provided, defaults to checking for KOMODO_URL env var.
+   */
+  isApiConfigured?: () => boolean;
+
+  /**
+   * Label for the API in health responses (e.g., 'komodo', 'docker', 'kubernetes')
+   * Defaults to 'api'
+   */
+  apiLabel?: string;
+}
+
+/**
+ * Creates health check router with configurable API connection monitoring.
+ *
+ * @param options - Configuration options for the health router
+ * @returns Express router with /health and /ready endpoints
+ *
+ * @example
+ * ```typescript
+ * // Basic usage (no API monitoring)
+ * const router = createHealthRouter({ sessionManager });
+ *
+ * // With Komodo connection monitoring
+ * import { komodoConnectionManager } from '../../../app/index.js';
+ * const router = createHealthRouter({
+ *   sessionManager,
+ *   connectionManager: komodoConnectionManager,
+ *   isApiConfigured: () => !!process.env.KOMODO_URL,
+ *   apiLabel: 'komodo',
+ * });
+ * ```
+ */
+export function createHealthRouter<TClient extends IApiClient = IApiClient>(
+  options: HealthRouterOptions<TClient>,
+): Router {
+  const {
+    sessionManager,
+    connectionManager,
+    isApiConfigured = () => !!process.env.KOMODO_URL?.trim(),
+    apiLabel = 'api',
+  } = options;
+
   const router = Router();
 
   /**
@@ -45,6 +120,7 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
    * Do not add dependency checks here - use /ready for that.
    */
   router.get('/health', (_req, res) => {
+    const config = getConfig();
     const response: Record<string, unknown> = {
       status: 'healthy',
       version: config.VERSION,
@@ -68,7 +144,7 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
    *
    * Status codes:
    * - 200 OK: Server is ready to accept traffic
-   * - 503 Service Unavailable: Komodo is configured but not connected
+   * - 503 Service Unavailable: API is configured but not connected
    * - 429 Too Many Requests: Session limits reached (server is overloaded)
    *
    * Used by:
@@ -77,8 +153,11 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
    * - Load balancers to determine backend availability
    */
   router.get('/ready', (_req, res) => {
-    const connectionState = komodoConnectionManager.getState();
-    const isKomodoConnected = connectionState === 'connected';
+    const config = getConfig();
+
+    // Get API connection state (if connection manager is provided)
+    const connectionState = connectionManager?.getState() ?? 'unknown';
+    const isApiConnected = connectionState === 'connected';
 
     // Check session limits
     const httpSessionCount = sessionManager.size;
@@ -88,9 +167,9 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
     const sessionsAtLimit = httpSessionsAtLimit || sseSessionsAtLimit;
 
     // Determine readiness
-    // Use getKomodoCredentials() for runtime env access (Docker env_file support)
-    const hasKomodoConfig = !!getKomodoCredentials().url;
-    const komodoReady = !hasKomodoConfig || isKomodoConnected;
+    const hasApiConfig = isApiConfigured();
+    // If API is configured, we require connection; if not configured, we're ready
+    const apiReady = !hasApiConfig || isApiConnected;
 
     // Determine status code
     let status: ReadinessStatus;
@@ -101,9 +180,9 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
       reason = httpSessionsAtLimit
         ? `HTTP session limit reached (${httpSessionCount}/${SESSION_MAX_COUNT})`
         : `SSE session limit reached (${sseSessionCount}/${LEGACY_SSE_MAX_SESSIONS})`;
-    } else if (!komodoReady) {
+    } else if (!apiReady) {
       status = ReadinessStatus.SERVICE_UNAVAILABLE;
-      reason = `Komodo not connected (state: ${connectionState})`;
+      reason = `${apiLabel} not connected (state: ${connectionState})`;
     } else {
       status = ReadinessStatus.READY;
       reason = 'Server is ready';
@@ -116,10 +195,10 @@ export function createHealthRouter(sessionManager: TransportSessionManager): Rou
       status: reason,
       version: config.VERSION,
       uptime: process.uptime(),
-      komodo: {
-        configured: hasKomodoConfig,
+      [apiLabel]: {
+        configured: hasApiConfig,
         state: connectionState,
-        connected: isKomodoConnected,
+        connected: isApiConnected,
       },
       sessions: {
         streamableHttp: {

@@ -6,4 +6,4 @@
  * @module transport/routes
  */
 
-export { createHealthRouter } from './health.js';
+export { createHealthRouter, type HealthRouterOptions } from './health.js';

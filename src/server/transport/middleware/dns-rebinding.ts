@@ -9,9 +9,45 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { config, getAllowedHosts, getAllowedOrigins, isLocalHost } from '../../../app/config/index.js';
+import { createAllowedHosts, createAllowedOrigins, isLocalHost } from '../../config/index.js';
+import { parseFrameworkEnv, type FrameworkEnvConfig } from '../../config/index.js';
 import { createJsonRpcError, logSecurityEvent, sanitizeForLog } from '../utils/index.js';
 import { HTTP_STATUS, TRANSPORT_ERROR_CODES, TransportErrorMessages } from '../core/index.js';
+
+/** Cached config for performance (lazy initialization) */
+let cachedConfig: FrameworkEnvConfig | undefined;
+let cachedAllowedHosts: string[] | undefined;
+let cachedAllowedOrigins: string[] | undefined;
+
+/**
+ * Gets or creates cached framework config
+ */
+function getConfig(): FrameworkEnvConfig {
+  if (!cachedConfig) {
+    cachedConfig = parseFrameworkEnv();
+  }
+  return cachedConfig;
+}
+
+/**
+ * Gets or creates cached allowed hosts list
+ */
+function getAllowedHosts(): string[] {
+  if (!cachedAllowedHosts) {
+    cachedAllowedHosts = createAllowedHosts(getConfig());
+  }
+  return cachedAllowedHosts;
+}
+
+/**
+ * Gets or creates cached allowed origins list
+ */
+function getAllowedOrigins(): string[] {
+  if (!cachedAllowedOrigins) {
+    cachedAllowedOrigins = createAllowedOrigins(getConfig());
+  }
+  return cachedAllowedOrigins;
+}
 
 /**
  * DNS Rebinding Protection Middleware
@@ -19,6 +55,7 @@ import { HTTP_STATUS, TRANSPORT_ERROR_CODES, TransportErrorMessages } from '../c
  * Origin validation only enabled for non-localhost bindings
  */
 export function dnsRebindingProtection(req: Request, res: Response, next: NextFunction): void {
+  const config = getConfig();
   const host = req.headers.host;
   const allowedHosts = getAllowedHosts();
 

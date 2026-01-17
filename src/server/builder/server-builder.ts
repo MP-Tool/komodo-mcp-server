@@ -67,6 +67,9 @@ class McpServerInstance<TClient extends IApiClient = IApiClient> implements ISer
   private readonly connectionManager: ConnectionStateManager<TClient>;
   private readonly requestManager: RequestManager;
 
+  // Track whether we're using an external connection manager
+  private readonly usingExternalConnectionManager: boolean;
+
   // Track whether we're connected for tool availability
   private isClientConnected = false;
 
@@ -78,7 +81,9 @@ class McpServerInstance<TClient extends IApiClient = IApiClient> implements ISer
     private readonly prompts: IPromptDefinition[],
     private readonly toolProviders: IToolProvider<TClient>[],
   ) {
-    this.connectionManager = new ConnectionStateManager<TClient>();
+    // Use external connection manager if provided, otherwise create internal one
+    this.usingExternalConnectionManager = !!options.connectionManager;
+    this.connectionManager = options.connectionManager ?? new ConnectionStateManager<TClient>();
     this.requestManager = new RequestManager();
 
     // Setup connection state listener for tool availability
@@ -103,6 +108,19 @@ class McpServerInstance<TClient extends IApiClient = IApiClient> implements ISer
         logger.info(BuilderLogMessages.TOOLS_AVAILABLE, availableCount);
       }
     });
+
+    // If using external connection manager, sync initial state
+    if (this.usingExternalConnectionManager) {
+      this.isClientConnected = this.connectionManager.getState() === 'connected';
+      for (const provider of this.toolProviders) {
+        provider.setConnectionState(this.isClientConnected);
+      }
+      logger.debug(
+        'Using external connection manager (state: %s, client: %s)',
+        this.connectionManager.getState(),
+        this.connectionManager.getClient() ? 'available' : 'null',
+      );
+    }
   }
 
   // ─────────────────────────────────────────────────────────────────────────

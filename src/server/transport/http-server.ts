@@ -40,7 +40,7 @@ import { TransportSessionManager } from '../session/index.js';
 
 // Middleware
 import {
-  mcpRateLimiter,
+  createRateLimiter,
   validateProtocolVersion,
   validateAcceptHeader,
   dnsRebindingProtection,
@@ -79,7 +79,8 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   // ===== Routes =====
 
   // Health check endpoint (no rate limiting or security middleware)
-  app.use(createHealthRouter(sessionManager));
+  // Note: For API connection monitoring, configure HealthRouterOptions when calling createHealthRouter
+  app.use(createHealthRouter({ sessionManager }));
 
   // ===== Legacy SSE Transport Routes (optional) =====
   // IMPORTANT: Mount Legacy SSE message endpoints BEFORE the MCP middleware stack
@@ -95,7 +96,7 @@ export function createExpressApp(mcpServerFactory: () => McpServer): {
   // ===== MCP Transport Routes =====
   // Streamable HTTP transport on /mcp endpoint
   app.use('/mcp', dnsRebindingProtection); // 1. DNS Rebinding Protection (MUST)
-  app.use('/mcp', mcpRateLimiter); // 2. Rate Limiting
+  app.use('/mcp', createRateLimiter()); // 2. Rate Limiting
   app.use('/mcp', validateProtocolVersion); // 3. Protocol Version (MUST)
   app.use('/mcp', validateAcceptHeader); // 4. Accept Header (MUST)
   app.use('/mcp', validateContentType); // 5. Content-Type (MUST for POST)

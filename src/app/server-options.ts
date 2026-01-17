@@ -13,6 +13,7 @@ import type { IServerOptions, IServerLifecycleHooks } from './framework.js';
 import { config, getKomodoCredentials } from './config/index.js';
 import { SERVER_NAME, SERVER_VERSION, SHUTDOWN_CONFIG } from './config/index.js';
 import { KomodoClient as KomodoClientClass } from './api/index.js';
+import { komodoConnectionManager } from './connection.js';
 import { logger } from './framework.js';
 
 // ============================================================================
@@ -162,6 +163,9 @@ export const komodoServerOptions: IServerOptions<KomodoClient> = {
 
   // Auto-connect disabled - we handle initialization manually
   autoConnect: false,
+
+  // Use global connection manager for shared client across all MCP sessions
+  connectionManager: komodoConnectionManager,
 
   // Telemetry (from environment)
   telemetryEnabled: config.OTEL_ENABLED,

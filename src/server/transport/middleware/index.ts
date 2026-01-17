@@ -24,7 +24,7 @@
  *
  * ```typescript
  * app.use('/mcp', dnsRebindingProtection);  // 1. Security first
- * app.use('/mcp', mcpRateLimiter);          // 2. Rate limiting
+ * app.use('/mcp', createRateLimiter());     // 2. Rate limiting
  * app.use('/mcp', validateProtocolVersion); // 3. Protocol validation
  * app.use('/mcp', validateAcceptHeader);    // 4. Accept header
  * app.use('/mcp', validateContentType);     // 5. Content-Type
@@ -72,4 +72,4 @@ export { validateProtocolVersion } from './protocol-version.js';
  * Rate Limiting
  * Prevents abuse and DoS attacks
  */
-export { mcpRateLimiter } from './rate-limit.js';
+export { createRateLimiter, type RateLimiterOptions } from './rate-limit.js';

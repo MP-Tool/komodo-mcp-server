@@ -36,7 +36,7 @@ import type { IServerInstance } from './server/types/index.js';
 
 // Komodo application layer
 import type { KomodoClient } from './app/api/index.js';
-import { registerTools, toolRegistry } from './app/mcp/tools/index.js';
+import { registerTools } from './app/mcp/tools/index.js';
 import { registerResources } from './app/mcp/resources/index.js';
 import { registerPrompts } from './app/mcp/prompts/index.js';
 import {
@@ -45,7 +45,6 @@ import {
   resourceRegistryAdapter,
   promptRegistryAdapter,
   initializeKomodoClientFromEnv,
-  komodoConnectionManager,
 } from './app/index.js';
 
 // Logger
@@ -70,30 +69,11 @@ async function main(): Promise<void> {
   registerResources();
   registerPrompts();
 
-  // Set up connection state listener to update tool availability
-  // This enables dynamic tool list changes when Komodo connects/disconnects
-  komodoConnectionManager.onStateChange((state, client) => {
-    const wasConnected = toolRegistry.getConnectionState();
-    const isConnected = state === 'connected' && client !== null;
-
-    // Update tool registry state
-    const stateChanged = toolRegistry.setConnectionState(isConnected);
-
-    if (stateChanged && serverInstance) {
-      // Notify all connected MCP clients that tool list changed
-      serverInstance.notifyToolListChanged();
-      logger.info('Tool availability changed: %d tools now available', toolRegistry.getAvailableTools().length);
-    }
-
-    // Log connection state changes
-    if (!wasConnected && isConnected) {
-      logger.info('Komodo connected - %d tools now available', toolRegistry.getAvailableTools().length);
-    } else if (wasConnected && !isConnected) {
-      logger.info('Komodo disconnected - %d tools now available', toolRegistry.getAvailableTools().length);
-    }
-  });
-
   // Build server using McpServerBuilder with adapters
+  // The builder's internal connection state listener handles:
+  // - Updating tool providers via setConnectionState()
+  // - Sending tool list changed notifications to MCP clients
+  //
   // Note: We use autoConnect: false because we manually call initializeKomodoClientFromEnv()
   // after server start to support Docker env_file loading at runtime
   serverInstance = new McpServerBuilder<KomodoClient>()

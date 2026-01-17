@@ -9,6 +9,7 @@
 
 import type { IApiClient } from './client.js';
 import type { IServerLifecycleHooks, ShutdownConfig } from './lifecycle.js';
+import type { ConnectionStateManager } from '../connection/connection-state.js';
 
 // ============================================================================
 // Transport Configuration
@@ -190,6 +191,25 @@ export interface IServerOptions<TClient extends IApiClient = IApiClient> {
    * @default true
    */
   autoConnect?: boolean;
+
+  /**
+   * External connection manager to use instead of creating an internal one.
+   *
+   * When provided, the server uses this connection manager for client access.
+   * This enables sharing a single connection across multiple MCP sessions.
+   *
+   * @example
+   * ```typescript
+   * import { komodoConnectionManager } from './app/index.js';
+   *
+   * const options: IServerOptions = {
+   *   name: 'my-server',
+   *   version: '1.0.0',
+   *   connectionManager: komodoConnectionManager,
+   * };
+   * ```
+   */
+  connectionManager?: ConnectionStateManager<TClient>;
 
   // ─────────────────────────────────────────────────────────────────────────
   // Telemetry (Optional)

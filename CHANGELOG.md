@@ -10,6 +10,38 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [1.1.1] (Unreleased)
 
 ### Added
+- **McpServerBuilder Pattern**: New declarative, fluent API for constructing MCP servers
+  - **New `src/server/builder/` module**: Framework-agnostic server builder pattern
+    - `McpServerBuilder<TClient>`: Generic fluent builder supporting `withOptions()`, `withToolProvider()`, `withResourceProvider()`, `withPromptProvider()`, `build()`
+    - `IToolDefinition<TArgs, TClient>`: Typed tool definition with `CallToolResult` return type
+    - `IToolProvider<TClient>`: Interface for external tool providers (plugins, dynamic loading)
+    - `IResourceProvider`, `IPromptProvider`: Interfaces for resource and prompt providers
+    - `IBuilderState<TClient>`: Internal builder state tracking
+    - Barrel exports via `index.ts`
+  - **New `src/app/adapters.ts`**: Bridge between existing registries and builder pattern
+    - `toolRegistryAdapter`: Adapts `toolRegistry` to `IToolProvider<KomodoClient>`
+    - `resourceRegistryAdapter`: Adapts `resourceRegistry` to `IResourceProvider`
+    - `promptRegistryAdapter`: Adapts `promptRegistry` to `IPromptProvider`
+  - **New `src/app/server-options.ts`**: Komodo-specific server configuration factory
+    - `komodoServerOptions`: Default production server configuration
+    - `createKomodoServerOptions()`: Factory with deep merge for custom options
+    - `createKomodoLifecycleHooks()`: Lifecycle hook factory for Komodo-specific events
+    - `createKomodoClientFromEnv()`: Client factory from environment variables
+  - Enables clean separation of framework (reusable) and app (Komodo-specific) code
+  - Supports future extraction of `src/server/` as standalone MCP framework package
+
+- **App API Layer Consolidation**: Migrated API client from legacy `src/api/` to `src/app/api/`
+  - **New `src/app/api/client.ts`**: KomodoClient class with login/healthCheck methods
+  - **New `src/app/api/resources/`**: Domain-specific API resource classes
+    - `ServerResource`: Server CRUD, state management, validation
+    - `ContainerResource`: Container lifecycle (start/stop/restart/pause/unpause), logs, prune
+    - `StackResource`: Docker Compose stack lifecycle (deploy/start/stop/restart/pause/unpause/destroy)
+    - `DeploymentResource`: Deployment lifecycle (deploy/start/stop/restart/pause/unpause/destroy)
+  - **New `src/app/api/types.ts`**: Re-exports komodo_client Types, HealthCheckResult interface
+  - **Updated `src/app/api/index.ts`**: Clean barrel exports for all API components
+  - Removed legacy `src/api/` directory (migrated all functionality to `src/app/api/`)
+  - Fixed all import paths throughout codebase to use new `./app/api/` structure
+
 - **Framework/App Architecture Separation**: Prepared `server/` module for future extraction as reusable MCP framework
   - **New `src/server/types/` module**: Generic framework interfaces
     - `IApiClient`: Generic API client interface with `healthCheck()` and `clientType`
@@ -118,6 +150,35 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Error metrics: categorized by type and component
   - `getStats()` method for runtime statistics snapshot
   - Falls back to in-memory tracking when OpenTelemetry is disabled
+- **Telemetry Integration in Tool Handlers** (`src/app/mcp/tools/utils.ts`):
+  - `wrapApiCall()` now includes OpenTelemetry tracing via `withSpan()`
+  - Automatic duration metrics recording via `getServerMetrics().recordRequest()`
+  - Traces are only created when `isTelemetryEnabled()` returns true
+- **Komodo Telemetry Constants** (`src/app/telemetry.ts`): Application-specific semantic attributes
+  - `KOMODO_ATTRIBUTES.SERVER` - Komodo server being accessed
+  - `KOMODO_ATTRIBUTES.RESOURCE_TYPE` - Resource type (container, deployment, stack, server)
+  - `KOMODO_ATTRIBUTES.RESOURCE_ID` - Resource identifier
+  - Extends framework `MCP_ATTRIBUTES` for Komodo-specific tracing
+- **Type-safe Action Dispatchers** (`src/app/mcp/tools/factory.ts`): Eliminated unsafe type casts
+  - New `executeStackAction()` function for stack operations
+  - New `executeDeploymentAction()` function for deployment operations
+  - New `executeContainerAction()` function for container operations
+  - Uses switch statements instead of dynamic method binding (`client[method]`)
+  - Removed `StackActionMethod`, `DeploymentActionMethod`, `ContainerActionMethod` interfaces
+  - Improved type safety with `StackMethodName`, `DeploymentMethodName`, `ContainerMethodName` types
+- **Response Formatter Utilities** (`src/app/utils/response-formatter.ts`): Centralized tool response formatting
+  - `formatActionResponse()` for consistent action result messages with emoji icons
+  - `formatSearchResponse()` for log search results formatting
+  - `formatPruneResponse()` for prune operation responses
+  - `formatLogsResponse()` for container log output
+  - `formatInfoResponse()` for resource information display
+  - `formatListHeader()` for list operation headers
+  - `formatErrorResponse()` for error message formatting
+  - Refactored all tool handlers to use centralized formatters (DRY principle)
+- **Dynamic Logger Configuration**: Logger now reads log level dynamically from global config
+  - `Logger.level` getter reads from `getLoggerConfig()` on each access
+  - Allows runtime log level changes via `configureLogger()`
+  - `levelOverride` property for explicit per-instance overrides
 - **Knip Configuration** (`knip.json`): Unused code detection configuration
   - Project scope: `src/**/*.ts`
   - Ignores: test files to avoid false positives
@@ -249,6 +310,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - `ToolContext = IToolContext<KomodoClient>` for cleaner tool implementations
   - `Tool<T, TClient = KomodoClient>` interface with sensible defaults
 - **Health Check Tool**: Added type guard `isKomodoHealthCheckDetails()` for type-safe detail access
+- **Main Entry Point** (`src/index.ts`): Complete rewrite using McpServerBuilder pattern
+  - Replaced 500+ line `KomodoMCPServer` class with ~100 line declarative setup
+  - Uses `McpServerBuilder<KomodoClient>` fluent API for server construction
+  - Registry adapters bridge existing tool/resource/prompt registries to builder pattern
+  - Clean separation: framework handles transport, app handles business logic
+  - Logger configuration moved to top-level for proper initialization order
 
 ### Changed
 - **Tool Context**: `setClient()` is now async and returns `Promise<void>`
@@ -289,6 +356,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Unused Utilities** (`src/tools/utils/`): Removed entire directory
   - `action-factory.ts` - Never used action factory pattern
   - `index.ts` - Barrel export file
+- **Legacy Config Directory** (`src/config/`): Migrated to `src/app/config/` and `src/server/config/`
+  - `env.ts` - Moved to `src/app/config/env.ts` (app-specific) and `src/server/config/env.framework.ts` (framework)
+  - `server.config.ts` - Moved to `src/app/config/server.config.ts`
+  - `errors.config.ts` - Migrated to `src/server/errors/` module
+  - `index.ts` - Removed, replaced by separate app/server config barrels
+- **Legacy Utils Directory** (`src/utils/`): Migrated to `src/app/utils/` and `src/server/logger/`
+  - `index.ts` - Barrel file replaced by app/server-specific modules
+  - Logger and error exports now from `src/server/logger/` and `src/server/errors/`
+  - Response formatters moved to `src/app/utils/response-formatter.ts`
+- **Factory Method Type Exports**: Removed unsafe method signature interfaces
+  - `StackActionMethod` - Replaced by type-safe `executeStackAction()` dispatcher
+  - `DeploymentActionMethod` - Replaced by type-safe `executeDeploymentAction()` dispatcher
+  - `ContainerActionMethod` - Replaced by type-safe `executeContainerAction()` dispatcher
 
 ### Improved
 - **Session Module Architecture Overhaul** (`src/server/session/`): Complete restructuring for maintainability and extensibility

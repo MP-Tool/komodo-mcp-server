@@ -1,6 +1,7 @@
 {
   "name": "komodo-mcp-server",
   "version": "1.2.0",
+  "mcpName": "io.github.mp-tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",
@@ -9,6 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:prod": "tsc --project tsconfig.prod.json",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build node_modules coverage test-results",
@@ -41,6 +43,13 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "files": [
+    "build/**/*.js",
+    "build/**/*.d.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "dependencies": {
     "komodo_client": "^1.19.5",
     "@modelcontextprotocol/sdk": "^1.25.2",

@@ -1,0 +1,71 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.mp-tool/komodo-mcp-server",
+  "title": "Komodo MCP Server",
+  "description": "MCP server for Komodo - manage Docker containers, servers, stacks, and deployments via AI",
+  "websiteUrl": "https://github.com/mp-tool/komodo-mcp-server",
+  "repository": {
+    "url": "https://github.com/mp-tool/komodo-mcp-server",
+    "source": "github"
+  },
+  "version": "1.2.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "registryBaseUrl": "https://registry.npmjs.org",
+      "identifier": "komodo-mcp-server",
+      "version": "1.2.0",
+      "runtimeHint": "npx",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KOMODO_URL",
+          "description": "Komodo Core server URL (e.g., http://host.docker.internal:9120)",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_USERNAME",
+          "description": "Komodo username for authentication",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_PASSWORD",
+          "description": "Komodo password for authentication",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    },
+    {
+      "registryType": "oci",
+      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.2.0",
+      "transport": {
+        "type": "stdio"
+      },
+      "environmentVariables": [
+        {
+          "name": "KOMODO_URL",
+          "description": "Komodo Core server URL (e.g., http://host.docker.internal:9120)",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_USERNAME",
+          "description": "Komodo username for authentication",
+          "isRequired": true,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_PASSWORD",
+          "description": "Komodo password for authentication",
+          "isRequired": true,
+          "isSecret": true
+        }
+      ]
+    }
+  ]
+}

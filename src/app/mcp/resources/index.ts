@@ -40,7 +40,6 @@ export {
 } from './factory.js';
 
 import { registerExampleResource } from './example-server-info.js';
-import { registerExampleTemplateResource } from './example-server-logs.js';
 
 /**
  * Register all resources.
@@ -65,10 +64,6 @@ export function registerResources(): void {
   // Example resource - demonstrates static resource implementation
   // See example-server-info.ts for implementation details
   registerExampleResource();
-
-  // Example resource template - demonstrates RFC 6570 URI Templates
-  // See example-server-logs.ts for implementation details
-  registerExampleTemplateResource();
 
   // FUTURE: Production resources (v1.2.0+)
   // - komodo://servers: List all Komodo servers

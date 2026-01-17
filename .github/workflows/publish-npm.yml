@@ -1,0 +1,139 @@
+name: Publish to npm
+
+# Publishes the package to npm registry when a release is published.
+# Uses npm Trusted Publishing (OIDC) for secure, token-free authentication.
+#
+# Trusted Publishing Setup Required:
+# 1. Go to https://www.npmjs.com/package/komodo-mcp-server/access
+# 2. Add Trusted Publisher:
+#    - Provider: GitHub Actions
+#    - Organization: MP-Tool
+#    - Repository: komodo-mcp-server
+#    - Workflow: publish-npm.yml
+#    - Environment: (leave blank)
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (test without publishing)'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write # Required for OIDC/Trusted Publishing
+  contents: read # Required for checkout
+
+env:
+  NODE_OPTIONS: '--max-old-space-size=4096'
+  CI: true
+
+jobs:
+  publish-npm:
+    name: Publish to npm Registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '22.x'
+          # NOTE: Do NOT use registry-url here! It creates .npmrc with token placeholder
+          # that blocks OIDC detection. npm will use default registry automatically.
+          cache: 'npm'
+
+      - name: Upgrade npm for OIDC support
+        run: |
+          echo "Current npm version: $(npm --version)"
+          npm install -g npm@11
+          echo "Upgraded npm version: $(npm --version)"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build production
+        run: npm run build:prod
+        env:
+          NODE_ENV: production
+
+      - name: Get package version
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Package version: $VERSION"
+
+      - name: Verify build artifacts
+        run: |
+          echo "=== Verifying Production Build ==="
+          
+          # Check main entry point exists
+          if [ ! -f "build/index.js" ]; then
+            echo "❌ Build failed - build/index.js not found"
+            exit 1
+          fi
+          echo "✅ Main entry point exists"
+          
+          # Verify NO source maps in production build
+          SOURCEMAPS=$(find build -name "*.js.map" | wc -l)
+          if [ "$SOURCEMAPS" -gt 0 ]; then
+            echo "❌ Production build contains source maps!"
+            find build -name "*.js.map"
+            exit 1
+          fi
+          echo "✅ No source maps (production optimized)"
+          
+          # Show build summary
+          echo ""
+          echo "=== Build Summary ==="
+          echo "Files: $(find build -name "*.js" | wc -l) JavaScript"
+          echo "Types: $(find build -name "*.d.ts" | wc -l) Declaration files"
+          du -sh build/
+
+      - name: Preview package contents
+        run: |
+          echo "=== Files to be published ==="
+          npm pack --dry-run 2>&1 | head -50
+          echo ""
+          echo "=== Package size ==="
+          npm pack --json | jq '.[0] | {name, version, size, unpackedSize}'
+
+      - name: Publish to npm (with provenance)
+        if: github.event.inputs.dry_run != 'true'
+        env:
+          NPM_CONFIG_PROVENANCE: 'true'
+        run: |
+          # Publish with provenance for supply chain security
+          # Uses OIDC authentication automatically when:
+          # 1. id-token: write permission is set
+          # 2. Running on GitHub Actions
+          # 3. No .npmrc with token configuration
+          npm publish --provenance --access public
+
+      - name: Dry run (skip publish)
+        if: github.event.inputs.dry_run == 'true'
+        run: |
+          echo "🧪 DRY RUN MODE - Skipping publication"
+          npm pack --dry-run
+
+      - name: Summary
+        if: success() && github.event.inputs.dry_run != 'true'
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Published to npm
+          
+          **Package:** \`komodo-mcp-server@${VERSION}\`
+          
+          📦 [View on npm](https://www.npmjs.com/package/komodo-mcp-server/v/${VERSION})
+          
+          ### Next Steps
+          The MCP Registry workflow will now automatically publish metadata.
+          EOF

@@ -19,6 +19,7 @@ jobs:
   analysis:
     name: Scorecard analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     if: github.event.pull_request.draft == false
     permissions:
       # Needed to upload the results to code-scanning dashboard.

@@ -1,0 +1,56 @@
+name: OSV Scanner
+
+# Scans for known vulnerabilities in dependencies using OSV (Open Source Vulnerabilities)
+# https://google.github.io/osv-scanner/
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'package-lock.json'
+  schedule:
+    # Run weekly on Monday at 10:00 UTC
+    - cron: '0 10 * * 1'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  scan:
+    name: Vulnerability Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Run OSV Scanner
+        uses: google/osv-scanner-action/osv-scanner-action@v2.3.2
+        with:
+          scan-args: |-
+            --lockfile=package-lock.json
+            --format=sarif
+            --output=osv-results.sarif
+
+      - name: Upload SARIF results
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: osv-results.sarif
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v6
+        if: always()
+        with:
+          name: osv-scan-results
+          path: osv-results.sarif
+          retention-days: 5

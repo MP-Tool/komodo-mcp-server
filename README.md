@@ -62,6 +62,26 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 
 </td>
 </tr>
+<tr>
+<td width="50%">
+
+### ⚡ Performance
+- Pre-compiled regex for logging
+- Tool registry caching
+- O(1) circular buffer history
+- Request cancellation support
+
+</td>
+<td width="50%">
+
+### 🔒 Security & Reliability
+- DNS rebinding protection
+- Rate limiting (configurable)
+- CORS origin validation
+- Graceful shutdown handling
+
+</td>
+</tr>
 </table>
 
 ## Quick Start
@@ -132,6 +152,17 @@ Comming soon: Pre-built n8n workflows for automated container health checks and 
 - **[VS Code](examples/vscode/)** - GitHub Copilot Chat support  
 - **[Docker Compose](examples/compose/)** - Standalone deployment
 - **[Docker Desktop](examples/docker-desktop/)** - Native MCP beta feature
+
+### Observability (OpenTelemetry)
+
+Enable distributed tracing and metrics with OpenTelemetry:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `OTEL_ENABLED` | `false` | Enable OpenTelemetry |
+| `OTEL_SERVICE_NAME` | `mcp-server` | Service name for traces |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | - | OTLP endpoint (e.g., Jaeger, Grafana) |
+| `OTEL_DEBUG` | `false` | Enable debug logging |
 
 
 ## License

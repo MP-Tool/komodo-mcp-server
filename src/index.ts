@@ -1,210 +1,98 @@
 #!/usr/bin/env node
 
-import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
-import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
-import { ErrorCode, McpError } from '@modelcontextprotocol/sdk/types.js';
-import { KomodoClient } from './api/index.js';
-import { registerTools, toolRegistry } from './tools/index.js';
-import { config } from './config/env.js';
-import { startHttpServer } from './transport/http-server.js';
-import { logger, LogLevel } from './utils/logger.js';
-
-// Komodo MCP server - Container Management Server
 /**
- * Main application class for the Komodo MCP Server.
- * Manages the MCP server instance, tool registration, and Komodo client state.
+ * Komodo MCP Server - Main Entry Point
+ *
+ * Model Context Protocol server for managing Docker containers,
+ * deployments, and stacks through Komodo.
+ *
+ * Uses McpServerBuilder for declarative server construction.
+ *
+ * @module index
  */
-class KomodoMCPServer {
-  private komodoClient: KomodoClient | null = null;
 
-  constructor() {
-    // Register all tools
-    registerTools();
+// Initialize OpenTelemetry FIRST, before any other imports
+// This ensures all modules are instrumented
+import { initializeTelemetry } from './server/telemetry/index.js';
+initializeTelemetry();
 
-    // Handle SIGINT globally
-    process.on('SIGINT', async () => {
-      logger.info('Received SIGINT, shutting down...');
-      process.exit(0);
-    });
-  }
+// Configure logger BEFORE any other imports that use it
+// This ensures LOG_LEVEL and other settings from env are applied
+import { configureLogger } from './app/framework.js';
+import { config, SERVER_NAME, SERVER_VERSION } from './app/config/index.js';
+configureLogger({
+  LOG_LEVEL: config.LOG_LEVEL,
+  LOG_FORMAT: config.LOG_FORMAT,
+  LOG_DIR: config.LOG_DIR,
+  MCP_TRANSPORT: config.MCP_TRANSPORT,
+  NODE_ENV: config.NODE_ENV,
+  SERVER_NAME,
+  SERVER_VERSION,
+});
 
-  /**
-   * Maps internal log levels to MCP logging levels.
-   *
-   * @param level - The internal log level
-   * @returns The corresponding MCP log level
-   */
-  private mapLogLevel(
-    level: LogLevel,
-  ): 'debug' | 'info' | 'notice' | 'warning' | 'error' | 'critical' | 'alert' | 'emergency' {
-    switch (level) {
-      case 'trace':
-        return 'debug';
-      case 'debug':
-        return 'debug';
-      case 'info':
-        return 'info';
-      case 'warn':
-        return 'warning';
-      case 'error':
-        return 'error';
-      default:
-        return 'info';
-    }
-  }
+// Server Builder
+import { McpServerBuilder } from './server/builder/index.js';
+import type { IServerInstance } from './server/types/index.js';
 
-  /**
-   * Creates and configures the MCP server instance.
-   * Registers all tools and sets up logging.
-   *
-   * @returns The configured McpServer instance
-   */
-  private createMcpServer(): McpServer {
-    const server = new McpServer({
-      name: 'komodo-mcp-server',
-      version: config.VERSION,
-    });
+// Komodo application layer
+import type { KomodoClient } from './app/api/index.js';
+import { registerTools } from './app/mcp/tools/index.js';
+import { registerResources } from './app/mcp/resources/index.js';
+import { registerPrompts } from './app/mcp/prompts/index.js';
+import {
+  komodoServerOptions,
+  toolRegistryAdapter,
+  resourceRegistryAdapter,
+  promptRegistryAdapter,
+  initializeKomodoClientFromEnv,
+} from './app/index.js';
 
-    server.server.onerror = (error) => {
-      logger.error('MCP Error:', error);
-    };
+// Logger
+import { logger } from './server/logger/index.js';
 
-    const tools = toolRegistry.getTools();
-    logger.info('Registering %d tools with MCP server', tools.length);
+// Store server instance for tool notifications
+let serverInstance: IServerInstance | null = null;
 
-    for (const tool of tools) {
-      // logger.debug(`Registering tool: ${tool.name}`);
-      server.registerTool(
-        tool.name,
-        {
-          description: tool.description,
-          inputSchema: tool.schema,
-        },
-        async (args) => {
-          // Get existing context (to preserve sessionId)
-          const existingContext = logger.getContext();
+/**
+ * Bootstrap the Komodo MCP Server.
+ *
+ * This function:
+ * 1. Registers all tools, resources, and prompts with their registries
+ * 2. Sets up connection state listener for dynamic tool availability
+ * 3. Builds the server using McpServerBuilder with adapters
+ * 4. Starts the server
+ * 5. Attempts auto-configuration from environment variables
+ */
+async function main(): Promise<void> {
+  // Register all tools, resources, and prompts with their registries
+  registerTools();
+  registerResources();
+  registerPrompts();
 
-          // Create a context for this execution
-          const context = {
-            sessionId: existingContext?.sessionId,
-            requestId: Math.random().toString(36).substring(7),
-            sendMcpLog: (level: LogLevel, message: string) => {
-              server.server
-                .sendLoggingMessage({
-                  level: this.mapLogLevel(level),
-                  data: message,
-                })
-                .catch(() => {
-                  // Ignore errors sending logs to client (e.g. if disconnected)
-                });
-            },
-          };
+  // Build server using McpServerBuilder with adapters
+  // The builder's internal connection state listener handles:
+  // - Updating tool providers via setConnectionState()
+  // - Sending tool list changed notifications to MCP clients
+  //
+  // Note: We use autoConnect: false because we manually call initializeKomodoClientFromEnv()
+  // after server start to support Docker env_file loading at runtime
+  serverInstance = new McpServerBuilder<KomodoClient>()
+    .withOptions(komodoServerOptions)
+    .withToolProvider(toolRegistryAdapter)
+    .withResourceProvider(resourceRegistryAdapter)
+    .withPromptProvider(promptRegistryAdapter)
+    .build();
 
-          return logger.runWithContext(context, async () => {
-            try {
-              logger.info('Tool [%s] executing', tool.name);
-              const result = await tool.handler(args, {
-                client: this.komodoClient,
-                setClient: (client: KomodoClient) => {
-                  this.komodoClient = client;
-                },
-              });
-              return result;
-            } catch (error) {
-              logger.error(`Error executing ${tool.name}:`, error);
-              if (error instanceof McpError) {
-                throw error;
-              }
-              throw new McpError(
-                ErrorCode.InternalError,
-                `Error executing ${tool.name}: ${error instanceof Error ? error.message : String(error)}`,
-              );
-            }
-          });
-        },
-      );
-    }
+  // Start the server (handles transport selection internally)
+  await serverInstance.start();
 
-    return server;
-  }
-
-  /**
-   * Starts the server using the configured transport (Stdio or HTTP/SSE).
-   */
-  async run(): Promise<void> {
-    if (config.MCP_TRANSPORT === 'http') {
-      // Pass factory function to create a new server instance per connection
-      const { server, sessionManager } = startHttpServer(() => this.createMcpServer());
-      logger.info(`Komodo MCP server started (HTTP Mode) on port ${config.MCP_PORT}`);
-
-      // Graceful shutdown
-      const shutdown = async () => {
-        logger.info('Received shutdown signal, closing server...');
-
-        // Close all active MCP sessions
-        await sessionManager.closeAll();
-
-        // Close HTTP server
-        server.close(() => {
-          logger.info('HTTP server closed');
-          process.exit(0);
-        });
-
-        // Force exit if server doesn't close in 10s
-        setTimeout(() => {
-          logger.error('Forcing shutdown after timeout');
-          process.exit(1);
-        }, 10000);
-      };
-
-      process.on('SIGINT', shutdown);
-      process.on('SIGTERM', shutdown);
-    } else if (config.MCP_TRANSPORT === 'stdio') {
-      const server = this.createMcpServer();
-      const transport = new StdioServerTransport();
-      await server.connect(transport);
-      logger.info('Komodo MCP server started (Stdio Mode)');
-    } else {
-      throw new Error(`Unsupported MCP_TRANSPORT: ${config.MCP_TRANSPORT}`);
-    }
-
-    // Try to initialize client from environment variables
-    if (config.KOMODO_URL) {
-      try {
-        if (config.KOMODO_API_KEY && config.KOMODO_API_SECRET) {
-          logger.info(`Attempting API Key configuration for ${config.KOMODO_URL}...`);
-          this.komodoClient = KomodoClient.connectWithApiKey(
-            config.KOMODO_URL,
-            config.KOMODO_API_KEY,
-            config.KOMODO_API_SECRET,
-          );
-
-          // Verify connection
-          const health = await this.komodoClient.healthCheck();
-          if (health.status !== 'healthy') {
-            throw new Error(`Health check failed: ${health.message}`);
-          }
-          logger.info('✅ API Key configuration successful');
-        } else if (config.KOMODO_USERNAME && config.KOMODO_PASSWORD) {
-          logger.info(`Attempting auto-configuration for ${config.KOMODO_URL}...`);
-          this.komodoClient = await KomodoClient.login(
-            config.KOMODO_URL,
-            config.KOMODO_USERNAME,
-            config.KOMODO_PASSWORD,
-          );
-          logger.info('✅ Auto-configuration successful');
-        }
-      } catch (error) {
-        logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
-        this.komodoClient = null;
-      }
-    }
-  }
+  // Try to initialize Komodo client from environment variables
+  // This is called after server start to support Docker runtime credential loading
+  await initializeKomodoClientFromEnv();
 }
 
 // Start the server
-const server = new KomodoMCPServer();
-server.run().catch((error) => {
+main().catch((error) => {
   logger.error('Fatal error running server:', error);
   process.exit(1);
 });

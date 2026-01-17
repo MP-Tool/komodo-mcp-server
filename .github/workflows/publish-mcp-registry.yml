@@ -1,0 +1,86 @@
+name: Publish to MCP Registry
+
+# Publishes to the official MCP Registry after npm publication.
+# Prerequisites:
+# 1. Package published to npm (triggered by publish-npm.yml)
+# 2. server.json in repository root with mcpName
+# 3. GitHub OIDC for io.github.mp-tool namespace
+
+on:
+  # Triggered after npm publish workflow completes
+  workflow_run:
+    workflows: ['Publish to npm']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  MCP_REGISTRY_API: https://registry.modelcontextprotocol.io
+  NAMESPACE: io.github.mp-tool
+  PACKAGE_NAME: komodo-mcp-server
+
+jobs:
+  publish:
+    name: Publish to MCP Registry
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    # Only run if npm publish succeeded or manual dispatch
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Get version
+        id: version
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            # Get version from package.json when triggered by workflow_run
+            VERSION=$(node -p "require('./package.json').version")
+          fi
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "📦 Publishing version: $VERSION"
+
+      - name: Install mcp-publisher
+        run: |
+          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          sudo mv mcp-publisher /usr/local/bin/
+          mcp-publisher --help
+
+      - name: Validate server.json
+        run: |
+          if [ ! -f "server.json" ]; then
+            echo "❌ server.json not found"
+            exit 1
+          fi
+          echo "✅ server.json found"
+
+      - name: Login to MCP Registry
+        run: mcp-publisher login github-actions
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish to MCP Registry
+        run: mcp-publisher publish
+
+      - name: Summary
+        run: |
+          VERSION="${{ steps.version.outputs.version }}"
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Published to MCP Registry
+          
+          **Package:** \`${{ env.NAMESPACE }}/${{ env.PACKAGE_NAME }}@${VERSION}\`
+          
+          [View in Registry](https://registry.modelcontextprotocol.io)
+          EOF

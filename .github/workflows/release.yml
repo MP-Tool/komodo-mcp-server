@@ -22,10 +22,12 @@ jobs:
   check-version:
     name: Check Version Change
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       version_changed: ${{ steps.version_check.outputs.changed }}
       current_version: ${{ steps.version_check.outputs.version }}
       should_build: ${{ steps.version_check.outputs.should_build }}
+      is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -37,6 +39,13 @@ jobs:
         run: |
           CURRENT_VERSION=$(node -p "require('./package.json').version")
           echo "version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # Check if this is a prerelease (contains hyphen like 1.2.0-beta.1)
+          if [[ "$CURRENT_VERSION" == *"-"* ]]; then
+            echo "is_prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_prerelease=false" >> $GITHUB_OUTPUT
+          fi
           
           # Always build on manual trigger (workflow_dispatch)
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
@@ -76,12 +85,16 @@ jobs:
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: check-version
     if: needs.check-version.outputs.should_build == 'true'
+    outputs:
+      digest: ${{ steps.build.outputs.digest }}
     permissions:
-      contents: write      # Required for creating releases
+      contents: write      # Required for creating releases and tags
       packages: write      # Required for pushing to GHCR
-      id-token: write      # Required for OIDC authentication
+      id-token: write      # Required for OIDC/Sigstore keyless signing
+      attestations: write  # Required for build attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -91,6 +104,9 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@v3.8.1
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -108,13 +124,18 @@ jobs:
             type=semver,pattern={{version}},value=${{ needs.check-version.outputs.current_version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.check-version.outputs.current_version }}
             type=semver,pattern={{major}},value=${{ needs.check-version.outputs.current_version }}
-            type=raw,value=latest
+            type=raw,value=latest,enable=${{ needs.check-version.outputs.is_prerelease == 'false' }}
           labels: |
             org.opencontainers.image.title=Komodo MCP Server
             org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager
             org.opencontainers.image.version=${{ needs.check-version.outputs.current_version }}
+            org.opencontainers.image.vendor=MP-Tool
+            org.opencontainers.image.licenses=GPL-3.0
+            org.opencontainers.image.source=https://github.com/${{ github.repository }}
+            org.opencontainers.image.documentation=https://github.com/${{ github.repository }}#readme
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -124,85 +145,110 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: true
+          sbom: true
           build-args: |
             VERSION=${{ needs.check-version.outputs.current_version }}
 
+      # Sign the Docker image using Sigstore keyless signing
+      # This creates a cryptographic signature that proves the image was built in this workflow
+      - name: Sign Docker image with Cosign
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+          TAGS: ${{ steps.meta.outputs.tags }}
+        run: |
+          images=""
+          for tag in ${TAGS}; do
+            images+="${tag}@${DIGEST} "
+          done
+          cosign sign --yes ${images}
+
+      # Generate SBOM attestation for supply chain security
+      - name: Attest Docker image
+        uses: actions/attest-build-provenance@v2
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
       - name: Generate release notes
         id: release_notes
+        env:
+          VERSION: ${{ needs.check-version.outputs.current_version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          VERSION="${{ needs.check-version.outputs.current_version }}"
+          MAJOR=$(echo $VERSION | cut -d. -f1)
+          MINOR=$(echo $VERSION | cut -d. -f1,2)
           
-          # Initialize release notes file
-          echo "# 🦎 Komodo MCP Server - ${VERSION}" > release_notes.md
-          echo "" >> release_notes.md
+          cat > release_notes.md << 'EOF'
+          ## Changelog
+          EOF
           
-          # 1. Extract Changelog for this version
-          echo "## 📝 Changelog" >> release_notes.md
-          echo "" >> release_notes.md
-          
-          # Extract content between current version header and the next header (or EOF)
-          # Matches lines starting with "## [VERSION]" until the next "## ["
+          # Extract changelog section
           if grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
             sed -n "/^## \[${VERSION}\]/,/^## \[/p" CHANGELOG.md | sed '1d;$d' | sed '$d' >> release_notes.md
           else
-            echo "⚠️ No changelog entry found for version ${VERSION}." >> release_notes.md
-            echo "" >> release_notes.md
-            echo "#### Commits" >> release_notes.md
-            git log $(git describe --tags --abbrev=0 2>/dev/null || echo "")..HEAD --pretty=format:"- %s (%h)" >> release_notes.md
+            echo "_No changelog entry for this version._" >> release_notes.md
           fi
           
-          echo "" >> release_notes.md
+          cat >> release_notes.md << EOF
           
-          # 2. Docker Info
-          echo "## 🐳 Docker Images" >> release_notes.md
-          echo "" >> release_notes.md
+          ## Installation
           
-          # Tags
-          MAJOR=$(echo $VERSION | cut -d. -f1)
-          MINOR=$(echo $VERSION | cut -d. -f1,2)
-          echo "### 🏷️ Available Tags" >> release_notes.md
-          echo "> \`latest\`, \`${VERSION}\`, \`${MINOR}\`, \`${MAJOR}\`" >> release_notes.md
-          echo "" >> release_notes.md
-
-          echo '```bash' >> release_notes.md
-          echo "# Pull image" >> release_notes.md
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest" >> release_notes.md
-          echo "docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}" >> release_notes.md
-          echo '```' >> release_notes.md
-          echo "" >> release_notes.md
-          echo "## 💡 Examples" >> release_notes.md
-          echo "Check out the [examples](https://github.com/${{ github.repository }}/tree/main/examples) for integration guides with Claude Desktop, n8n, and more." >> release_notes.md
+          \`\`\`bash
+          docker pull ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+          \`\`\`
           
-          # 3. Useful Links
-          echo "" >> release_notes.md
-          echo "---" >> release_notes.md
-          echo "📄 [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md) | 🐛 [Report Bug](https://github.com/${{ github.repository }}/issues)" >> release_notes.md
+          **Tags:** \`latest\` \`${VERSION}\` \`${MINOR}\` \`${MAJOR}\`
+          
+          <details>
+          <summary>Verify image signature</summary>
+          
+          \`\`\`bash
+          cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION} \\
+            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \\
+            --certificate-identity-regexp=https://github.com/${{ github.repository }}
+          \`\`\`
+          
+          **Digest:** \`${DIGEST}\`
+          </details>
+          
+          ---
+          [Documentation](https://github.com/${{ github.repository }}#readme) · [Examples](https://github.com/${{ github.repository }}/tree/main/examples) · [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
+          EOF
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ needs.check-version.outputs.current_version }}
-          name: Komodo MCP Server - ${{ needs.check-version.outputs.current_version }}
+          name: ${{ needs.check-version.outputs.current_version }}
           body_path: release_notes.md
           draft: false
-          prerelease: false
+          prerelease: ${{ needs.check-version.outputs.is_prerelease == 'true' }}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   notify:
-    name: Notify Release
+    name: Release Summary
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
     steps:
       - name: Summary
+        env:
+          VERSION: ${{ needs.check-version.outputs.current_version }}
+          DIGEST: ${{ needs.build-and-push.outputs.digest }}
         run: |
-          echo "## ✅ Release ${{ needs.check-version.outputs.current_version }} Published!" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🐳 Docker Images" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.check-version.outputs.current_version }}\`" >> $GITHUB_STEP_SUMMARY
-          echo "- \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "### 🔗 Links" >> $GITHUB_STEP_SUMMARY
-          echo "- [Docker Image](${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [Release](https://github.com/${{ github.repository }}/releases/tag/${{ needs.check-version.outputs.current_version }})" >> $GITHUB_STEP_SUMMARY
+          cat >> $GITHUB_STEP_SUMMARY << EOF
+          ## ✅ Release ${VERSION}
+          
+          | | |
+          |---|---|
+          | **Image** | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}\` |
+          | **Digest** | \`${DIGEST}\` |
+          | **Platforms** | \`linux/amd64\`, \`linux/arm64\` |
+          
+          
+          [View Release](https://github.com/${{ github.repository }}/releases/tag/${VERSION}) · [Docker Image](https://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})
+          EOF

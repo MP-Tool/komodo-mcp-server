@@ -1,6 +1,7 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
+  "mcpName": "io.github.mp-tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",
@@ -9,14 +10,14 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:prod": "tsc --project tsconfig.prod.json",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
-    "clean": "rm -rf build, node_modules ",
-    "lint": "eslint 'src/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts'",
-    "test": "vitest run",
-    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
-    "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version ."
+    "clean": "rm -rf build node_modules coverage test-results",
+    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
+    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
+    "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
   },
   "keywords": [
     "mcp",
@@ -42,14 +43,26 @@
   "engines": {
     "node": ">=20.0.0"
   },
+  "files": [
+    "build/**/*.js",
+    "build/**/*.d.ts",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "dependencies": {
     "komodo_client": "^1.19.5",
-    "@modelcontextprotocol/sdk": "^1.24.4",
+    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.67.3",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.209.0",
+    "@opentelemetry/resources": "^2.0.0",
+    "@opentelemetry/sdk-node": "^0.209.0",
+    "@opentelemetry/semantic-conventions": "^1.33.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
     "helmet": "^8.1.0",
-    "zod": "^3.23.8",
-    "zod-to-json-schema": "^3.25.0"
+    "zod": "^3.23.8"
   },
   "devDependencies": {
     "eslint": "^8.57.1",
@@ -60,11 +73,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.25",
-    "@types/supertest": "^6.0.3",
-    "supertest": "^7.1.4",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.14",
-    "@vitest/coverage-v8": "^4.0.15",
     "fast-check": "^4.3.0"
   }
 }

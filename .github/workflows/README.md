@@ -24,9 +24,10 @@ This directory contains automated workflows for CI/CD, releases, and quality che
 - ✅ Detects version changes in `package.json`
 - 🐳 Builds multi-platform Docker images (amd64, arm64)
 - 📦 Publishes to GitHub Container Registry (ghcr.io)
+- 🔐 Signs images with Sigstore/Cosign
+- 📋 Generates SBOM and build attestation
 - 🏷️ Creates version tags (`1.0.0`, `1.0`, `1`, `latest`)
 - 📝 Generates GitHub Release with notes
-- 🔄 Updates `komodo-mcp-catalog.yaml`
 
 **Image Tags**:
 ```bash
@@ -40,13 +41,15 @@ ghcr.io/mp-tool/komodo-mcp-server:latest # Always newest
 
 ### 2. PR Checks (`pr-check.yml`)
 
-**Trigger**: Automatic on Pull Requests to `main` or `dev`
+**Trigger**: Automatic on Pull Requests to `main`
 
 **What it does**:
 - ✅ TypeScript compilation check
-- 🐳 Docker build test
+- 🐳 Docker build test (if Dockerfile changed)
+- 🧪 Unit and fuzz tests with coverage
 - 📋 Version format validation
-- 🔍 Version bump detection (only for PRs to `main`)
+- 🔍 Version bump detection
+- 🔒 Dependency vulnerability review
 - 📊 PR summary with release preview
 
 **Benefits**:

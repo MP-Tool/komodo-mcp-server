@@ -5,8 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
       args:
-        - VERSION=${VERSION:-latest}    
+        - VERSION=${VERSION:-development}    
     image: komodo-mcp-server:latest
 
     restart: "no"
@@ -20,19 +21,16 @@ services:
           cpus: '0.1'
 
     ports:
-      - "3000:3000"
+      - 3000:3000
 
     environment:
       - KOMODO_URL=https://komodo.example.com:9120
       - KOMODO_USERNAME=username
       - KOMODO_PASSWORD=password
-      - MCP_TRANSPORT=http
-      - MCP_PORT=3000
-      - MCP_BIND_HOST=0.0.0.0
 
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3000/ready"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 5s
+      start_period: 10s

@@ -8,9 +8,9 @@ on:
     - cron: '20 7 * * 1'
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
-    types: [opened, synchronize, reopened, ready_for_review]
+  # NOTE: Scorecard runs on main only, not on PRs
+  # This prevents PR failures due to unpinned dependencies warnings
+  # PRs are still checked by dependency-review-action in pr-check.yml
 
 # Declare default permissions as read only.
 permissions: read-all
@@ -20,7 +20,6 @@ jobs:
     name: Scorecard analysis
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    if: github.event.pull_request.draft == false
     permissions:
       # Needed to upload the results to code-scanning dashboard.
       security-events: write

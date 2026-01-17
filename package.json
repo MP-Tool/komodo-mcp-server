@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",
@@ -14,8 +14,7 @@
     "clean": "rm -rf build node_modules coverage test-results",
     "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
-    "test": "vitest run",
-    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version .",
+    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version ."
   },
   "keywords": [
@@ -65,11 +64,7 @@
     "@typescript-eslint/parser": "^7.18.0",
     "@types/express": "^5.0.6",
     "@types/node": "^20.19.25",
-    "@types/supertest": "^6.0.3",
-    "supertest": "^7.2.2",
     "typescript": "^5.9.3",
-    "vitest": "^4.0.14",
-    "@vitest/coverage-v8": "^4.0.15",
     "fast-check": "^4.3.0"
   }
 }

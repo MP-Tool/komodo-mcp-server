@@ -5,8 +5,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      target: production
       args:
-        - VERSION=${VERSION:-latest}    
+        - VERSION=${VERSION:-development}    
     image: komodo-mcp-server:latest
 
     restart: "no"

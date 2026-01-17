@@ -3,15 +3,23 @@
  *
  * Common utilities for MCP tool handlers, including:
  * - Client validation with proper error types
- * - Error wrapping for API calls
+ * - Error wrapping for API calls with tracing
  * - Cancellation handling
+ * - Metrics collection
  *
  * @module tools/utils
  */
 
 import type { KomodoClient } from '../../api/index.js';
 import { ClientNotConfiguredError, ApiError, ConnectionError } from '../../errors/index.js';
-import { OperationCancelledError } from '../../../server/errors/index.js';
+import {
+  OperationCancelledError,
+  withSpan,
+  getServerMetrics,
+  isTelemetryEnabled,
+  MCP_ATTRIBUTES,
+} from '../../framework.js';
+import { KOMODO_ATTRIBUTES } from '../../telemetry.js';
 
 /**
  * Validates that the Komodo client is configured and returns it.
@@ -54,8 +62,13 @@ export function checkCancelled(signal: AbortSignal | undefined, operation: strin
 }
 
 /**
- * Wraps an API call with proper error handling.
+ * Wraps an API call with proper error handling, tracing, and metrics.
  * Converts generic errors to typed Komodo errors.
+ *
+ * When OpenTelemetry is enabled:
+ * - Creates a span for the operation
+ * - Records duration metrics
+ * - Adds error attributes on failure
  *
  * @param operation - The name of the operation
  * @param apiCall - The API call to execute
@@ -78,45 +91,75 @@ export async function wrapApiCall<T>(operation: string, apiCall: () => Promise<T
   // Check if already cancelled
   checkCancelled(signal, operation);
 
-  try {
-    return await apiCall();
-  } catch (error) {
-    // Check if cancelled during the call
-    if (OperationCancelledError.isCancellation(error)) {
-      throw new OperationCancelledError(operation);
-    }
+  const startTime = Date.now();
 
-    // Handle connection errors
-    if (error instanceof Error) {
-      const errorCode = (error as { code?: string }).code;
-      const isConnectionError =
-        errorCode === 'ECONNREFUSED' ||
-        errorCode === 'ECONNRESET' ||
-        errorCode === 'ENOTFOUND' ||
-        errorCode === 'ERR_NETWORK';
+  // Execute with or without tracing based on config
+  const executeCall = async (): Promise<T> => {
+    try {
+      const result = await apiCall();
 
-      if (isConnectionError) {
-        throw ConnectionError.failed(operation, `Connection error: ${errorCode}`);
+      // Record success metrics
+      const duration = Date.now() - startTime;
+      getServerMetrics().recordRequest(operation, duration, true);
+
+      return result;
+    } catch (error) {
+      // Record failure metrics
+      const duration = Date.now() - startTime;
+      getServerMetrics().recordRequest(operation, duration, false);
+
+      // Check if cancelled during the call
+      if (OperationCancelledError.isCancellation(error)) {
+        throw new OperationCancelledError(operation);
       }
 
-      // Check for timeout
-      if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
-        throw ConnectionError.timeout(operation);
-      }
-    }
+      // Handle connection errors
+      if (error instanceof Error) {
+        const errorCode = (error as { code?: string }).code;
+        const isConnectionError =
+          errorCode === 'ECONNREFUSED' ||
+          errorCode === 'ECONNRESET' ||
+          errorCode === 'ENOTFOUND' ||
+          errorCode === 'ERR_NETWORK';
 
-    // Wrap as ApiError
-    if (error instanceof Error) {
-      throw new ApiError(`${operation} failed: ${error.message}`, {
-        cause: error,
-        context: { operation },
+        if (isConnectionError) {
+          throw ConnectionError.failed(operation, `Connection error: ${errorCode}`);
+        }
+
+        // Check for timeout
+        if (errorCode === 'ECONNABORTED' || error.message.includes('timeout')) {
+          throw ConnectionError.timeout(operation);
+        }
+      }
+
+      // Wrap as ApiError
+      if (error instanceof Error) {
+        throw new ApiError(`${operation} failed: ${error.message}`, {
+          cause: error,
+          context: { operation },
+        });
+      }
+
+      throw new ApiError(`${operation} failed: Unknown error`, {
+        context: { operation, error },
       });
     }
+  };
 
-    throw new ApiError(`${operation} failed: Unknown error`, {
-      context: { operation, error },
-    });
+  // Use tracing if enabled
+  if (isTelemetryEnabled()) {
+    return withSpan(
+      `komodo.api.${operation}`,
+      async (span) => {
+        span.setAttribute(MCP_ATTRIBUTES.OPERATION, operation);
+        span.setAttribute(KOMODO_ATTRIBUTES.RESOURCE_TYPE, 'api');
+        return executeCall();
+      },
+      { attributes: { [MCP_ATTRIBUTES.OPERATION]: operation } },
+    );
   }
+
+  return executeCall();
 }
 
 /**

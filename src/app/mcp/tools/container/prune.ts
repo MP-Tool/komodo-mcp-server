@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
-import { extractUpdateId } from '../../../api/index.js';
 import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
 import { pruneTargetSchema } from '../schemas/index.js';
+import { formatPruneResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -24,7 +24,11 @@ export const pruneResourcesTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🧹 Pruned ${args.pruneTarget} on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatPruneResponse({
+        target: args.pruneTarget,
+        serverName: args.server,
+        output: `Status: ${result.status}`,
+      }),
     );
   },
 };

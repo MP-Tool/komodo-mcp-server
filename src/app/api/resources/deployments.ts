@@ -8,7 +8,8 @@
  * @module app/api/resources/deployments
  */
 
-import { BaseResource, validateDeploymentId, validateResourceName } from '../index.js';
+import { BaseResource } from '../base.js';
+import { validateDeploymentId, validateResourceName } from '../utils.js';
 import type { ApiOperationOptions } from '../base.js';
 import type { Types } from 'komodo_client';
 

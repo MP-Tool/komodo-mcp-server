@@ -19,7 +19,7 @@
  */
 
 import { z } from 'zod';
-import { RegistryError } from '../../../server/errors/index.js';
+import { RegistryError } from '../../framework.js';
 
 /**
  * Resource content types

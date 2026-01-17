@@ -33,8 +33,6 @@ export {
   registerJsonResource,
   registerMarkdownResource,
   registerDynamicResource,
-  createTextResources,
-  createJsonResources,
   type TextResourceConfig,
   type JsonResourceConfig,
   type MarkdownResourceConfig,

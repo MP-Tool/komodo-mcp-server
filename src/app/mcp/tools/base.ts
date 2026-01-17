@@ -1,9 +1,7 @@
 import { z } from 'zod';
 import type { KomodoClient } from '../../api/index.js';
-import type { IToolContext } from '../../../server/types/index.js';
-import type { ProgressData } from '../../utils/index.js';
-import { logger as baseLogger } from '../../utils/index.js';
-import { RegistryError } from '../../../server/errors/index.js';
+import type { IToolContext, ProgressData } from '../../framework.js';
+import { logger as baseLogger, RegistryError } from '../../framework.js';
 
 const logger = baseLogger.child({ component: 'tools' });
 

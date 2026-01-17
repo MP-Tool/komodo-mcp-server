@@ -8,8 +8,9 @@
  * @module app/api/resources/stacks
  */
 
-import { BaseResource, validateStackId, validateResourceName } from '../index.js';
-import type { ApiOperationOptions } from '../index.js';
+import { BaseResource } from '../base.js';
+import { validateStackId, validateResourceName } from '../utils.js';
+import type { ApiOperationOptions } from '../base.js';
 import type { Types } from 'komodo_client';
 
 // Type aliases for Komodo types

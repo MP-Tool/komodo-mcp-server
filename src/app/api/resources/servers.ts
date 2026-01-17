@@ -7,9 +7,11 @@
  * @module app/api/resources/servers
  */
 
-import { BaseResource, ServerState, validateServerId, validateResourceName } from '../index.js';
+import { BaseResource } from '../base.js';
+import { validateServerId, validateResourceName } from '../utils.js';
+import { ServerState } from '../types.js';
 import { NotFoundError } from '../../errors/index.js';
-import type { ApiOperationOptions } from '../index.js';
+import type { ApiOperationOptions } from '../base.js';
 import type { Types } from 'komodo_client';
 
 // Type aliases for Komodo types

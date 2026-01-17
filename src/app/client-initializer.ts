@@ -1,5 +1,5 @@
 /**
- * Komodo Client Initializer
+ * Komodo MCP Client Initializer
  *
  * Handles automatic initialization of the Komodo client from environment variables.
  * Supports both API Key and Username/Password authentication methods.
@@ -9,11 +9,11 @@
  * @module app/client-initializer
  */
 
-import { KomodoClient } from '../api/index.js';
-import { getKomodoCredentials } from '../config/index.js';
-import { logger } from '../utils/index.js';
+import { KomodoClient } from './api/index.js';
+import { getKomodoCredentials } from './config/index.js';
+import { logger } from './framework.js';
 import { komodoConnectionManager } from './connection.js';
-import { toolRegistry } from '../mcp/tools/index.js';
+import { toolRegistry } from './mcp/tools/index.js';
 
 /**
  * Attempts to initialize the Komodo client from environment variables.
@@ -66,8 +66,3 @@ export async function initializeKomodoClientFromEnv(): Promise<void> {
     logger.warn('⚠️ Auto-configuration failed: %s', error instanceof Error ? error.message : String(error));
   }
 }
-
-/**
- * @deprecated Use initializeKomodoClientFromEnv instead. Will be removed in v2.0.
- */
-export const initializeClientFromEnv = initializeKomodoClientFromEnv;

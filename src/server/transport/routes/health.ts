@@ -18,11 +18,11 @@
  */
 
 import { Router } from 'express';
-import { config, getKomodoCredentials } from '../../../config/index.js';
+import { config, getKomodoCredentials } from '../../../app/config/index.js';
 import type { TransportSessionManager } from '../../session/index.js';
 import { getSseSessionCount, isSseEnabled } from '../sse/index.js';
 import { komodoConnectionManager } from '../../../app/index.js';
-import { SESSION_MAX_COUNT, LEGACY_SSE_MAX_SESSIONS } from '../../../config/transport.config.js';
+import { SESSION_MAX_COUNT, LEGACY_SSE_MAX_SESSIONS } from '../../config/transport.config.js';
 
 /**
  * Readiness status codes

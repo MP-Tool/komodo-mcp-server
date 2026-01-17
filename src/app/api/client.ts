@@ -9,9 +9,8 @@
  */
 
 import { KomodoClient as createKomodoClient } from 'komodo_client';
-import { logger as baseLogger } from '../utils/index.js';
+import { logger as baseLogger, type IApiClient } from '../framework.js';
 import { AuthenticationError, ConnectionError } from '../errors/index.js';
-import type { IApiClient } from '../../server/types/index.js';
 import { HealthCheckResult } from './types.js';
 import { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
 

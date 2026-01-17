@@ -8,7 +8,7 @@
  */
 
 import { Types } from 'komodo_client';
-import type { IHealthCheckResult } from '../../server/types/index.js';
+import type { IHealthCheckResult } from '../framework.js';
 
 // Re-export Types namespace for convenience
 export { Types };
@@ -17,19 +17,9 @@ export { Types };
 export const ServerState = Types.ServerState;
 
 /**
- * Type alias for MongoDB ObjectId wrapper.
- */
-export type MongoId = Types.MongoId;
-
-/**
  * Type alias for Update response.
  */
 export type Update = Types.Update;
-
-/**
- * Type alias for Log response.
- */
-export type Log = Types.Log;
 
 /**
  * Health check result for Komodo connections.

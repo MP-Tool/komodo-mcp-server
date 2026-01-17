@@ -8,6 +8,22 @@
  */
 
 // ============================================================================
+// Validation Constants
+// ============================================================================
+
+/**
+ * Validation limits for API operations
+ */
+export const VALIDATION_LIMITS = {
+  /** Maximum number of log lines that can be retrieved */
+  MAX_LOG_TAIL: 10000,
+  /** Maximum length for string truncation in error messages */
+  MAX_STRING_DISPLAY_LENGTH: 50,
+  /** Maximum length for resource names (servers, stacks, etc.) */
+  MAX_RESOURCE_NAME_LENGTH: 100,
+} as const;
+
+// ============================================================================
 // Container Log Defaults
 // ============================================================================
 

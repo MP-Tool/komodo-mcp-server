@@ -1,6 +1,7 @@
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../../api/index.js';
 import { containerActionSchema } from '../schemas/index.js';
+import { formatActionResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -21,7 +22,14 @@ export const startContainerTool: Tool = {
     );
 
     return successResponse(
-      `🚀 Container "${args.container}" started on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'start',
+        resourceType: 'container',
+        resourceId: args.container,
+        serverName: args.server,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -44,7 +52,14 @@ export const stopContainerTool: Tool = {
     );
 
     return successResponse(
-      `⏹️ Container "${args.container}" stopped on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'stop',
+        resourceType: 'container',
+        resourceId: args.container,
+        serverName: args.server,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -67,7 +82,14 @@ export const restartContainerTool: Tool = {
     );
 
     return successResponse(
-      `🔄 Container "${args.container}" restarted on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'restart',
+        resourceType: 'container',
+        resourceId: args.container,
+        serverName: args.server,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -90,7 +112,14 @@ export const pauseContainerTool: Tool = {
     );
 
     return successResponse(
-      `⏸️ Container "${args.container}" paused on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'pause',
+        resourceType: 'container',
+        resourceId: args.container,
+        serverName: args.server,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -115,7 +144,14 @@ export const unpauseContainerTool: Tool = {
     );
 
     return successResponse(
-      `▶️ Container "${args.container}" resumed on server "${args.server}".\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'unpause',
+        resourceType: 'container',
+        resourceId: args.container,
+        serverName: args.server,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };

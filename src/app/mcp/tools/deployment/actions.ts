@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../../api/utils.js';
 import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
+import { formatActionResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -22,7 +23,13 @@ export const deployContainerTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🚀 Deployment "${args.deployment}" started.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'deploy',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -45,7 +52,13 @@ export const pullDeploymentImageTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `📥 Image pull for deployment "${args.deployment}" initiated.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'pull',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -68,7 +81,13 @@ export const startDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `▶️ Deployment "${args.deployment}" started.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'start',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -90,7 +109,13 @@ export const restartDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🔄 Deployment "${args.deployment}" restarted.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'restart',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -113,7 +138,13 @@ export const pauseDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `⏸️ Deployment "${args.deployment}" paused.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'pause',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -135,7 +166,13 @@ export const unpauseDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `▶️ Deployment "${args.deployment}" unpaused.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'unpause',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -158,7 +195,13 @@ export const stopDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `⏹️ Deployment "${args.deployment}" stopped.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'stop',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -181,7 +224,13 @@ export const destroyDeploymentTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🗑️ Deployment container "${args.deployment}" destroyed.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'destroy',
+        resourceType: 'deployment',
+        resourceId: args.deployment,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };

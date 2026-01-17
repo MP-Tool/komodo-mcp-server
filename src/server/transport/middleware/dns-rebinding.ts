@@ -9,7 +9,7 @@
  */
 
 import { Request, Response, NextFunction } from 'express';
-import { config, getAllowedHosts, getAllowedOrigins, isLocalHost } from '../../../config/index.js';
+import { config, getAllowedHosts, getAllowedOrigins, isLocalHost } from '../../../app/config/index.js';
 import { createJsonRpcError, logSecurityEvent, sanitizeForLog } from '../utils/index.js';
 import { HTTP_STATUS, TRANSPORT_ERROR_CODES, TransportErrorMessages } from '../core/index.js';
 

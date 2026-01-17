@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { LOG_SEARCH_DEFAULTS, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../../config/index.js';
+import { formatSearchResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -51,6 +52,14 @@ export const searchContainerLogsTool: Tool = {
     const matchCount = filteredLines.length;
     const filteredContent = filteredLines.join('\n');
 
-    return successResponse(`Found ${matchCount} matching line(s):\n\n${filteredContent}`);
+    return successResponse(
+      formatSearchResponse({
+        containerName: args.container,
+        serverName: args.server,
+        query: args.query,
+        matchCount,
+        matches: filteredContent,
+      }),
+    );
   },
 };

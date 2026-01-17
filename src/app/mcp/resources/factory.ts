@@ -257,23 +257,3 @@ export function registerDynamicResource<TArgs extends Record<string, string | st
   const template = createDynamicResource(config);
   resourceRegistry.registerTemplate(template);
 }
-
-/**
- * Helper to create multiple resources at once.
- *
- * @param configs - Array of resource configurations
- * @returns Array of Resource definitions
- */
-export function createTextResources(configs: TextResourceConfig[]): Resource[] {
-  return configs.map(createTextResource);
-}
-
-/**
- * Helper to create multiple JSON resources at once.
- *
- * @param configs - Array of resource configurations
- * @returns Array of Resource definitions
- */
-export function createJsonResources(configs: JsonResourceConfig[]): Resource[] {
-  return configs.map(createJsonResource);
-}

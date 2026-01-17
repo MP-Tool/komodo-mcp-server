@@ -2,14 +2,14 @@ services:
   komodo-mcp-server:
     image: ghcr.io/mp-tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
     
+    ports:
+      - 3000:${MCP_PORT:-3000}
+
     env_file:
       - .env
     # Override environment variables from .env file or shell
     environment:
-      - KOMODO_URL=http://host.docker.internal:9120
+      - KOMODO_URL=${KOMODO_URL:-http://host.docker.internal:9120}
       - KOMODO_USERNAME=${KOMODO_USERNAME:-username}
       - KOMODO_PASSWORD=${KOMODO_PASSWORD:-password}
-    
-    # Uncomment and change port if needed
-    # ports:
-    #   - "3000:3000"
+

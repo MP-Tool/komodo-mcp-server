@@ -2,6 +2,7 @@ import { z } from 'zod';
 import { Tool } from '../base.js';
 import { extractUpdateId } from '../../../api/utils.js';
 import { PARAM_DESCRIPTIONS } from '../../../config/index.js';
+import { formatActionResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -22,7 +23,13 @@ export const deployStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🚀 Stack "${args.stack}" deployed.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'deploy',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -45,7 +52,13 @@ export const pullStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `📥 Image pull for stack "${args.stack}" initiated.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'pull',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -68,7 +81,13 @@ export const startStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `▶️ Stack "${args.stack}" started.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'start',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -90,7 +109,13 @@ export const restartStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🔄 Stack "${args.stack}" restarted.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'restart',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -113,7 +138,13 @@ export const pauseStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `⏸️ Stack "${args.stack}" paused.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'pause',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -136,7 +167,13 @@ export const unpauseStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `▶️ Stack "${args.stack}" unpaused.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'unpause',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -159,7 +196,13 @@ export const stopStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `⏹️ Stack "${args.stack}" stopped.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'stop',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };
@@ -182,7 +225,13 @@ export const destroyStackTool: Tool = {
       abortSignal,
     );
     return successResponse(
-      `🗑️ Stack "${args.stack}" destroyed.\n\nUpdate ID: ${extractUpdateId(result)}\nStatus: ${result.status}`,
+      formatActionResponse({
+        action: 'destroy',
+        resourceType: 'stack',
+        resourceId: args.stack,
+        updateId: extractUpdateId(result),
+        status: result.status,
+      }),
     );
   },
 };

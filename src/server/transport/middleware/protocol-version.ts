@@ -5,7 +5,7 @@
 
 import { Request, Response, NextFunction } from 'express';
 import { sanitizeForLog } from '../utils/index.js';
-import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../../../config/index.js';
+import { SUPPORTED_PROTOCOL_VERSIONS, FALLBACK_PROTOCOL_VERSION } from '../../config/index.js';
 import { logger as baseLogger } from '../../logger/index.js';
 import {
   HTTP_STATUS,

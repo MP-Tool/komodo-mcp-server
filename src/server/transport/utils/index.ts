@@ -5,6 +5,8 @@
  *
  * - **JSON-RPC** - Error response creation and validation
  * - **Logging** - Security event logging and sanitization
+ *
+ * @module server/transport/utils
  */
 
 // ===== JSON-RPC Utilities =====

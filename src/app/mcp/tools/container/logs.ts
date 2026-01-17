@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import { CONTAINER_LOGS_DEFAULTS, PARAM_DESCRIPTIONS, LOG_DESCRIPTIONS } from '../../../config/index.js';
+import { formatLogsResponse } from '../../../utils/index.js';
 import { requireClient, wrapApiCall, successResponse } from '../utils.js';
 
 /**
@@ -53,11 +54,13 @@ export const getContainerLogsTool: Tool = {
       logContent += result.stderr;
     }
 
-    // Fallback if both are empty
-    if (!logContent) {
-      logContent = 'No logs available';
-    }
-
-    return successResponse(logContent);
+    return successResponse(
+      formatLogsResponse({
+        containerName: args.container,
+        serverName: args.server,
+        logs: logContent,
+        lines: args.tail,
+      }),
+    );
   },
 };

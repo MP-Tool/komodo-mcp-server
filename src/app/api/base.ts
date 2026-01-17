@@ -1,5 +1,5 @@
 import { KomodoClient as CoreClient } from 'komodo_client';
-import { logger as baseLogger } from '../utils/index.js';
+import { logger as baseLogger } from '../framework.js';
 
 /**
  * Operation types for timeout configuration.
@@ -32,6 +32,62 @@ export interface ApiOperationOptions {
 }
 
 /**
+ * Network error codes that indicate transient failures.
+ * These are standard Node.js/system error codes.
+ */
+export const RETRYABLE_NETWORK_ERROR_CODES = [
+  'ECONNREFUSED', // Connection refused - server not listening
+  'ETIMEDOUT', // Connection timed out
+  'ECONNRESET', // Connection reset by peer
+  'ENOTFOUND', // DNS lookup failed
+  'ENETUNREACH', // Network unreachable
+  'EHOSTUNREACH', // Host unreachable
+  'EPIPE', // Broken pipe
+  'EAI_AGAIN', // DNS temporary failure
+] as const;
+
+/**
+ * Interface for errors with a code property (Node.js system errors).
+ */
+export interface ErrorWithCode extends Error {
+  code?: string;
+}
+
+/**
+ * Interface for errors with HTTP status (Axios/fetch errors).
+ */
+export interface ErrorWithStatus extends Error {
+  status?: number;
+  response?: {
+    status?: number;
+  };
+}
+
+/**
+ * Type guard to check if an error has a code property.
+ */
+export function isErrorWithCode(error: unknown): error is ErrorWithCode {
+  return error instanceof Error && 'code' in error && typeof (error as ErrorWithCode).code === 'string';
+}
+
+/**
+ * Type guard to check if an error has HTTP status information.
+ */
+export function isErrorWithStatus(error: unknown): error is ErrorWithStatus {
+  if (!(error instanceof Error)) return false;
+  const err = error as ErrorWithStatus;
+  return typeof err.status === 'number' || typeof err.response?.status === 'number';
+}
+
+/**
+ * Extracts HTTP status code from various error formats.
+ */
+export function getErrorStatusCode(error: unknown): number | undefined {
+  if (!isErrorWithStatus(error)) return undefined;
+  return error.status ?? error.response?.status;
+}
+
+/**
  * Retry configuration for transient errors.
  */
 export interface RetryConfig {
@@ -43,6 +99,8 @@ export interface RetryConfig {
   exponentialBackoff: boolean;
   /** HTTP status codes that should trigger a retry */
   retryableStatusCodes: number[];
+  /** Maximum jitter to add to delay (percentage, 0-1) */
+  jitterFactor: number;
 }
 
 /**
@@ -53,6 +111,7 @@ export const DEFAULT_RETRY_CONFIG: RetryConfig = {
   baseDelayMs: 1000,
   exponentialBackoff: true,
   retryableStatusCodes: [408, 429, 500, 502, 503, 504],
+  jitterFactor: 0.2, // Add up to 20% jitter
 };
 
 /**
@@ -164,10 +223,8 @@ export abstract class BaseResource {
           throw error;
         }
 
-        // Calculate delay with optional exponential backoff
-        const delay = retryConfig.exponentialBackoff
-          ? retryConfig.baseDelayMs * Math.pow(2, attempt)
-          : retryConfig.baseDelayMs;
+        // Calculate delay with exponential backoff and jitter
+        const delay = this.calculateRetryDelay(attempt, retryConfig);
 
         this.logger.warn(
           `${operationName ?? 'Operation'} failed (attempt ${attempt + 1}/${retryConfig.maxRetries + 1}), ` +
@@ -183,23 +240,42 @@ export abstract class BaseResource {
   }
 
   /**
-   * Checks if an error is retryable based on status codes.
+   * Checks if an error is retryable based on error codes and status codes.
+   *
+   * Uses proper type-safe error code inspection instead of string matching.
    */
   private isRetryableError(error: unknown, retryableStatusCodes: number[]): boolean {
-    if (error instanceof Error) {
-      // Check for network errors
-      if (error.message.includes('ECONNREFUSED') || error.message.includes('ETIMEDOUT')) {
+    // Check for network errors using error code property (type-safe)
+    if (isErrorWithCode(error)) {
+      const errorCode = error.code;
+      if (errorCode && (RETRYABLE_NETWORK_ERROR_CODES as readonly string[]).includes(errorCode)) {
         return true;
       }
-
-      // Check for HTTP status codes in error message
-      for (const code of retryableStatusCodes) {
-        if (error.message.includes(String(code))) {
-          return true;
-        }
-      }
     }
+
+    // Check for HTTP status codes using proper status extraction
+    const statusCode = getErrorStatusCode(error);
+    if (statusCode !== undefined && retryableStatusCodes.includes(statusCode)) {
+      return true;
+    }
+
     return false;
+  }
+
+  /**
+   * Calculates delay with optional exponential backoff and jitter.
+   *
+   * Jitter helps prevent thundering herd problems when multiple
+   * clients retry simultaneously.
+   */
+  private calculateRetryDelay(attempt: number, config: RetryConfig): number {
+    // Calculate base delay with optional exponential backoff
+    const baseDelay = config.exponentialBackoff ? config.baseDelayMs * Math.pow(2, attempt) : config.baseDelayMs;
+
+    // Add jitter to prevent thundering herd
+    const jitter = baseDelay * config.jitterFactor * Math.random();
+
+    return Math.floor(baseDelay + jitter);
   }
 
   /**

@@ -6,6 +6,45 @@
  */
 
 /**
+ * Emoji constants for consistent formatting in tool responses.
+ * Use these instead of hardcoding emojis to ensure visual consistency.
+ */
+export const RESPONSE_ICONS = {
+  // Status indicators
+  SUCCESS: '✅',
+  ERROR: '❌',
+  WARNING: '⚠️',
+
+  // Actions
+  START: '🚀',
+  STOP: '⏹️',
+  RESTART: '🔄',
+  PAUSE: '⏸️',
+  UNPAUSE: '▶️',
+  RESUME: '▶️', // Alias for UNPAUSE
+  DELETE: '🗑️',
+  PRUNE: '🧹',
+  DEPLOY: '📤',
+  PULL: '📥',
+  CREATE: '✨',
+  UPDATE: '📝',
+
+  // Resources
+  CONTAINER: '📦',
+  SERVER: '🖥️',
+  STACK: '📚',
+  DEPLOYMENT: '🚢',
+
+  // Info
+  INFO: 'ℹ️',
+  LIST: '📋',
+  NETWORK: '🌐',
+  TIME: '⚡',
+  AUTH: '🔐',
+  VERSION: '📦',
+} as const;
+
+/**
  * Parameter descriptions for resource identifiers
  */
 export const PARAM_DESCRIPTIONS = {

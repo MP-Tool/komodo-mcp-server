@@ -172,14 +172,23 @@ export class Logger implements ILogger {
   // Instance properties
   // ============================================================
 
-  /** Minimum log level (numeric for fast comparison) */
-  private readonly level: number;
+  /** Override log level (if set in options, otherwise uses global config) */
+  private readonly levelOverride: LogLevel | undefined;
 
   /** Component name for this logger instance */
   private readonly component: string;
 
   /** Resources instance (shared or injected) */
   private readonly resources: LoggerResources;
+
+  /**
+   * Get the effective log level (numeric for fast comparison).
+   * Uses override if set, otherwise reads from global config dynamically.
+   */
+  private get level(): number {
+    const effectiveLevel = this.levelOverride ?? getLoggerConfig().LOG_LEVEL;
+    return LOG_LEVELS[effectiveLevel];
+  }
 
   // ============================================================
   // Constructor and Initialization
@@ -191,14 +200,13 @@ export class Logger implements ILogger {
    * @param componentOrOptions - Component name string or options object
    */
   constructor(componentOrOptions: string | LoggerOptions = 'server') {
-    const cfg = getLoggerConfig();
     if (typeof componentOrOptions === 'string') {
       this.component = componentOrOptions;
-      this.level = LOG_LEVELS[cfg.LOG_LEVEL];
+      this.levelOverride = undefined; // Use global config dynamically
       this.resources = Logger.getOrInitializeResources();
     } else {
       this.component = componentOrOptions.component ?? 'server';
-      this.level = LOG_LEVELS[componentOrOptions.level ?? cfg.LOG_LEVEL];
+      this.levelOverride = componentOrOptions.level; // Override if explicitly set
       this.resources = componentOrOptions.resources ?? Logger.getOrInitializeResources();
     }
   }
@@ -519,5 +527,7 @@ export class Logger implements ILogger {
 
 /**
  * Default logger instance for the application.
+ * Uses dynamic log level from global config, so configureLogger()
+ * can be called at any time to change the effective log level.
  */
 export const logger = new Logger();

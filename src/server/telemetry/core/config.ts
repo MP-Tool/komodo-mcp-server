@@ -8,7 +8,7 @@
  */
 
 import type { TelemetryConfig } from './types.js';
-import { config } from '../../../config/index.js';
+import { config } from '../../../app/config/index.js';
 
 /**
  * Get telemetry configuration from centralized application config.

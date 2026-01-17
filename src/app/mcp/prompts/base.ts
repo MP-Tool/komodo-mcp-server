@@ -18,7 +18,7 @@
  */
 
 import { z } from 'zod';
-import { RegistryError } from '../../../server/errors/index.js';
+import { RegistryError } from '../../framework.js';
 
 /**
  * Message role in a prompt

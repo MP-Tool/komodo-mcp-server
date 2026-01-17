@@ -17,7 +17,8 @@ import { SseTransport } from './transport.js';
 import { createJsonRpcError, JsonRpcErrorCode } from '../utils/index.js';
 import { logger as baseLogger } from '../../logger/index.js';
 import { HttpStatus, TransportErrorMessage } from '../../errors/index.js';
-import { config, LEGACY_SSE_MAX_SESSIONS } from '../../../config/index.js';
+import { config } from '../../../app/config/index.js';
+import { LEGACY_SSE_MAX_SESSIONS } from '../../config/index.js';
 import type { McpServerFactory } from './types.js';
 import { TRANSPORT_LOG_COMPONENTS } from '../core/index.js';
 

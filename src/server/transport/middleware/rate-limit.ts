@@ -4,7 +4,7 @@
  */
 
 import rateLimit from 'express-rate-limit';
-import { config } from '../../../config/index.js';
+import { config } from '../../../app/config/index.js';
 import { TransportErrorMessages } from '../core/index.js';
 
 /**

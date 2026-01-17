@@ -141,7 +141,4 @@ export {
   type StackActionConfig,
   type DeploymentActionConfig,
   type ContainerActionConfig,
-  type StackActionMethod,
-  type DeploymentActionMethod,
-  type ContainerActionMethod,
 } from './factory.js';

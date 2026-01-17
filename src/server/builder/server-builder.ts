@@ -28,7 +28,6 @@ import type {
   IResourceTemplateDefinition,
   IPromptProvider,
   IPromptDefinition,
-  CallToolResult,
 } from './types.js';
 import { createBuilderState } from './types.js';
 import { BuilderMessages, BuilderLogMessages, BUILDER_LOG_COMPONENT } from './constants.js';

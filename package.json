@@ -72,7 +72,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@types/express": "^5.0.6",
-    "@types/node": "^20.19.25",
+    "@types/node": "^25.0.9",
     "typescript": "^5.9.3",
     "fast-check": "^4.3.0"
   }

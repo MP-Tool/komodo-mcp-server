@@ -9,6 +9,42 @@
  */
 
 import { z } from 'zod';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
+
+// ============================================================================
+// Version Resolution
+// ============================================================================
+
+/** Path to baked-in VERSION file (created during Docker build) */
+const VERSION_FILE_PATH = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'VERSION');
+
+/**
+ * Resolve application version from available sources.
+ *
+ * Single Source of Truth: package.json
+ *
+ * Resolution:
+ * - Docker: Reads from build/VERSION (baked in from package.json during build)
+ * - npm run: Uses npm_package_version (injected by npm from package.json)
+ *
+ * @returns Version string or 'unknown' if resolution fails
+ */
+function resolveVersion(): string {
+  // Docker: VERSION file is baked in during build
+  try {
+    return readFileSync(VERSION_FILE_PATH, 'utf-8').trim();
+  } catch {
+    // Not running in Docker container
+  }
+
+  // npm run: npm injects version from package.json
+  return process.env.npm_package_version ?? 'unknown';
+}
+
+/** Cached version - resolved once at module load */
+const VERSION = resolveVersion();
 
 // ============================================================================
 // Schema Definition
@@ -29,10 +65,14 @@ export const frameworkEnvSchema = z.object({
   // Application Metadata
   // --------------------------------------------------------------------------
 
-  /* v8 ignore start - environment-dependent default */
-  /** Application version (defaults to package.json version) */
-  VERSION: z.string().default(process.env.npm_package_version || 'unknown'),
-  /* v8 ignore stop */
+  /**
+   * Application version (resolved at module load).
+   *
+   * Source of Truth: package.json
+   * - Docker: build/VERSION file (baked in during build)
+   * - npm run: npm_package_version environment variable
+   */
+  VERSION: z.string().default(VERSION),
 
   /** Node environment (development, production, test) */
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 import { Tool } from '../base.js';
 import type { HealthCheckResult } from '../../../api/types.js';
+import { SERVER_VERSION } from '../../../config/index.js';
 
 // Re-use HealthCheckResult details type
 type KomodoHealthCheckDetails = HealthCheckResult['details'];
@@ -61,8 +62,9 @@ export const healthCheckTool: Tool = {
                 `🌐 Server: ${details.url}\n` +
                 `⚡ Response Time: ${details.responseTime}ms\n` +
                 `🔐 Authentication: ${details.authenticated ? '✅ OK' : '❌ Failed'}\n` +
-                `${details.apiVersion ? `📦 API Version: ${details.apiVersion}\n` : ''}` +
-                `\nStatus: ${health.message} 🎉`,
+                `${details.apiVersion ? `🦎 Komodo-API Version: ${details.apiVersion}\n` : ''}` +
+                `📦 MCP Server Version: ${SERVER_VERSION}\n` +
+                `\nStatus: ${health.message}`,
             },
           ],
         };

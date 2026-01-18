@@ -6,6 +6,32 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+## [1.2.1] - Minojr Bug Fixes
+
+### 🐛 Bug Fixes
+
+- **Docker ARM64 Build**: Fixed QEMU emulation failure during ARM64 cross-compilation
+  - Moved `npm prune --omit=dev` to builder stage to avoid running npm in production stage under QEMU
+  - Production stage now copies pre-pruned `node_modules` from builder instead of running `npm ci`
+  - Resolves "Illegal instruction (core dumped)" error on ARM64 builds
+
+- **Version Resolution in Docker**: Fixed server failing to start with "Server version is required" error
+  - Version is now baked into `build/VERSION` during Docker build from `package.json`
+  - Single Source of Truth: `package.json` → immutable once image is built
+  - Fallback chain: `build/VERSION` → `npm_package_version` → `package.json`
+
+### ✨ New Features
+
+- **ARM/v7 Support**: Added 32-bit ARM architecture support (Raspberry Pi 3, older ARM devices)
+- Docker images now available for: `linux/amd64`, `linux/arm64`, `linux/arm/v7`
+
+### 📦 Improvements
+
+- **Dockerfile Optimization**: Improved multi-stage build with better documentation and layer caching
+- **Build Performance**: Production stage no longer runs npm operations, reducing build time and complexity
+- **Removed VERSION Build-Arg**: Version is now extracted from `package.json` during build, not passed as argument
+
+--------------------------------------------------------------
 
 ## [1.2.0] - Major Architecture Overhaul
 

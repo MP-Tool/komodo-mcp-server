@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "mcpName": "io.github.mp-tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:prod": "tsc --project tsconfig.prod.json",
+    "build:prod": "tsc --project tsconfig.prod.json && node -p \"require('./package.json').version\" > build/VERSION",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build node_modules coverage test-results",
@@ -46,6 +46,7 @@
   "files": [
     "build/**/*.js",
     "build/**/*.d.ts",
+    "build/VERSION",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"
@@ -54,10 +55,10 @@
     "komodo_client": "^1.19.5",
     "@modelcontextprotocol/sdk": "^1.25.2",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.67.3",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.209.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.68.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.210.0",
     "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/sdk-node": "^0.209.0",
+    "@opentelemetry/sdk-node": "^0.210.0",
     "@opentelemetry/semantic-conventions": "^1.33.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",
@@ -72,7 +73,7 @@
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "@typescript-eslint/parser": "^7.18.0",
     "@types/express": "^5.0.6",
-    "@types/node": "^20.19.25",
+    "@types/node": "^25.0.9",
     "typescript": "^5.9.3",
     "fast-check": "^4.3.0"
   }

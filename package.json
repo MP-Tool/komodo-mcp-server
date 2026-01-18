@@ -1,7 +1,7 @@
 {
   "name": "komodo-mcp-server",
   "version": "1.2.1",
-  "mcpName": "io.github.mp-tool/komodo-mcp-server",
+  "mcpName": "io.github.MP-Tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
   "main": "build/index.js",

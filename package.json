@@ -6,7 +6,7 @@
   "type": "module",
   "main": "build/index.js",
   "bin": {
-    "komodo-mcp": "./build/index.js"
+    "komodo-mcp-server": "./build/index.js"
   },
   "scripts": {
     "build": "tsc",

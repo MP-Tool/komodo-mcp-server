@@ -11,6 +11,10 @@ name: Publish to npm
 #    - Repository: komodo-mcp-server
 #    - Workflow: publish-npm.yml
 #    - Environment: (leave blank)
+#
+# References:
+# - https://docs.npmjs.com/trusted-publishers
+# - https://docs.npmjs.com/generating-provenance-statements
 
 on:
   release:
@@ -45,14 +49,15 @@ jobs:
         uses: actions/setup-node@v6
         with:
           node-version: '22.x'
-          # NOTE: Do NOT use registry-url here! It creates .npmrc with token placeholder
-          # that blocks OIDC detection. npm will use default registry automatically.
+          # registry-url is REQUIRED for npm to use OIDC authentication
+          registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
-      - name: Upgrade npm for OIDC support
+      - name: Upgrade npm for Trusted Publishing support
         run: |
           echo "Current npm version: $(npm --version)"
-          npm install -g npm@11
+          # Trusted Publishing requires npm 11.5.1+
+          npm install -g npm@latest
           echo "Upgraded npm version: $(npm --version)"
 
       - name: Install dependencies
@@ -105,17 +110,14 @@ jobs:
           echo "=== Package size ==="
           npm pack --json | jq '.[0] | {name, version, size, unpackedSize}'
 
-      - name: Publish to npm (with provenance)
+      - name: Publish to npm (Trusted Publishing)
         if: github.event.inputs.dry_run != 'true'
-        env:
-          NPM_CONFIG_PROVENANCE: 'true'
         run: |
-          # Publish with provenance for supply chain security
-          # Uses OIDC authentication automatically when:
-          # 1. id-token: write permission is set
-          # 2. Running on GitHub Actions
-          # 3. No .npmrc with token configuration
-          npm publish --provenance --access public
+          # Trusted Publishing uses OIDC for authentication
+          # - No NPM_TOKEN or NODE_AUTH_TOKEN needed
+          # - Provenance is automatically generated
+          # - Requires npm 11.5.1+ and Trusted Publisher configured on npmjs.com
+          npm publish --access public
 
       - name: Dry run (skip publish)
         if: github.event.inputs.dry_run == 'true'

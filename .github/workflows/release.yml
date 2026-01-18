@@ -139,16 +139,19 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # Multi-architecture support:
+          # - linux/amd64: Standard x86_64 servers and desktops
+          # - linux/arm64: Apple Silicon, AWS Graviton, Raspberry Pi 4/5
+          # - linux/arm/v7: Raspberry Pi 3, older 32-bit ARM devices
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
+          target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
-          build-args: |
-            VERSION=${{ needs.check-version.outputs.current_version }}
 
       # Sign the Docker image using Sigstore keyless signing
       # This creates a cryptographic signature that proves the image was built in this workflow

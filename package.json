@@ -10,7 +10,7 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:prod": "tsc --project tsconfig.prod.json",
+    "build:prod": "tsc --project tsconfig.prod.json && node -p \"require('./package.json').version\" > build/VERSION",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build node_modules coverage test-results",
@@ -46,6 +46,7 @@
   "files": [
     "build/**/*.js",
     "build/**/*.d.ts",
+    "build/VERSION",
     "README.md",
     "LICENSE",
     "CHANGELOG.md"

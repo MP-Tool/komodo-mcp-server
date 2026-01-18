@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "mcpName": "io.github.mp-tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
@@ -35,10 +35,10 @@
   "license": "GPL-3.0",
   "repository": {
     "type": "git",
-    "url": "https://github.com/MP-Tool/komodo-mcp-server.git"
+    "url": "https://github.com/mp-tool/komodo-mcp-server.git"
   },
   "bugs": {
-    "url": "https://github.com/MP-Tool/komodo-mcp-server/issues"
+    "url": "https://github.com/mp-tool/komodo-mcp-server/issues"
   },
   "engines": {
     "node": ">=20.0.0"

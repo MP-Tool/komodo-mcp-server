@@ -1,11 +1,11 @@
 {
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
-  "name": "io.github.mp-tool/komodo-mcp-server",
+  "name": "io.github.MP-Tool/komodo-mcp-server",
   "title": "Komodo MCP Server",
   "description": "MCP server for Komodo - manage Docker containers, servers, stacks, and deployments via AI",
-  "websiteUrl": "https://github.com/mp-tool/komodo-mcp-server",
+  "websiteUrl": "https://github.com/MP-Tool/komodo-mcp-server",
   "repository": {
-    "url": "https://github.com/mp-tool/komodo-mcp-server",
+    "url": "https://github.com/MP-Tool/komodo-mcp-server",
     "source": "github"
   },
   "version": "1.2.1",

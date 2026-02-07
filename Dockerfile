@@ -9,7 +9,7 @@
 # - This prevents "Illegal instruction" crashes on ARM64 cross-compilation
 # =============================================================================
 
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 # Upgrade OS packages and install build dependencies
 # python3, make, g++ are required for native Node.js modules (e.g., on ARM)
@@ -43,7 +43,7 @@ RUN npm prune --omit=dev && npm cache clean --force
 # =============================================================================
 
 # Used for local development with hot-reload and debugging capabilities
-FROM node:22-alpine AS development
+FROM node:24-alpine AS development
 
 # Upgrade OS packages and install development tools
 RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
@@ -79,7 +79,7 @@ CMD ["npm", "run", "dev"]
 # Production stage
 # =============================================================================
 
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 
 # Upgrade OS packages to fix vulnerabilities
 RUN apk upgrade --no-cache

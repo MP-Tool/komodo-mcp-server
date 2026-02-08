@@ -36,6 +36,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **CI Annotations**: Multi-arch images now correctly display metadata in GHCR package page
 
+### ⬆️ Dependencies
+
+- `@modelcontextprotocol/sdk`: 1.25.2 → 1.26.0
+- `@opentelemetry/auto-instrumentations-node`: 0.68.0 → 0.69.0
+- `@opentelemetry/exporter-trace-otlp-http`: 0.210.0 → 0.211.0
+- `@opentelemetry/sdk-node`: 0.210.0 → 0.211.0
+
 --------------------------------------------------------------
 ## [1.2.1] - Minojr Bug Fixes
 

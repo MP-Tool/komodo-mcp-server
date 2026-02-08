@@ -6,6 +6,10 @@ services:
       context: .
       dockerfile: Dockerfile
       target: production
+      # args:
+      #   VERSION: "1.0.0"
+      #   BUILD_DATE: "2024-06-01T12:00:00Z"
+      #   COMMIT_SHA: "abcdef1234567890"
     image: komodo-mcp-server:latest
 
     restart: "no"

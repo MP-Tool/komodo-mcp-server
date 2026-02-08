@@ -6,6 +6,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+
+## [1.2.2] - Docker Security & Build Optimization
+
+### 🔐 Security
+
+- **Hardened Runtime User**: Use built-in `node` user (UID 1000) with `/sbin/nologin` shell
+  - No interactive login possible for the service account
+  - Replaces custom `komodo` user for better security alignment with base image
+- **Immutable Build Artifacts**: Build files owned by `root:root`, runtime user cannot modify them
+  - `node_modules/` and `build/` are read-only for the application
+- **Tini Init System**: Added [tini](https://github.com/krallin/tini) as PID 1 for proper signal handling
+  - Ensures graceful shutdown on SIGTERM
+  - Prevents zombie processes
+
+### 📦 Improvements
+
+- **Optimized Docker Build**: Reduced unnecessary steps and improved layer caching
+  - Copy only `src/` and `tsconfig*.json` instead of entire context
+  - Removed `curl` from builder stage (only needed in production for healthcheck)
+  - Combined multiple `LABEL` statements into one
+- **Build Metadata**: Embedded VERSION, BUILD_DATE, and COMMIT_SHA into container
+  - Files available at `/app/build/VERSION`, `/app/build/BUILD_DATE`, `/app/build/COMMIT_SHA`
+  - OCI labels include version, created date, and revision
+- **GHCR Metadata Fix**: Added `DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index` to CI
+  - Fixes missing description in GitHub Container Registry for multi-arch images
+
+### 🐛 Bug Fixes
+
+- **CI Annotations**: Multi-arch images now correctly display metadata in GHCR package page
+
+--------------------------------------------------------------
 ## [1.2.1] - Minojr Bug Fixes
 
 ### 🐛 Bug Fixes

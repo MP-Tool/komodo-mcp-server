@@ -118,6 +118,10 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          # CRITICAL: Set annotations on both manifest AND index level for GHCR
+          # GHCR reads description from manifest-index for multi-arch images
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -133,7 +137,6 @@ jobs:
             org.opencontainers.image.licenses=GPL-3.0
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}#readme
-          # Annotations are used for multi-arch manifest index metadata (GHCR package description)
           annotations: |
             org.opencontainers.image.title=Komodo MCP Server
             org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager
@@ -157,9 +160,12 @@ jobs:
           target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          # For multi-arch images, annotations must be set on the manifest index
-          # See: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#adding-a-description-to-multi-arch-images
           annotations: ${{ steps.meta.outputs.annotations }}
+          # Build-time metadata embedded into the image
+          build-args: |
+            VERSION=${{ needs.check-version.outputs.current_version }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            COMMIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true

@@ -8,13 +8,13 @@
     "url": "https://github.com/MP-Tool/komodo-mcp-server",
     "source": "github"
   },
-  "version": "1.2.1",
+  "version": "1.2.2",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "komodo-mcp-server",
-      "version": "1.2.1",
+      "version": "1.2.2",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -42,7 +42,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.2.1",
+      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.2.2",
       "transport": {
         "type": "stdio"
       },

@@ -192,6 +192,13 @@ jobs:
           subject-digest: ${{ steps.build.outputs.digest }}
           push-to-registry: true
 
+      # Export attestations as release assets for OpenSSF Scorecard Signed-Releases check (10/10 points)
+      - name: Export attestations for release
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign download attestation ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST} > attestations.intoto.jsonl
+
       - name: Generate release notes
         id: release_notes
         env:
@@ -246,6 +253,8 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: ${{ needs.check-version.outputs.is_prerelease == 'true' }}
+          # Attach attestation for OpenSSF Scorecard Signed-Releases check
+          files: attestations.intoto.jsonl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

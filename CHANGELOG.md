@@ -35,6 +35,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 Bug Fixes
 
 - **CI Annotations**: Multi-arch images now correctly display metadata in GHCR package page
+- **OpenSSF Signed-Releases**: Export SLSA attestations as GitHub Release assets
+  - Enables OpenSSF Scorecard to verify signed releases
+  - Attestations available as `attestations.intoto.jsonl` in each release
 
 ### ⬆️ Dependencies
 

@@ -9,6 +9,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'tsconfig.json'
+      - 'tsconfig.prod.json'
   workflow_dispatch:
 
 env:
@@ -152,10 +153,14 @@ jobs:
         with:
           context: .
           # Multi-architecture support:
-          # - linux/amd64: Standard x86_64 servers and desktops
-          # - linux/arm64: Apple Silicon, AWS Graviton, Raspberry Pi 4/5
-          # - linux/arm/v7: Raspberry Pi 3, older 32-bit ARM devices
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          # - linux/amd64:    Standard x86_64 servers and desktops
+          # - linux/arm64:    Apple Silicon, AWS Graviton, Raspberry Pi 4/5
+          # - linux/arm/v7:   Raspberry Pi 3, older 32-bit ARM devices
+          # - linux/arm/v6:   Raspberry Pi Zero/1, lightweight IoT devices
+          # Note: GHCR shows an additional "unknown/unknown" entry - this is the SLSA
+          # attestation manifest (provenance + SBOM metadata), not a runnable image.
+          # This is expected OCI behavior and required for supply chain security.
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
           push: true
           target: production
           tags: ${{ steps.meta.outputs.tags }}

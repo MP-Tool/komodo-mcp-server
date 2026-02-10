@@ -124,6 +124,9 @@ jobs:
           DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # Flavor: Disable automatic 'latest' tag from semver (we control it explicitly)
+          flavor: |
+            latest=false
           tags: |
             type=semver,pattern={{version}},value=${{ needs.check-version.outputs.current_version }}
             type=semver,pattern={{major}}.{{minor}},value=${{ needs.check-version.outputs.current_version }}
@@ -238,38 +241,6 @@ jobs:
           [Documentation](https://github.com/${{ github.repository }}#readme) · [Examples](https://github.com/${{ github.repository }}/tree/main/examples) · [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
           EOF
 
-      # Create signed annotated tag using GitHub API
-      # This creates a verified tag that shows as "Verified" in GitHub UI
-      - name: Create signed tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.current_version }}
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          # Create annotated tag via GitHub API (automatically signed by GitHub)
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/git/tags \
-            -f tag="${VERSION}" \
-            -f message="Release ${VERSION}
-
-          Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
-          Digest: ${DIGEST}
-          
-          Signed-off-by: GitHub Actions <actions@github.com>" \
-            -f object="${{ github.sha }}" \
-            -f type="commit" \
-            | jq -r '.sha' > tag_sha.txt
-          
-          # Create tag reference
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/${VERSION}" \
-            -f sha="$(cat tag_sha.txt)" || true  # Ignore if tag already exists
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -290,6 +261,8 @@ jobs:
     timeout-minutes: 5
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
+    permissions:
+      actions: write       # Required for triggering workflows
     steps:
       - name: Summary
         env:
@@ -303,8 +276,21 @@ jobs:
           |---|---|
           | **Image** | \`${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}\` |
           | **Digest** | \`${DIGEST}\` |
-          | **Platforms** | \`linux/amd64\`, \`linux/arm64\` |
+          | **Platforms** | \`amd64\`, \`arm64\`, \`arm/v7\`, \`arm/v6\` |
           
           
           [View Release](https://github.com/${{ github.repository }}/releases/tag/${VERSION}) · [Docker Image](https://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})
           EOF
+
+      # Trigger publish workflows after successful release
+      # Note: The 'release: [published]' event may not fire when release is created
+      # by the same workflow, so we trigger publish-npm.yml explicitly
+      - name: Trigger npm publish workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Triggering npm publish workflow..."
+          gh workflow run publish-npm.yml \
+            --repo ${{ github.repository }} \
+            --ref main
+          echo "✅ npm publish workflow triggered"

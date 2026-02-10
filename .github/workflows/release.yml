@@ -95,7 +95,6 @@ jobs:
       contents: write      # Required for creating releases and tags
       packages: write      # Required for pushing to GHCR
       id-token: write      # Required for OIDC/Sigstore keyless signing
-      attestations: write  # Required for build attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -189,15 +188,6 @@ jobs:
           done
           cosign sign --yes ${images}
 
-      # Generate SBOM attestation for supply chain security
-      - name: Attest Docker image
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
-
-      # Export attestations as release assets for OpenSSF Scorecard Signed-Releases check (10/10 points)
       - name: Export attestations for release
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
@@ -234,6 +224,8 @@ jobs:
           
           **Tags:** \`latest\` \`${VERSION}\` \`${MINOR}\` \`${MAJOR}\`
           
+          **Platforms:** \`amd64\` \`arm64\` \`arm/v7\` \`arm/v6\`
+          
           <details>
           <summary>Verify image signature</summary>
           
@@ -249,6 +241,38 @@ jobs:
           ---
           [Documentation](https://github.com/${{ github.repository }}#readme) · [Examples](https://github.com/${{ github.repository }}/tree/main/examples) · [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
           EOF
+
+      # Create signed annotated tag using GitHub API
+      # This creates a verified tag that shows as "Verified" in GitHub UI
+      - name: Create signed tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.current_version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          # Create annotated tag via GitHub API (automatically signed by GitHub)
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/git/tags \
+            -f tag="${VERSION}" \
+            -f message="Release ${VERSION}
+
+          Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+          Digest: ${DIGEST}
+          
+          Signed-off-by: GitHub Actions <actions@github.com>" \
+            -f object="${{ github.sha }}" \
+            -f type="commit" \
+            | jq -r '.sha' > tag_sha.txt
+          
+          # Create tag reference
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/${VERSION}" \
+            -f sha="$(cat tag_sha.txt)" || true  # Ignore if tag already exists
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2

@@ -190,15 +190,6 @@ jobs:
           done
           cosign sign --yes ${images}
 
-      - name: Export attestations for release
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          # IMAGE_NAME must be lowercase for OCI references
-          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          IMAGE_REF_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
-          cosign download attestation "${IMAGE_REF_LOWER}@${DIGEST}" > attestations.intoto.jsonl
-
       - name: Generate release notes
         id: release_notes
         env:
@@ -287,8 +278,9 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: ${{ needs.check-version.outputs.is_prerelease == 'true' }}
-          # Attach attestation for OpenSSF Scorecard Signed-Releases check
-          files: attestations.intoto.jsonl
+          # Note: Provenance and SBOM attestations are embedded in the image manifest
+          # (via provenance: true and sbom: true in build-push-action)
+          # They can be verified with: cosign verify-attestation --type slsaprovenance
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

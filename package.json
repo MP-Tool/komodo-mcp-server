@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "mcpName": "io.github.MP-Tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
@@ -10,14 +10,14 @@
   },
   "scripts": {
     "build": "tsc",
-    "build:prod": "tsc --project tsconfig.prod.json && node -p \"require('./package.json').version\" > build/VERSION",
+    "build:prod": "tsc --project tsconfig.prod.json",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "clean": "rm -rf build node_modules coverage test-results",
     "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
     "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
-    "docker:build": "docker build --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
-    "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
+    "docker:build": "docker build --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
+    "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
   },
   "keywords": [
     "mcp",
@@ -53,12 +53,12 @@
   ],
   "dependencies": {
     "komodo_client": "^1.19.5",
-    "@modelcontextprotocol/sdk": "^1.25.2",
+    "@modelcontextprotocol/sdk": "^1.26.0",
     "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.68.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.210.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.69.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
     "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/sdk-node": "^0.210.0",
+    "@opentelemetry/sdk-node": "^0.211.0",
     "@opentelemetry/semantic-conventions": "^1.33.0",
     "express": "^5.2.1",
     "express-rate-limit": "^8.2.1",

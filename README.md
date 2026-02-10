@@ -8,9 +8,9 @@ Manage your Docker or Podman deployments through Komodo with AI assistants and a
 
 Komodo MCP Server enables seamless interaction between AI assistants (like Claude, GitHub Copilot) and Komodo (Container Management Platform) for efficient container management, server orchestration, and deployment operations. The MCP-Server gives you the ability to control your Komodo-managed infrastructure by using natural language or automated workflows.
 
-[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) [![GitHub Release](https://img.shields.io/github/v/release/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/releases) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://github.com/MP-Tool/komodo-mcp-server/pkgs/container/komodo-mcp-server) [![MCP](https://img.shields.io/badge/MCP-Compatible-green)](https://modelcontextprotocol.io)
+[![GitHub Release](https://img.shields.io/github/v/release/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/releases) [![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](LICENSE) [![Docker](https://img.shields.io/badge/Docker-Ready-2496ED?logo=docker&logoColor=white)](https://github.com/MP-Tool/komodo-mcp-server/pkgs/container/komodo-mcp-server) [![npm](https://img.shields.io/npm/v/komodo-mcp-server?logo=npm&logoColor=white)](https://www.npmjs.com/package/komodo-mcp-server) [![MCP Registry](https://img.shields.io/badge/MCP_Registry-Listed-green?logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0id2hpdGUiPjxwYXRoIGQ9Ik0xMiAyQzYuNDggMiAyIDYuNDggMiAxMnM0LjQ4IDEwIDEwIDEwIDEwLTQuNDggMTAtMTBTMTcuNTIgMiAxMiAyem0tMSAxNUg5di02aDJ2NnptNC0ySDEzdi00aDJ2NHoiLz48L3N2Zz4=)](https://registry.modelcontextprotocol.io) [![MCP](https://img.shields.io/badge/MCP-Complient-green)](https://modelcontextprotocol.io)
 
-[![Build Status](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml) [![CodeQL](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/MP-Tool/komodo-mcp-server/badge)](https://securityscorecards.dev/viewer/?uri=github.com/MP-Tool/komodo-mcp-server) [![GitHub Issues](https://img.shields.io/github/issues/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/issues)
+[![GitHub Issues](https://img.shields.io/github/issues/MP-Tool/komodo-mcp-server?logo=github)](https://github.com/MP-Tool/komodo-mcp-server/issues) [![OpenSSF Scorecard](https://api.securityscorecards.dev/projects/github.com/MP-Tool/komodo-mcp-server/badge)](https://securityscorecards.dev/viewer/?uri=github.com/MP-Tool/komodo-mcp-server) [![Build Status](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/release.yml) [![CodeQL](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml/badge.svg)](https://github.com/MP-Tool/komodo-mcp-server/actions/workflows/codeql.yml)
 
 [Features](#features) • [Quick Start](#quick-start) • [Examples](#examples) • [Documentation](#documentation)
 
@@ -66,7 +66,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 <td width="50%">
 
 ### ⚡ Performance
-- Pre-compiled regex for logging
+- Pre-compiled regex
 - Tool registry caching
 - O(1) circular buffer history
 - Request cancellation support
@@ -109,19 +109,28 @@ cp examples/claude/claude_desktop_config.json \
 # Edit credentials and restart Claude
 ```
 
-### Option 3: VS Code
+### Additional Configuration & Integration Guides
+
+#### VS Code Copilot Chat
+Just copy the provided `mcp.json` to your VSCode workspace
 
 ```bash
-# Global integration
-mkdir -p ~/.vscode/mcp
-cp examples/vscode/mcp.json ~/.vscode/mcp/
-
-# Edit credentials and reload VS Code
+cp examples/vscode/mcp.json .vscode/
 ```
 
 > **📚 Full setup guides:** See [`examples/`](examples/) for detailed instructions
 
-## Examples
+## Use
+
+### Testing with MCP Inspector Tool
+
+Try it out with the [MCP Inspector Tool](https://github.com/modelcontextprotocol/inspector)
+
+NOTE: Use `http://<IP/DOMAIN>:<PORT>/mcp` for Streamable HTTP transport or `http://<IP/DOMAIN>:<PORT>/sse` for SSE transport (if enabled). If both transports are enabled, the server will prioritize Streamable HTTP but SSE is also available on `/mcp` endpoint. Correct the ip/domain and port to your configuration.
+
+```bash
+npx @modelcontextprotocol/inspector --url http://localhost:3000/mcp
+```
 
 ### 💬 With AI Assistants
 
@@ -148,22 +157,9 @@ Comming soon: Pre-built n8n workflows for automated container health checks and 
 - **Valid Komodo credentials** (API Key/Secret or username/password)
 
 ### Integration Guides
-- **[Claude Desktop](examples/claude/)** - Direct MCP integration
-- **[VS Code](examples/vscode/)** - GitHub Copilot Chat support  
 - **[Docker Compose](examples/compose/)** - Standalone deployment
-- **[Docker Desktop](examples/docker-desktop/)** - Native MCP beta feature
-
-### Observability (OpenTelemetry)
-
-Enable distributed tracing and metrics with OpenTelemetry:
-
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `OTEL_ENABLED` | `false` | Enable OpenTelemetry |
-| `OTEL_SERVICE_NAME` | `mcp-server` | Service name for traces |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | - | OTLP endpoint (e.g., Jaeger, Grafana) |
-| `OTEL_DEBUG` | `false` | Enable debug logging |
-
+- **[VS Code](examples/vscode/)** - GitHub Copilot Chat support  
+- **[Claude Desktop](examples/claude/)** - Direct MCP integration
 
 ## License
 GPL-3.0 License - see [LICENSE](LICENSE) for details.

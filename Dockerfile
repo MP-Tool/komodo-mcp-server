@@ -7,13 +7,24 @@
 # - All npm operations happen in builder stage (avoids QEMU issues)
 # - Production stage only copies pre-built artifacts
 # - This prevents "Illegal instruction" crashes on ARM64 cross-compilation
+#
+# Security:
+# - Runtime uses built-in node user (UID 1000) with nologin shell
+# - Build artifacts owned by root (immutable for runtime user)
+# - Tini as init system for proper signal handling
 # =============================================================================
 
-FROM node:22-alpine AS builder
+# Build arguments for metadata (passed from CI/docker build)
+ARG VERSION=unknown
+ARG BUILD_DATE=unknown
+ARG COMMIT_SHA=unknown
+
+FROM node:24-alpine AS builder
 
 # Upgrade OS packages and install build dependencies
 # python3, make, g++ are required for native Node.js modules (e.g., on ARM)
-RUN apk upgrade --no-cache && apk add --no-cache python3 make g++ curl
+RUN apk upgrade --no-cache && \
+    apk add --no-cache python3 make g++
 
 WORKDIR /app
 
@@ -23,15 +34,20 @@ COPY package*.json ./
 # Install all dependencies (including devDependencies for TypeScript build)
 RUN npm ci
 
-# Copy source code
-COPY . .
+# Copy only necessary source files for build (optimizes layer caching)
+COPY tsconfig*.json ./
+COPY src/ ./src/
 
-# Build TypeScript to JavaScript
-RUN npm run build
+# Re-declare ARGs after FROM (they don't persist across stages)
+ARG VERSION
+ARG BUILD_DATE
+ARG COMMIT_SHA
 
-# Extract version from package.json and write to version file
-# This "bakes in" the version at build time - immutable once built
-RUN node -p "require('./package.json').version" > build/VERSION
+# Build TypeScript and embed build metadata
+RUN npm run build && \
+    echo "${VERSION}" > build/VERSION && \
+    echo "${BUILD_DATE}" > build/BUILD_DATE && \
+    echo "${COMMIT_SHA}" > build/COMMIT_SHA
 
 # Prune devDependencies - keeps only production deps
 # CRITICAL: This must happen in builder stage to avoid QEMU emulation issues
@@ -43,7 +59,7 @@ RUN npm prune --omit=dev && npm cache clean --force
 # =============================================================================
 
 # Used for local development with hot-reload and debugging capabilities
-FROM node:22-alpine AS development
+FROM node:24-alpine AS development
 
 # Upgrade OS packages and install development tools
 RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
@@ -79,28 +95,31 @@ CMD ["npm", "run", "dev"]
 # Production stage
 # =============================================================================
 
-FROM node:22-alpine AS production
+FROM node:24-alpine AS production
 
-# Upgrade OS packages to fix vulnerabilities
-RUN apk upgrade --no-cache
+# Re-declare ARGs for this stage (needed for LABELs)
+ARG VERSION
+ARG BUILD_DATE
+ARG COMMIT_SHA
+
+# Upgrade OS packages and install tini for proper signal handling
+RUN apk upgrade --no-cache && \
+    apk add --no-cache tini
 
 WORKDIR /app
 
-# Copy package.json
-COPY package*.json ./
+# Copy build artifacts as root-owned (immutable for runtime user)
+# Runtime user (node) cannot modify these files
+COPY --from=builder --chown=root:root /app/node_modules ./node_modules
+COPY --from=builder --chown=root:root /app/build ./build
 
-# Copy pre-pruned node_modules from builder stage
-COPY --from=builder /app/node_modules ./node_modules
+# Harden the built-in node user:
+# - Change shell to nologin (no interactive login possible)
+# - This is a service account only for running the application
+RUN sed -i 's|/home/node:/bin/sh|/home/node:/sbin/nologin|' /etc/passwd
 
-# Copy built JavaScript from builder stage
-COPY --from=builder /app/build ./build
-
-# Create non-root user for security
-RUN addgroup -g 1001 -S komodo && \
-    adduser -S komodo -u 1001
-
-# Switch to non-root user
-USER komodo
+# Switch to non-root user (built-in node user, UID 1000)
+USER node
 
 # Environment variables
 ENV NODE_ENV=production
@@ -116,16 +135,25 @@ EXPOSE ${MCP_PORT}
 # - 200: Server ready (process running, Komodo connected if configured)
 # - 503: Komodo configured but not connected
 # - 429: Session limits reached
+# wget --spider: HEAD request only, -q: quiet mode
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:${MCP_PORT}/ready || exit 1
+  CMD wget --spider -q http://localhost:${MCP_PORT}/ready || exit 1
 
 # Container metadata labels (OCI standard)
-LABEL org.opencontainers.image.title="Komodo MCP Server"
-LABEL org.opencontainers.image.source=https://github.com/mp-tool/komodo-mcp-server
-LABEL org.opencontainers.image.description="Komodo MCP Server - Model Context Protocol Server for Komodo"
-LABEL org.opencontainers.image.licenses=GPL-3.0
-LABEL org.opencontainers.image.authors="Marcel Pfennig"
-LABEL org.opencontainers.image.vendor="MP-Tool"
+LABEL org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${COMMIT_SHA}" \
+      org.opencontainers.image.title="Komodo MCP Server" \
+      org.opencontainers.image.description="Model Context Protocol server for Komodo Container Manager" \
+      org.opencontainers.image.source="https://github.com/mp-tool/komodo-mcp-server" \
+      org.opencontainers.image.documentation="https://github.com/mp-tool/komodo-mcp-server#readme" \
+      org.opencontainers.image.licenses="GPL-3.0" \
+      org.opencontainers.image.authors="Marcel Pfennig" \
+      org.opencontainers.image.vendor="MP-Tool"
 
-# Default: Start as MCP Server
+# Use tini as init system for proper signal handling (SIGTERM, SIGINT)
+# This ensures graceful shutdown and prevents zombie processes
+ENTRYPOINT ["/sbin/tini", "--"]
+
+# Start MCP Server
 CMD ["node", "build/index.js"]

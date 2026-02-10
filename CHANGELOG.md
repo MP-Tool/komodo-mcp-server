@@ -6,6 +6,63 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+
+## [1.2.2] - Docker Security & Build Optimization
+
+### 🔐 Security
+
+- **Hardened Runtime User**: Use built-in `node` user (UID 1000) with `/sbin/nologin` shell
+  - No interactive login possible for the service account
+  - Replaces custom `komodo` user for better security alignment with base image
+- **Immutable Build Artifacts**: Build files owned by `root:root`, runtime user cannot modify them
+  - `node_modules/` and `build/` are read-only for the application
+- **Tini Init System**: Added [tini](https://github.com/krallin/tini) as PID 1 for proper signal handling
+  - Ensures graceful shutdown on SIGTERM
+  - Prevents zombie processes
+- **Signed Git Tags**: Release tags are now cryptographically signed via GitHub API
+  - Annotated tags with release notes for better traceability
+
+### ✨ New Features
+
+- **Node.js 24 Alpine**: Upgraded base image from `node:22-alpine` to `node:24-alpine`
+  - Latest LTS with improved performance and security
+- **ARM/v6 Support**: Added 32-bit ARMv6 architecture (Raspberry Pi Zero/1)
+  - Docker images now available for: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`
+
+### 📦 Improvements
+
+- **Healthcheck: curl → wget**: Replaced `curl` with `wget --spider` for healthchecks
+  - `wget` is included in Alpine (BusyBox) - no additional package installation needed
+  - `--spider` performs HEAD request only (more efficient)
+- **Optimized Docker Build**: Reduced unnecessary steps and improved layer caching
+  - Copy only `src/` and `tsconfig*.json` instead of entire context
+  - Removed `curl` dependency from production stage
+  - Combined multiple `LABEL` statements into one
+- **Build Metadata**: Embedded VERSION, BUILD_DATE, and COMMIT_SHA into container
+  - Files available at `/app/build/VERSION`, `/app/build/BUILD_DATE`, `/app/build/COMMIT_SHA`
+  - OCI labels include version, created date, and revision
+- **GHCR Metadata Fix**: Added `DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index` to CI
+  - Fixes missing description in GitHub Container Registry for multi-arch images
+- **Release Workflow Cleanup**: Removed separate attestation images from GHCR
+  - Provenance and SBOM are now embedded directly in image manifest
+  - Cleaner registry without `sha-*` tagged attestation artifacts
+
+### 🐛 Bug Fixes
+
+- **CI Annotations**: Multi-arch images now correctly display metadata in GHCR package page
+- **OpenSSF Signed-Releases**: Export SLSA attestations as GitHub Release assets
+  - Enables OpenSSF Scorecard to verify signed releases
+  - Attestations available as `attestations.intoto.jsonl` in each release
+
+### ⬆️ Dependencies
+
+- `@modelcontextprotocol/sdk`: 1.25.2 → 1.26.0
+- `@opentelemetry/auto-instrumentations-node`: 0.68.0 → 0.69.0
+- `@opentelemetry/exporter-trace-otlp-http`: 0.210.0 → 0.211.0
+- `@opentelemetry/sdk-node`: 0.210.0 → 0.211.0
+- `hono`: 4.11.4 → 4.11.7
+
+--------------------------------------------------------------
 ## [1.2.1] - Minojr Bug Fixes
 
 ### 🐛 Bug Fixes

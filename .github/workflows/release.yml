@@ -9,6 +9,7 @@ on:
       - 'src/**'
       - 'Dockerfile'
       - 'tsconfig.json'
+      - 'tsconfig.prod.json'
   workflow_dispatch:
 
 env:
@@ -94,7 +95,6 @@ jobs:
       contents: write      # Required for creating releases and tags
       packages: write      # Required for pushing to GHCR
       id-token: write      # Required for OIDC/Sigstore keyless signing
-      attestations: write  # Required for build attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -118,6 +118,10 @@ jobs:
       - name: Extract metadata
         id: meta
         uses: docker/metadata-action@v5
+        env:
+          # CRITICAL: Set annotations on both manifest AND index level for GHCR
+          # GHCR reads description from manifest-index for multi-arch images
+          DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           tags: |
@@ -133,7 +137,6 @@ jobs:
             org.opencontainers.image.licenses=GPL-3.0
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}#readme
-          # Annotations are used for multi-arch manifest index metadata (GHCR package description)
           annotations: |
             org.opencontainers.image.title=Komodo MCP Server
             org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager
@@ -149,10 +152,14 @@ jobs:
         with:
           context: .
           # Multi-architecture support:
-          # - linux/amd64: Standard x86_64 servers and desktops
-          # - linux/arm64: Apple Silicon, AWS Graviton, Raspberry Pi 4/5
-          # - linux/arm/v7: Raspberry Pi 3, older 32-bit ARM devices
-          platforms: linux/amd64,linux/arm64,linux/arm/v7
+          # - linux/amd64:    Standard x86_64 servers and desktops
+          # - linux/arm64:    Apple Silicon, AWS Graviton, Raspberry Pi 4/5
+          # - linux/arm/v7:   Raspberry Pi 3, older 32-bit ARM devices
+          # - linux/arm/v6:   Raspberry Pi Zero/1, lightweight IoT devices
+          # Note: GHCR shows an additional "unknown/unknown" entry - this is the SLSA
+          # attestation manifest (provenance + SBOM metadata), not a runnable image.
+          # This is expected OCI behavior and required for supply chain security.
+          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
           push: true
           target: production
           tags: ${{ steps.meta.outputs.tags }}
@@ -160,6 +167,11 @@ jobs:
           # For multi-arch images, annotations must be set on the manifest index
           # See: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#adding-a-description-to-multi-arch-images
           annotations: ${{ steps.meta.outputs.annotations }}
+          # Build-time metadata embedded into the image
+          build-args: |
+            VERSION=${{ needs.check-version.outputs.current_version }}
+            BUILD_DATE=${{ github.event.repository.updated_at }}
+            COMMIT_SHA=${{ github.sha }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
           provenance: true
@@ -178,13 +190,11 @@ jobs:
           done
           cosign sign --yes ${images}
 
-      # Generate SBOM attestation for supply chain security
-      - name: Attest Docker image
-        uses: actions/attest-build-provenance@v3
-        with:
-          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
+      - name: Export attestations for release
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          cosign download attestation ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST} > attestations.intoto.jsonl
 
       - name: Generate release notes
         id: release_notes
@@ -216,6 +226,8 @@ jobs:
           
           **Tags:** \`latest\` \`${VERSION}\` \`${MINOR}\` \`${MAJOR}\`
           
+          **Platforms:** \`amd64\` \`arm64\` \`arm/v7\` \`arm/v6\`
+          
           <details>
           <summary>Verify image signature</summary>
           
@@ -232,6 +244,38 @@ jobs:
           [Documentation](https://github.com/${{ github.repository }}#readme) · [Examples](https://github.com/${{ github.repository }}/tree/main/examples) · [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
           EOF
 
+      # Create signed annotated tag using GitHub API
+      # This creates a verified tag that shows as "Verified" in GitHub UI
+      - name: Create signed tag
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VERSION: ${{ needs.check-version.outputs.current_version }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          # Create annotated tag via GitHub API (automatically signed by GitHub)
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/git/tags \
+            -f tag="${VERSION}" \
+            -f message="Release ${VERSION}
+
+          Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
+          Digest: ${DIGEST}
+          
+          Signed-off-by: GitHub Actions <actions@github.com>" \
+            -f object="${{ github.sha }}" \
+            -f type="commit" \
+            | jq -r '.sha' > tag_sha.txt
+          
+          # Create tag reference
+          gh api \
+            --method POST \
+            -H "Accept: application/vnd.github+json" \
+            /repos/${{ github.repository }}/git/refs \
+            -f ref="refs/tags/${VERSION}" \
+            -f sha="$(cat tag_sha.txt)" || true  # Ignore if tag already exists
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
@@ -240,6 +284,8 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: ${{ needs.check-version.outputs.is_prerelease == 'true' }}
+          # Attach attestation for OpenSSF Scorecard Signed-Releases check
+          files: attestations.intoto.jsonl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

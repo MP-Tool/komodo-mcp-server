@@ -26,8 +26,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Node.js 24 Alpine**: Upgraded base image from `node:22-alpine` to `node:24-alpine`
   - Latest LTS with improved performance and security
-- **ARM/v6 Support**: Added 32-bit ARMv6 architecture (Raspberry Pi Zero/1)
-  - Docker images now available for: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`
+  - ARM/v6 (Pi Zero/1) support dropped due to Node.js 24 platform requirements
 
 ### 📦 Improvements
 

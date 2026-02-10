@@ -155,11 +155,11 @@ jobs:
           # - linux/amd64:    Standard x86_64 servers and desktops
           # - linux/arm64:    Apple Silicon, AWS Graviton, Raspberry Pi 4/5
           # - linux/arm/v7:   Raspberry Pi 3, older 32-bit ARM devices
-          # - linux/arm/v6:   Raspberry Pi Zero/1, lightweight IoT devices
+          # Note: ARM/v6 (Pi Zero/1) not supported - Node.js 24 dropped ARM/v6 support
           # Note: GHCR shows an additional "unknown/unknown" entry - this is the SLSA
           # attestation manifest (provenance + SBOM metadata), not a runnable image.
           # This is expected OCI behavior and required for supply chain security.
-          platforms: linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6
+          platforms: linux/amd64,linux/arm64,linux/arm/v7
           push: true
           target: production
           tags: ${{ steps.meta.outputs.tags }}
@@ -226,7 +226,7 @@ jobs:
           
           **Tags:** \`latest\` \`${VERSION}\` \`${MINOR}\` \`${MAJOR}\`
           
-          **Platforms:** \`amd64\` \`arm64\` \`arm/v7\` \`arm/v6\`
+          **Platforms:** \`amd64\` \`arm64\` \`arm/v7\`
           
           <details>
           <summary>Verify image signature</summary>

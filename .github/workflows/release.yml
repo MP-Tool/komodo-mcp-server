@@ -181,17 +181,16 @@ jobs:
           sbom: true
 
       # Sign the Docker image using Sigstore keyless signing
-      # This creates a cryptographic signature that proves the image was built in this workflow
+      # Only sign the digest once (not each tag) to avoid multiple signature manifests
       - name: Sign Docker image with Cosign
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
-          TAGS: ${{ steps.meta.outputs.tags }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          images=""
-          for tag in ${TAGS}; do
-            images+="${tag}@${DIGEST} "
-          done
-          cosign sign --yes ${images}
+          # Convert to lowercase for OCI compatibility
+          IMAGE_LOWER=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
+          # Sign only the digest - this covers all tags pointing to it
+          cosign sign --yes "${IMAGE_LOWER}@${DIGEST}"
 
       - name: Generate release notes
         id: release_notes

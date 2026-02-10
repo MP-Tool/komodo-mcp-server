@@ -149,7 +149,8 @@ LABEL org.opencontainers.image.version="${VERSION}" \
       org.opencontainers.image.documentation="https://github.com/mp-tool/komodo-mcp-server#readme" \
       org.opencontainers.image.licenses="GPL-3.0" \
       org.opencontainers.image.authors="Marcel Pfennig" \
-      org.opencontainers.image.vendor="MP-Tool"
+      org.opencontainers.image.vendor="MP-Tool" \
+      io.modelcontextprotocol.server.name="io.github.MP-Tool/komodo-mcp-server"
 
 # Use tini as init system for proper signal handling (SIGTERM, SIGINT)
 # This ensures graceful shutdown and prevents zombie processes

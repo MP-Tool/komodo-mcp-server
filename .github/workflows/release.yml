@@ -241,38 +241,6 @@ jobs:
           [Documentation](https://github.com/${{ github.repository }}#readme) · [Examples](https://github.com/${{ github.repository }}/tree/main/examples) · [Full Changelog](https://github.com/${{ github.repository }}/blob/main/CHANGELOG.md)
           EOF
 
-      # Create signed annotated tag using GitHub API
-      # This creates a verified tag that shows as "Verified" in GitHub UI
-      - name: Create signed tag
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.current_version }}
-          DIGEST: ${{ steps.build.outputs.digest }}
-        run: |
-          # Create annotated tag via GitHub API (automatically signed by GitHub)
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/git/tags \
-            -f tag="${VERSION}" \
-            -f message="Release ${VERSION}
-
-          Docker Image: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION}
-          Digest: ${DIGEST}
-          
-          Signed-off-by: GitHub Actions <actions@github.com>" \
-            -f object="${{ github.sha }}" \
-            -f type="commit" \
-            | jq -r '.sha' > tag_sha.txt
-          
-          # Create tag reference
-          gh api \
-            --method POST \
-            -H "Accept: application/vnd.github+json" \
-            /repos/${{ github.repository }}/git/refs \
-            -f ref="refs/tags/${VERSION}" \
-            -f sha="$(cat tag_sha.txt)" || true  # Ignore if tag already exists
-
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:

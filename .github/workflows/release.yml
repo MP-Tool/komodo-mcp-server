@@ -193,8 +193,11 @@ jobs:
       - name: Export attestations for release
         env:
           DIGEST: ${{ steps.build.outputs.digest }}
+          # IMAGE_NAME must be lowercase for OCI references
+          IMAGE_REF: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
         run: |
-          cosign download attestation ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}@${DIGEST} > attestations.intoto.jsonl
+          IMAGE_REF_LOWER=$(echo "${IMAGE_REF}" | tr '[:upper:]' '[:lower:]')
+          cosign download attestation "${IMAGE_REF_LOWER}@${DIGEST}" > attestations.intoto.jsonl
 
       - name: Generate release notes
         id: release_notes

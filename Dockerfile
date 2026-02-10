@@ -19,7 +19,7 @@ ARG VERSION=unknown
 ARG BUILD_DATE=unknown
 ARG COMMIT_SHA=unknown
 
-FROM node:24-alpine AS builder
+FROM node:22-alpine AS builder
 
 # Upgrade OS packages and install build dependencies
 # python3, make, g++ are required for native Node.js modules (e.g., on ARM)
@@ -59,7 +59,7 @@ RUN npm prune --omit=dev && npm cache clean --force
 # =============================================================================
 
 # Used for local development with hot-reload and debugging capabilities
-FROM node:24-alpine AS development
+FROM node:22-alpine AS development
 
 # Upgrade OS packages and install development tools
 RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
@@ -95,7 +95,7 @@ CMD ["npm", "run", "dev"]
 # Production stage
 # =============================================================================
 
-FROM node:24-alpine AS production
+FROM node:22-alpine AS production
 
 # Re-declare ARGs for this stage (needed for LABELs)
 ARG VERSION

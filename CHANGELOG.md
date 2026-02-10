@@ -22,9 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 📦 Improvements
 
+- **Healthcheck: curl → wget**: Replaced `curl` with `wget --spider` for healthchecks
+  - `wget` is included in Alpine (BusyBox) - no additional package installation needed
+  - `--spider` performs HEAD request only (more efficient)
 - **Optimized Docker Build**: Reduced unnecessary steps and improved layer caching
   - Copy only `src/` and `tsconfig*.json` instead of entire context
-  - Removed `curl` from builder stage (only needed in production for healthcheck)
+  - Removed `curl` dependency from production stage
   - Combined multiple `LABEL` statements into one
 - **Build Metadata**: Embedded VERSION, BUILD_DATE, and COMMIT_SHA into container
   - Files available at `/app/build/VERSION`, `/app/build/BUILD_DATE`, `/app/build/COMMIT_SHA`

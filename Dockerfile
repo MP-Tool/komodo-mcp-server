@@ -103,9 +103,8 @@ ARG BUILD_DATE
 ARG COMMIT_SHA
 
 # Upgrade OS packages and install tini for proper signal handling
-# curl needed for healthcheck
 RUN apk upgrade --no-cache && \
-    apk add --no-cache tini curl
+    apk add --no-cache tini
 
 WORKDIR /app
 
@@ -136,8 +135,9 @@ EXPOSE ${MCP_PORT}
 # - 200: Server ready (process running, Komodo connected if configured)
 # - 503: Komodo configured but not connected
 # - 429: Session limits reached
+# wget --spider: HEAD request only, -q: quiet mode
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD curl -f http://localhost:${MCP_PORT}/ready || exit 1
+  CMD wget --spider -q http://localhost:${MCP_PORT}/ready || exit 1
 
 # Container metadata labels (OCI standard)
 LABEL org.opencontainers.image.version="${VERSION}" \

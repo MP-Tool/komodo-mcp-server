@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Tini Init System**: Added [tini](https://github.com/krallin/tini) as PID 1 for proper signal handling
   - Ensures graceful shutdown on SIGTERM
   - Prevents zombie processes
+- **Signed Git Tags**: Release tags are now cryptographically signed via GitHub API
+  - Annotated tags with release notes for better traceability
+
+### ✨ New Features
+
+- **Node.js 24 Alpine**: Upgraded base image from `node:22-alpine` to `node:24-alpine`
+  - Latest LTS with improved performance and security
+- **ARM/v6 Support**: Added 32-bit ARMv6 architecture (Raspberry Pi Zero/1)
+  - Docker images now available for: `linux/amd64`, `linux/arm64`, `linux/arm/v7`, `linux/arm/v6`
 
 ### 📦 Improvements
 
@@ -34,6 +43,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - OCI labels include version, created date, and revision
 - **GHCR Metadata Fix**: Added `DOCKER_METADATA_ANNOTATIONS_LEVELS: manifest,index` to CI
   - Fixes missing description in GitHub Container Registry for multi-arch images
+- **Release Workflow Cleanup**: Removed separate attestation images from GHCR
+  - Provenance and SBOM are now embedded directly in image manifest
+  - Cleaner registry without `sha-*` tagged attestation artifacts
 
 ### 🐛 Bug Fixes
 
@@ -48,6 +60,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `@opentelemetry/auto-instrumentations-node`: 0.68.0 → 0.69.0
 - `@opentelemetry/exporter-trace-otlp-http`: 0.210.0 → 0.211.0
 - `@opentelemetry/sdk-node`: 0.210.0 → 0.211.0
+- `hono`: 4.11.4 → 4.11.7
 
 --------------------------------------------------------------
 ## [1.2.1] - Minojr Bug Fixes

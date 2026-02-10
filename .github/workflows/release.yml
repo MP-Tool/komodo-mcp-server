@@ -164,6 +164,8 @@ jobs:
           target: production
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          # For multi-arch images, annotations must be set on the manifest index
+          # See: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry#adding-a-description-to-multi-arch-images
           annotations: ${{ steps.meta.outputs.annotations }}
           # Build-time metadata embedded into the image
           build-args: |

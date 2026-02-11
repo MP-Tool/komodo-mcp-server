@@ -19,7 +19,8 @@ ARG VERSION=unknown
 ARG BUILD_DATE=unknown
 ARG COMMIT_SHA=unknown
 
-FROM node:22-alpine AS builder
+# Use native platform for builder (avoids QEMU emulation issues with npm)
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 
 # Upgrade OS packages and install build dependencies
 # python3, make, g++ are required for native Node.js modules (e.g., on ARM)
@@ -49,9 +50,7 @@ RUN npm run build && \
     echo "${BUILD_DATE}" > build/BUILD_DATE && \
     echo "${COMMIT_SHA}" > build/COMMIT_SHA
 
-# Prune devDependencies - keeps only production deps
-# CRITICAL: This must happen in builder stage to avoid QEMU emulation issues
-# Running npm in production stage under QEMU causes "Illegal instruction" on ARM64
+# Prune devDependencies - runs on native platform (no QEMU), so npm works fine
 RUN npm prune --omit=dev && npm cache clean --force
 
 # =============================================================================

@@ -94,7 +94,6 @@ jobs:
     permissions:
       contents: write      # Required for creating releases and tags
       packages: write      # Required for pushing to GHCR
-      id-token: write      # Required for OIDC/Sigstore keyless signing
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -104,9 +103,6 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Install Cosign
-        uses: sigstore/cosign-installer@v4.0.0
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -179,18 +175,6 @@ jobs:
           cache-to: type=gha,mode=max
           provenance: true
           sbom: true
-
-      # Sign the Docker image using Sigstore keyless signing
-      # Only sign the digest once (not each tag) to avoid multiple signature manifests
-      - name: Sign Docker image with Cosign
-        env:
-          DIGEST: ${{ steps.build.outputs.digest }}
-          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-        run: |
-          # Convert to lowercase for OCI compatibility
-          IMAGE_LOWER=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
-          # Sign only the digest - this covers all tags pointing to it
-          cosign sign --yes "${IMAGE_LOWER}@${DIGEST}"
 
       - name: Generate release notes
         id: release_notes

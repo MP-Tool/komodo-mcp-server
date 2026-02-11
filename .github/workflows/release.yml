@@ -204,13 +204,13 @@ jobs:
           IMAGE_LOWER=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
           
           # Download the attestation bundle from GitHub using OCI URI format
-          # Output file is automatically named sha256-<hash>.jsonl
+          # Output file is automatically named sha256:<hash>.jsonl (with colon)
           gh attestation download "oci://${IMAGE_LOWER}@${DIGEST}" \
             --repo ${{ github.repository }}
           
           # Rename to version-based filename for release asset
-          DIGEST_HASH="${DIGEST#sha256:}"
-          mv "sha256-${DIGEST_HASH}.jsonl" "komodo-mcp-server-${VERSION}.intoto.jsonl"
+          # Note: gh outputs filename with colon (sha256:<hash>.jsonl)
+          mv "${DIGEST}.jsonl" "komodo-mcp-server-${VERSION}.intoto.jsonl"
           echo "✅ Attestation exported: komodo-mcp-server-${VERSION}.intoto.jsonl"
 
       - name: Generate release notes

@@ -180,13 +180,16 @@ jobs:
 
       # Generate GitHub Artifact Attestation for OpenSSF Scorecard "Signed-Releases" check
       # This creates a SLSA provenance attestation stored in GitHub's attestation store
+      # Note: push-to-registry=false to avoid duplicate attestation manifests in GHCR
+      # (docker/build-push-action already creates attestations with provenance: true) 
+      # TODO: Think of removing it next version
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@v2
         id: attestation
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
           subject-digest: ${{ steps.build.outputs.digest }}
-          push-to-registry: true
+          push-to-registry: false
 
       # Export SLSA provenance attestation for GitHub Release
       # *.intoto.jsonl files give 10/10 points on Scorecard "Signed-Releases" check

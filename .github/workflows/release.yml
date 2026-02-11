@@ -193,12 +193,20 @@ jobs:
       - name: Export attestation for release
         env:
           VERSION: ${{ needs.check-version.outputs.current_version }}
+          IMAGE: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          DIGEST: ${{ steps.build.outputs.digest }}
         run: |
-          # Download the attestation bundle from GitHub
-          gh attestation download \
-            --repo ${{ github.repository }} \
-            --digest ${{ steps.build.outputs.digest }} \
-            --output "komodo-mcp-server-${VERSION}.intoto.jsonl"
+          # Convert to lowercase for OCI compatibility
+          IMAGE_LOWER=$(echo "${IMAGE}" | tr '[:upper:]' '[:lower:]')
+          
+          # Download the attestation bundle from GitHub using OCI URI format
+          # Output file is automatically named sha256-<hash>.jsonl
+          gh attestation download "oci://${IMAGE_LOWER}@${DIGEST}" \
+            --repo ${{ github.repository }}
+          
+          # Rename to version-based filename for release asset
+          DIGEST_HASH="${DIGEST#sha256:}"
+          mv "sha256-${DIGEST_HASH}.jsonl" "komodo-mcp-server-${VERSION}.intoto.jsonl"
           echo "✅ Attestation exported: komodo-mcp-server-${VERSION}.intoto.jsonl"
 
       - name: Generate release notes

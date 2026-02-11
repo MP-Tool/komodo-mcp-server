@@ -94,6 +94,8 @@ jobs:
     permissions:
       contents: write      # Required for creating releases and tags
       packages: write      # Required for pushing to GHCR
+      id-token: write      # Required for OIDC attestation signing
+      attestations: write  # Required for generating artifact attestations
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -176,6 +178,29 @@ jobs:
           provenance: true
           sbom: true
 
+      # Generate GitHub Artifact Attestation for OpenSSF Scorecard "Signed-Releases" check
+      # This creates a SLSA provenance attestation stored in GitHub's attestation store
+      - name: Generate artifact attestation
+        uses: actions/attest-build-provenance@v2
+        id: attestation
+        with:
+          subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+
+      # Export SLSA provenance attestation for GitHub Release
+      # *.intoto.jsonl files give 10/10 points on Scorecard "Signed-Releases" check
+      - name: Export attestation for release
+        env:
+          VERSION: ${{ needs.check-version.outputs.current_version }}
+        run: |
+          # Download the attestation bundle from GitHub
+          gh attestation download \
+            --repo ${{ github.repository }} \
+            --digest ${{ steps.build.outputs.digest }} \
+            --output "komodo-mcp-server-${VERSION}.intoto.jsonl"
+          echo "✅ Attestation exported: komodo-mcp-server-${VERSION}.intoto.jsonl"
+
       - name: Generate release notes
         id: release_notes
         env:
@@ -209,12 +234,12 @@ jobs:
           **Platforms:** \`amd64\` \`arm64\` \`arm/v7\` \`arm/v6\`
           
           <details>
-          <summary>Verify image signature</summary>
+          <summary>Verify image attestation</summary>
           
           \`\`\`bash
-          cosign verify ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION} \\
-            --certificate-oidc-issuer=https://token.actions.githubusercontent.com \\
-            --certificate-identity-regexp=https://github.com/${{ github.repository }}
+          # Verify SLSA provenance attestation
+          gh attestation verify oci://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${VERSION} \\
+            --repo ${{ github.repository }}
           \`\`\`
           
           **Digest:** \`${DIGEST}\`
@@ -232,9 +257,9 @@ jobs:
           body_path: release_notes.md
           draft: false
           prerelease: ${{ needs.check-version.outputs.is_prerelease == 'true' }}
-          # Note: Provenance and SBOM attestations are embedded in the image manifest
-          # (via provenance: true and sbom: true in build-push-action)
-          # They can be verified with: cosign verify-attestation --type slsaprovenance
+          # Attach SLSA provenance attestation for OpenSSF Scorecard "Signed-Releases" check
+          files: |
+            komodo-mcp-server-${{ needs.check-version.outputs.current_version }}.intoto.jsonl
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

@@ -14,10 +14,10 @@ import type { ApiOperationOptions } from '../base.js';
  * Resource for managing Variables.
  */
 export class VariableResource extends BaseResource {
-  async list(options?: ApiOperationOptions): Promise<unknown[]> {
+  async list(options?: ApiOperationOptions): Promise<unknown> {
     this.checkAborted(options?.signal);
     const response = await this.client.read('ListVariables', {});
-    return response || [];
+    return response;
   }
 
   async get(name: string, options?: ApiOperationOptions): Promise<unknown> {

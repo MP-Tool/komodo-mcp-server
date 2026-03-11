@@ -81,7 +81,7 @@ import {
   deleteBuildTool,
   runBuildTool,
   cancelBuildTool,
-} from './build/index.js';
+} from './image-build/index.js';
 
 import {
   listReposTool,

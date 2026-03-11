@@ -13,11 +13,7 @@ export const listVariablesTool: Tool = {
       () => komodoClient.variables.list({ signal: abortSignal }),
       abortSignal,
     );
-    const list =
-      (variables as Array<{ name?: string; value?: string; description?: string }>)
-        .map((v) => `• ${v.name}: ${v.value || '(empty)'}${v.description ? ` — ${v.description}` : ''}`)
-        .join('\n') || 'No variables found.';
-    return successResponse(`📋 Variables:\n\n${list}`);
+    return successResponse(`📋 Variables:\n\n${JSON.stringify(variables, null, 2)}`);
   },
 };
 
@@ -32,10 +28,6 @@ export const listTagsTool: Tool = {
       () => komodoClient.tags.list({ signal: abortSignal }),
       abortSignal,
     );
-    const list =
-      (tags as Array<{ name?: string; id?: string }>)
-        .map((t) => `• ${t.name} (${t.id})`)
-        .join('\n') || 'No tags found.';
-    return successResponse(`📋 Tags:\n\n${list}`);
+    return successResponse(`📋 Tags:\n\n${JSON.stringify(tags, null, 2)}`);
   },
 };

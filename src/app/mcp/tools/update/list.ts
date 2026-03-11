@@ -13,9 +13,6 @@ export const listUpdatesTool: Tool = {
       () => komodoClient.updates.list({}, { signal: abortSignal }),
       abortSignal,
     );
-    if (!updates || (updates as unknown[]).length === 0) {
-      return successResponse('No updates found.');
-    }
     return successResponse(`📋 Recent Updates:\n\n${JSON.stringify(updates, null, 2)}`);
   },
 };
@@ -31,9 +28,6 @@ export const listAlertsTool: Tool = {
       () => komodoClient.updates.listAlerts({}, { signal: abortSignal }),
       abortSignal,
     );
-    if (!alerts || (alerts as unknown[]).length === 0) {
-      return successResponse('No alerts found.');
-    }
     return successResponse(`📋 Recent Alerts:\n\n${JSON.stringify(alerts, null, 2)}`);
   },
 };

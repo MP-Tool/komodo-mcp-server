@@ -14,10 +14,10 @@ import type { ApiOperationOptions } from '../base.js';
  * Resource for managing Tags.
  */
 export class TagResource extends BaseResource {
-  async list(options?: ApiOperationOptions): Promise<unknown[]> {
+  async list(options?: ApiOperationOptions): Promise<unknown> {
     this.checkAborted(options?.signal);
     const response = await this.client.read('ListTags', {});
-    return response || [];
+    return response;
   }
 
   async get(tagId: string, options?: ApiOperationOptions): Promise<unknown> {

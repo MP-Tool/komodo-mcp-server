@@ -35,13 +35,13 @@ export class BuilderResource extends BaseResource {
   async create(name: string, config?: Partial<BuilderConfig>, options?: ApiOperationOptions): Promise<Builder> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateBuilder', { name, config });
+    const response = await this.client.write('CreateBuilder', { name, config: config as never });
     return response;
   }
 
   async update(builderId: string, config: Partial<BuilderConfig>, options?: ApiOperationOptions): Promise<Builder> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateBuilder', { id: builderId, config });
+    const response = await this.client.write('UpdateBuilder', { id: builderId, config: config as never });
     return response;
   }
 

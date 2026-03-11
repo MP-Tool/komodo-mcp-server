@@ -36,13 +36,13 @@ export class ActionResource extends BaseResource {
   async create(name: string, config?: Partial<ActionConfig>, options?: ApiOperationOptions): Promise<Action> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateAction', { name, config });
+    const response = await this.client.write('CreateAction', { name, config: config as never });
     return response;
   }
 
   async update(actionId: string, config: Partial<ActionConfig>, options?: ApiOperationOptions): Promise<Action> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateAction', { id: actionId, config });
+    const response = await this.client.write('UpdateAction', { id: actionId, config: config as never });
     return response;
   }
 

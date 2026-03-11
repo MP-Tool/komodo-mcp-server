@@ -36,13 +36,13 @@ export class ProcedureResource extends BaseResource {
   async create(name: string, config?: Partial<ProcedureConfig>, options?: ApiOperationOptions): Promise<Procedure> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateProcedure', { name, config });
+    const response = await this.client.write('CreateProcedure', { name, config: config as never });
     return response;
   }
 
   async update(procedureId: string, config: Partial<ProcedureConfig>, options?: ApiOperationOptions): Promise<Procedure> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateProcedure', { id: procedureId, config });
+    const response = await this.client.write('UpdateProcedure', { id: procedureId, config: config as never });
     return response;
   }
 

@@ -36,13 +36,13 @@ export class BuildResource extends BaseResource {
   async create(name: string, config?: Partial<BuildConfig>, options?: ApiOperationOptions): Promise<Build> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateBuild', { name, config });
+    const response = await this.client.write('CreateBuild', { name, config: config as never });
     return response;
   }
 
   async update(buildId: string, config: Partial<BuildConfig>, options?: ApiOperationOptions): Promise<Build> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateBuild', { id: buildId, config });
+    const response = await this.client.write('UpdateBuild', { id: buildId, config: config as never });
     return response;
   }
 

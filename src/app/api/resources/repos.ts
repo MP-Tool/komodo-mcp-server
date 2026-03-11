@@ -36,13 +36,13 @@ export class RepoResource extends BaseResource {
   async create(name: string, config?: Partial<RepoConfig>, options?: ApiOperationOptions): Promise<Repo> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateRepo', { name, config });
+    const response = await this.client.write('CreateRepo', { name, config: config as never });
     return response;
   }
 
   async update(repoId: string, config: Partial<RepoConfig>, options?: ApiOperationOptions): Promise<Repo> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateRepo', { id: repoId, config });
+    const response = await this.client.write('UpdateRepo', { id: repoId, config: config as never });
     return response;
   }
 

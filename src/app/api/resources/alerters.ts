@@ -36,13 +36,13 @@ export class AlerterResource extends BaseResource {
   async create(name: string, config?: Partial<AlerterConfig>, options?: ApiOperationOptions): Promise<Alerter> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
-    const response = await this.client.write('CreateAlerter', { name, config });
+    const response = await this.client.write('CreateAlerter', { name, config: config as never });
     return response;
   }
 
   async update(alerterId: string, config: Partial<AlerterConfig>, options?: ApiOperationOptions): Promise<Alerter> {
     this.checkAborted(options?.signal);
-    const response = await this.client.write('UpdateAlerter', { id: alerterId, config });
+    const response = await this.client.write('UpdateAlerter', { id: alerterId, config: config as never });
     return response;
   }
 

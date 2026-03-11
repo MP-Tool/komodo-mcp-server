@@ -24,7 +24,22 @@
 export { KomodoClient } from './client.js';
 
 // Resources
-export { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
+export {
+  ServerResource,
+  ContainerResource,
+  StackResource,
+  DeploymentResource,
+  ProcedureResource,
+  BuildResource,
+  RepoResource,
+  AlerterResource,
+  SyncResource,
+  ActionResource,
+  BuilderResource,
+  VariableResource,
+  TagResource,
+  UpdateResource,
+} from './resources/index.js';
 export type { PruneType } from './resources/containers.js';
 
 // Types

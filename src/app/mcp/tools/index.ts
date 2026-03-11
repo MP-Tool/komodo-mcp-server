@@ -64,6 +64,93 @@ import {
   deleteStackTool,
 } from './stack/index.js';
 
+import {
+  listProceduresTool,
+  getProcedureTool,
+  createProcedureTool,
+  updateProcedureTool,
+  deleteProcedureTool,
+  runProcedureTool,
+} from './procedure/index.js';
+
+import {
+  listBuildsTool,
+  getBuildTool,
+  createBuildTool,
+  updateBuildTool,
+  deleteBuildTool,
+  runBuildTool,
+  cancelBuildTool,
+} from './build/index.js';
+
+import {
+  listReposTool,
+  getRepoTool,
+  createRepoTool,
+  updateRepoTool,
+  deleteRepoTool,
+  cloneRepoTool,
+  pullRepoTool,
+  buildRepoTool,
+} from './repo/index.js';
+
+import {
+  listAlertersTool,
+  getAlerterTool,
+  createAlerterTool,
+  updateAlerterTool,
+  deleteAlerterTool,
+  testAlerterTool,
+} from './alerter/index.js';
+
+import {
+  listSyncsTool,
+  getSyncTool,
+  createSyncTool,
+  updateSyncTool,
+  deleteSyncTool,
+  runSyncTool,
+  commitSyncTool,
+} from './sync/index.js';
+
+import {
+  listActionsTool,
+  getActionTool,
+  createActionTool,
+  updateActionTool,
+  deleteActionTool,
+  runActionTool,
+} from './action/index.js';
+
+import {
+  listBuildersTool,
+  getBuilderTool,
+  createBuilderTool,
+  updateBuilderTool,
+  deleteBuilderTool,
+} from './builder/index.js';
+
+import {
+  listVariablesTool,
+  listTagsTool,
+  getVariableTool,
+  createVariableTool,
+  updateVariableValueTool,
+  updateVariableDescriptionTool,
+  deleteVariableTool,
+  getTagTool,
+  createTagTool,
+  deleteTagTool,
+  renameTagTool,
+} from './variable/index.js';
+
+import {
+  listUpdatesTool,
+  listAlertsTool,
+  getUpdateTool,
+  getAlertTool,
+} from './update/index.js';
+
 import { configureTool, healthCheckTool } from './config/index.js';
 
 /**
@@ -120,6 +207,86 @@ export function registerTools() {
   toolRegistry.register(createStackTool);
   toolRegistry.register(updateStackTool);
   toolRegistry.register(deleteStackTool);
+
+  // Procedure Tools
+  toolRegistry.register(listProceduresTool);
+  toolRegistry.register(getProcedureTool);
+  toolRegistry.register(createProcedureTool);
+  toolRegistry.register(updateProcedureTool);
+  toolRegistry.register(deleteProcedureTool);
+  toolRegistry.register(runProcedureTool);
+
+  // Build Tools
+  toolRegistry.register(listBuildsTool);
+  toolRegistry.register(getBuildTool);
+  toolRegistry.register(createBuildTool);
+  toolRegistry.register(updateBuildTool);
+  toolRegistry.register(deleteBuildTool);
+  toolRegistry.register(runBuildTool);
+  toolRegistry.register(cancelBuildTool);
+
+  // Repo Tools
+  toolRegistry.register(listReposTool);
+  toolRegistry.register(getRepoTool);
+  toolRegistry.register(createRepoTool);
+  toolRegistry.register(updateRepoTool);
+  toolRegistry.register(deleteRepoTool);
+  toolRegistry.register(cloneRepoTool);
+  toolRegistry.register(pullRepoTool);
+  toolRegistry.register(buildRepoTool);
+
+  // Alerter Tools
+  toolRegistry.register(listAlertersTool);
+  toolRegistry.register(getAlerterTool);
+  toolRegistry.register(createAlerterTool);
+  toolRegistry.register(updateAlerterTool);
+  toolRegistry.register(deleteAlerterTool);
+  toolRegistry.register(testAlerterTool);
+
+  // Resource Sync Tools
+  toolRegistry.register(listSyncsTool);
+  toolRegistry.register(getSyncTool);
+  toolRegistry.register(createSyncTool);
+  toolRegistry.register(updateSyncTool);
+  toolRegistry.register(deleteSyncTool);
+  toolRegistry.register(runSyncTool);
+  toolRegistry.register(commitSyncTool);
+
+  // Action Tools
+  toolRegistry.register(listActionsTool);
+  toolRegistry.register(getActionTool);
+  toolRegistry.register(createActionTool);
+  toolRegistry.register(updateActionTool);
+  toolRegistry.register(deleteActionTool);
+  toolRegistry.register(runActionTool);
+
+  // Builder Tools
+  toolRegistry.register(listBuildersTool);
+  toolRegistry.register(getBuilderTool);
+  toolRegistry.register(createBuilderTool);
+  toolRegistry.register(updateBuilderTool);
+  toolRegistry.register(deleteBuilderTool);
+
+  // Variable Tools
+  toolRegistry.register(listVariablesTool);
+  toolRegistry.register(getVariableTool);
+  toolRegistry.register(createVariableTool);
+  toolRegistry.register(updateVariableValueTool);
+  toolRegistry.register(updateVariableDescriptionTool);
+  toolRegistry.register(deleteVariableTool);
+
+  // Tag Tools
+  toolRegistry.register(listTagsTool);
+  toolRegistry.register(getTagTool);
+  toolRegistry.register(createTagTool);
+  toolRegistry.register(deleteTagTool);
+  toolRegistry.register(renameTagTool);
+
+  // Update & Alert Tools
+  toolRegistry.register(listUpdatesTool);
+  toolRegistry.register(getUpdateTool);
+  toolRegistry.register(listAlertsTool);
+  toolRegistry.register(getAlertTool);
 
   // Config Tools
   toolRegistry.register(configureTool);

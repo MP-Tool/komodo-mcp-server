@@ -79,10 +79,48 @@ export const PARAM_DESCRIPTIONS = {
   SWARM_ID: 'Swarm ID for Docker Swarm mode deployment',
   SWARM_ID_FOR_DEPLOY: 'Swarm ID to deploy on (required unless using server_id)',
 
+  // Procedure identifiers
+  PROCEDURE_ID: 'Procedure ID or name',
+
+  // Build identifiers
+  BUILD_ID: 'Build ID or name',
+
+  // Repo identifiers
+  REPO_ID: 'Repo ID or name',
+
+  // Alerter identifiers
+  ALERTER_ID: 'Alerter ID or name',
+
+  // ResourceSync identifiers
+  SYNC_ID: 'Resource Sync ID or name',
+
+  // Action identifiers
+  ACTION_ID: 'Action ID or name',
+
+  // Builder identifiers
+  BUILDER_ID: 'Builder ID or name',
+
+  // Variable identifiers
+  VARIABLE_NAME: 'Variable name',
+
+  // Tag identifiers
+  TAG_ID: 'Tag ID or name',
+
+  // Update identifiers
+  UPDATE_ID: 'Update ID',
+
   // Name fields
   SERVER_NAME: 'Unique name for the server',
   DEPLOYMENT_NAME: 'Unique name for the deployment',
   STACK_NAME: 'Unique name for the stack',
+  PROCEDURE_NAME: 'Unique name for the procedure',
+  BUILD_NAME: 'Unique name for the build',
+  REPO_NAME: 'Unique name for the repo',
+  ALERTER_NAME: 'Unique name for the alerter',
+  SYNC_NAME: 'Unique name for the resource sync',
+  ACTION_NAME: 'Unique name for the action',
+  BUILDER_NAME: 'Unique name for the builder',
+  TAG_NAME: 'Unique name for the tag',
 } as const;
 
 /**

@@ -12,7 +12,22 @@ import { KomodoClient as createKomodoClient } from 'komodo_client';
 import { logger as baseLogger, type IApiClient } from '../framework.js';
 import { AuthenticationError, ConnectionError } from '../errors/index.js';
 import { HealthCheckResult } from './types.js';
-import { ServerResource, ContainerResource, StackResource, DeploymentResource } from './resources/index.js';
+import {
+  ServerResource,
+  ContainerResource,
+  StackResource,
+  DeploymentResource,
+  ProcedureResource,
+  BuildResource,
+  RepoResource,
+  AlerterResource,
+  SyncResource,
+  ActionResource,
+  BuilderResource,
+  VariableResource,
+  TagResource,
+  UpdateResource,
+} from './resources/index.js';
 
 const logger = baseLogger.child({ component: 'KomodoClient' });
 
@@ -53,6 +68,16 @@ export class KomodoClient implements IApiClient {
   public readonly containers: ContainerResource;
   public readonly stacks: StackResource;
   public readonly deployments: DeploymentResource;
+  public readonly procedures: ProcedureResource;
+  public readonly builds: BuildResource;
+  public readonly repos: RepoResource;
+  public readonly alerters: AlerterResource;
+  public readonly syncs: SyncResource;
+  public readonly actions: ActionResource;
+  public readonly builders: BuilderResource;
+  public readonly variables: VariableResource;
+  public readonly tags: TagResource;
+  public readonly updates: UpdateResource;
 
   private constructor(baseUrl: string, client: ReturnType<typeof createKomodoClient>) {
     this.baseUrl = baseUrl;
@@ -63,6 +88,16 @@ export class KomodoClient implements IApiClient {
     this.containers = new ContainerResource(client);
     this.stacks = new StackResource(client);
     this.deployments = new DeploymentResource(client);
+    this.procedures = new ProcedureResource(client);
+    this.builds = new BuildResource(client);
+    this.repos = new RepoResource(client);
+    this.alerters = new AlerterResource(client);
+    this.syncs = new SyncResource(client);
+    this.actions = new ActionResource(client);
+    this.builders = new BuilderResource(client);
+    this.variables = new VariableResource(client);
+    this.tags = new TagResource(client);
+    this.updates = new UpdateResource(client);
   }
 
   /**

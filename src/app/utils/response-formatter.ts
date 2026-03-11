@@ -23,12 +23,33 @@ export type ActionType =
   | 'destroy'
   | 'create'
   | 'update'
-  | 'remove';
+  | 'remove'
+  | 'run'
+  | 'cancel'
+  | 'clone'
+  | 'build'
+  | 'test'
+  | 'send'
+  | 'commit'
+  | 'sync';
 
 /**
  * Resource types for formatting
  */
-export type ResourceType = 'stack' | 'deployment' | 'container' | 'server';
+export type ResourceType =
+  | 'stack'
+  | 'deployment'
+  | 'container'
+  | 'server'
+  | 'procedure'
+  | 'build'
+  | 'repo'
+  | 'alerter'
+  | 'sync'
+  | 'action'
+  | 'builder'
+  | 'variable'
+  | 'tag';
 
 /**
  * Mapping of action types to their emoji icons
@@ -45,6 +66,14 @@ const ACTION_ICONS: Record<ActionType, string> = {
   create: RESPONSE_ICONS.CREATE,
   update: RESPONSE_ICONS.UPDATE,
   remove: RESPONSE_ICONS.DELETE,
+  run: RESPONSE_ICONS.START,
+  cancel: RESPONSE_ICONS.STOP,
+  clone: RESPONSE_ICONS.PULL,
+  build: RESPONSE_ICONS.DEPLOY,
+  test: RESPONSE_ICONS.INFO,
+  send: RESPONSE_ICONS.DEPLOY,
+  commit: RESPONSE_ICONS.UPDATE,
+  sync: RESPONSE_ICONS.RESTART,
 };
 
 /**
@@ -62,6 +91,14 @@ const ACTION_PAST_TENSE: Record<ActionType, string> = {
   create: 'created',
   update: 'updated',
   remove: 'removed',
+  run: 'run initiated',
+  cancel: 'cancelled',
+  clone: 'clone initiated',
+  build: 'build initiated',
+  test: 'test initiated',
+  send: 'sent',
+  commit: 'committed',
+  sync: 'sync initiated',
 };
 
 /**

@@ -71,7 +71,9 @@ export const updateVariableDescriptionTool: Tool = {
       () => komodoClient.variables.updateDescription(args.name, args.description, { signal: abortSignal }),
       abortSignal,
     );
-    return successResponse(`Variable "${args.name}" description updated successfully.\n\n${JSON.stringify(result, null, 2)}`);
+    return successResponse(
+      `Variable "${args.name}" description updated successfully.\n\n${JSON.stringify(result, null, 2)}`,
+    );
   },
 };
 

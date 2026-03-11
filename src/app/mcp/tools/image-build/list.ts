@@ -15,9 +15,8 @@ export const listBuildsTool: Tool = {
       abortSignal,
     );
     const list =
-      builds
-        .map((b) => `• ${b.name} (${b.id}) - Tags: ${b.tags?.join(', ') || 'none'}`)
-        .join('\n') || 'No builds found.';
+      builds.map((b) => `• ${b.name} (${b.id}) - Tags: ${b.tags?.join(', ') || 'none'}`).join('\n') ||
+      'No builds found.';
     return successResponse(`📋 Builds:\n\n${list}`);
   },
 };

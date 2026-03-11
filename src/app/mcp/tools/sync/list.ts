@@ -9,15 +9,10 @@ export const listSyncsTool: Tool = {
   schema: z.object({}),
   handler: async (_args, { client, abortSignal }) => {
     const komodoClient = requireClient(client, 'komodo_list_syncs');
-    const syncs = await wrapApiCall(
-      'listSyncs',
-      () => komodoClient.syncs.list({ signal: abortSignal }),
-      abortSignal,
-    );
+    const syncs = await wrapApiCall('listSyncs', () => komodoClient.syncs.list({ signal: abortSignal }), abortSignal);
     const list =
-      syncs
-        .map((s) => `• ${s.name} (${s.id}) - Tags: ${s.tags?.join(', ') || 'none'}`)
-        .join('\n') || 'No resource syncs found.';
+      syncs.map((s) => `• ${s.name} (${s.id}) - Tags: ${s.tags?.join(', ') || 'none'}`).join('\n') ||
+      'No resource syncs found.';
     return successResponse(`📋 Resource Syncs:\n\n${list}`);
   },
 };

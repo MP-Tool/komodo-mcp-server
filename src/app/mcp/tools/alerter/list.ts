@@ -15,9 +15,8 @@ export const listAlertersTool: Tool = {
       abortSignal,
     );
     const list =
-      alerters
-        .map((a) => `• ${a.name} (${a.id}) - Tags: ${a.tags?.join(', ') || 'none'}`)
-        .join('\n') || 'No alerters found.';
+      alerters.map((a) => `• ${a.name} (${a.id}) - Tags: ${a.tags?.join(', ') || 'none'}`).join('\n') ||
+      'No alerters found.';
     return successResponse(`📋 Alerters:\n\n${list}`);
   },
 };

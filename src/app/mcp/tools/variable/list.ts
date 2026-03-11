@@ -23,11 +23,7 @@ export const listTagsTool: Tool = {
   schema: z.object({}),
   handler: async (_args, { client, abortSignal }) => {
     const komodoClient = requireClient(client, 'komodo_list_tags');
-    const tags = await wrapApiCall(
-      'listTags',
-      () => komodoClient.tags.list({ signal: abortSignal }),
-      abortSignal,
-    );
+    const tags = await wrapApiCall('listTags', () => komodoClient.tags.list({ signal: abortSignal }), abortSignal);
     return successResponse(`📋 Tags:\n\n${JSON.stringify(tags, null, 2)}`);
   },
 };

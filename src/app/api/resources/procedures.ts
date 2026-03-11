@@ -40,7 +40,11 @@ export class ProcedureResource extends BaseResource {
     return response;
   }
 
-  async update(procedureId: string, config: Partial<ProcedureConfig>, options?: ApiOperationOptions): Promise<Procedure> {
+  async update(
+    procedureId: string,
+    config: Partial<ProcedureConfig>,
+    options?: ApiOperationOptions,
+  ): Promise<Procedure> {
     this.checkAborted(options?.signal);
     const response = await this.client.write('UpdateProcedure', { id: procedureId, config: config as never });
     return response;

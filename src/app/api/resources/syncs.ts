@@ -33,14 +33,22 @@ export class SyncResource extends BaseResource {
     return response;
   }
 
-  async create(name: string, config?: Partial<ResourceSyncConfig>, options?: ApiOperationOptions): Promise<ResourceSync> {
+  async create(
+    name: string,
+    config?: Partial<ResourceSyncConfig>,
+    options?: ApiOperationOptions,
+  ): Promise<ResourceSync> {
     validateResourceName(name);
     this.checkAborted(options?.signal);
     const response = await this.client.write('CreateResourceSync', { name, config: config as never });
     return response;
   }
 
-  async update(syncId: string, config: Partial<ResourceSyncConfig>, options?: ApiOperationOptions): Promise<ResourceSync> {
+  async update(
+    syncId: string,
+    config: Partial<ResourceSyncConfig>,
+    options?: ApiOperationOptions,
+  ): Promise<ResourceSync> {
     this.checkAborted(options?.signal);
     const response = await this.client.write('UpdateResourceSync', { id: syncId, config: config as never });
     return response;

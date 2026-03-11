@@ -15,9 +15,8 @@ export const listProceduresTool: Tool = {
       abortSignal,
     );
     const list =
-      procedures
-        .map((p) => `• ${p.name} (${p.id}) - Tags: ${p.tags?.join(', ') || 'none'}`)
-        .join('\n') || 'No procedures found.';
+      procedures.map((p) => `• ${p.name} (${p.id}) - Tags: ${p.tags?.join(', ') || 'none'}`).join('\n') ||
+      'No procedures found.';
     return successResponse(`📋 Procedures:\n\n${list}`);
   },
 };

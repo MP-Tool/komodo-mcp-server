@@ -15,9 +15,8 @@ export const listActionsTool: Tool = {
       abortSignal,
     );
     const list =
-      actions
-        .map((a) => `• ${a.name} (${a.id}) - Tags: ${a.tags?.join(', ') || 'none'}`)
-        .join('\n') || 'No actions found.';
+      actions.map((a) => `• ${a.name} (${a.id}) - Tags: ${a.tags?.join(', ') || 'none'}`).join('\n') ||
+      'No actions found.';
     return successResponse(`📋 Actions:\n\n${list}`);
   },
 };

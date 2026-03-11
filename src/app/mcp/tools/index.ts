@@ -144,12 +144,7 @@ import {
   renameTagTool,
 } from './variable/index.js';
 
-import {
-  listUpdatesTool,
-  listAlertsTool,
-  getUpdateTool,
-  getAlertTool,
-} from './update/index.js';
+import { listUpdatesTool, listAlertsTool, getUpdateTool, getAlertTool } from './update/index.js';
 
 import { configureTool, healthCheckTool } from './config/index.js';
 

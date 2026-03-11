@@ -22,7 +22,8 @@ export const getBuilderTool: Tool = {
 
 export const createBuilderTool: Tool = {
   name: 'komodo_create_builder',
-  description: 'Create a new builder. Builders define the build environment (e.g., server, AWS) for creating Docker images.',
+  description:
+    'Create a new builder. Builders define the build environment (e.g., server, AWS) for creating Docker images.',
   schema: z.object({
     name: z.string().describe(PARAM_DESCRIPTIONS.BUILDER_NAME),
     config: z.record(z.unknown()).optional().describe('Builder configuration (optional)'),

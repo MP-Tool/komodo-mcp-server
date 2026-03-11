@@ -36,9 +36,7 @@ export const createProcedureTool: Tool = {
       () => komodoClient.procedures.create(args.name, args.config as never, { signal: abortSignal }),
       abortSignal,
     );
-    return successResponse(
-      `Procedure "${args.name}" created successfully.\n\n${JSON.stringify(result, null, 2)}`,
-    );
+    return successResponse(`Procedure "${args.name}" created successfully.\n\n${JSON.stringify(result, null, 2)}`);
   },
 };
 
@@ -56,9 +54,7 @@ export const updateProcedureTool: Tool = {
       () => komodoClient.procedures.update(args.procedure, args.config as never, { signal: abortSignal }),
       abortSignal,
     );
-    return successResponse(
-      `Procedure "${args.procedure}" updated successfully.\n\n${JSON.stringify(result, null, 2)}`,
-    );
+    return successResponse(`Procedure "${args.procedure}" updated successfully.\n\n${JSON.stringify(result, null, 2)}`);
   },
 };
 
@@ -75,9 +71,7 @@ export const deleteProcedureTool: Tool = {
       () => komodoClient.procedures.delete(args.procedure, { signal: abortSignal }),
       abortSignal,
     );
-    return successResponse(
-      `Procedure "${args.procedure}" deleted successfully.\n\n${JSON.stringify(result, null, 2)}`,
-    );
+    return successResponse(`Procedure "${args.procedure}" deleted successfully.\n\n${JSON.stringify(result, null, 2)}`);
   },
 };
 

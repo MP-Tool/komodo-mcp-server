@@ -62,7 +62,7 @@ export const SESSION_MAX_MISSED_HEARTBEATS = 3;
  * Maximum number of concurrent HTTP sessions
  * Prevents memory exhaustion from too many open sessions
  */
-export const SESSION_MAX_COUNT = 100;
+export const SESSION_MAX_COUNT = 250;
 
 /**
  * Maximum number of concurrent Legacy SSE sessions

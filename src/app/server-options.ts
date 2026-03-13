@@ -14,6 +14,7 @@ import { config, getKomodoCredentials } from './config/index.js';
 import { SERVER_NAME, SERVER_VERSION, SHUTDOWN_CONFIG } from './config/index.js';
 import { KomodoClient as KomodoClientClass } from './api/index.js';
 import { komodoConnectionManager } from './connection.js';
+import { connectionMonitor } from './connection-monitor.js';
 import { logger } from './framework.js';
 
 // ============================================================================
@@ -40,6 +41,7 @@ export function createKomodoLifecycleHooks(options?: Partial<IServerLifecycleHoo
 
     onStopping: async () => {
       logger.info('Komodo MCP Server shutting down...');
+      connectionMonitor.stop();
       await options?.onStopping?.();
     },
 

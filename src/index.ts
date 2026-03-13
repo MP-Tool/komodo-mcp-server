@@ -45,6 +45,7 @@ import {
   resourceRegistryAdapter,
   promptRegistryAdapter,
   initializeKomodoClientFromEnv,
+  connectionMonitor,
 } from './app/index.js';
 
 // Logger
@@ -89,6 +90,11 @@ async function main(): Promise<void> {
   // Try to initialize Komodo client from environment variables
   // This is called after server start to support Docker runtime credential loading
   await initializeKomodoClientFromEnv();
+
+  // Start connection health monitor for automatic reconnection
+  // If initialization succeeded, this will periodically verify the connection
+  // and automatically reconnect if Komodo Core restarts or becomes unreachable
+  connectionMonitor.start();
 }
 
 // Start the server

@@ -46,6 +46,10 @@ export type { KomodoClient } from './connection.js';
 // Komodo client auto-initialization
 export { initializeKomodoClientFromEnv } from './client-initializer.js';
 
+// Connection health monitoring and auto-reconnect
+export { connectionMonitor } from './connection-monitor.js';
+export type { ConnectionMonitorConfig } from './connection-monitor.js';
+
 // Application-specific types
 export type { ClientInitResult, ClientEnvConfig } from './types.js';
 

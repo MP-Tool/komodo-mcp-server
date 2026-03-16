@@ -18,3 +18,11 @@ export {
   destroyStackTool,
 } from './actions.js';
 export { getStackInfoTool, createStackTool, updateStackTool, deleteStackTool } from './manage.js';
+export {
+  listStackServicesTool,
+  getStackLogTool,
+  searchStackLogTool,
+  getStackWebhooksEnabledTool,
+  deployStackIfChangedTool,
+  runStackServiceTool,
+} from './advanced.js';

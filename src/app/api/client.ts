@@ -27,6 +27,15 @@ import {
   VariableResource,
   TagResource,
   UpdateResource,
+  DockerNetworkResource,
+  DockerImageResource,
+  DockerVolumeResource,
+  SystemResource,
+  ExecResource,
+  StackAdvancedResource,
+  DeploymentAdvancedResource,
+  BatchResource,
+  BulkContainerResource,
 } from './resources/index.js';
 
 const logger = baseLogger.child({ component: 'KomodoClient' });
@@ -78,6 +87,15 @@ export class KomodoClient implements IApiClient {
   public readonly variables: VariableResource;
   public readonly tags: TagResource;
   public readonly updates: UpdateResource;
+  public readonly dockerNetworks: DockerNetworkResource;
+  public readonly dockerImages: DockerImageResource;
+  public readonly dockerVolumes: DockerVolumeResource;
+  public readonly system: SystemResource;
+  public readonly exec: ExecResource;
+  public readonly stackAdvanced: StackAdvancedResource;
+  public readonly deploymentAdvanced: DeploymentAdvancedResource;
+  public readonly batch: BatchResource;
+  public readonly bulkContainers: BulkContainerResource;
 
   private constructor(baseUrl: string, client: ReturnType<typeof createKomodoClient>) {
     this.baseUrl = baseUrl;
@@ -98,6 +116,15 @@ export class KomodoClient implements IApiClient {
     this.variables = new VariableResource(client);
     this.tags = new TagResource(client);
     this.updates = new UpdateResource(client);
+    this.dockerNetworks = new DockerNetworkResource(client);
+    this.dockerImages = new DockerImageResource(client);
+    this.dockerVolumes = new DockerVolumeResource(client);
+    this.system = new SystemResource(client);
+    this.exec = new ExecResource(client);
+    this.stackAdvanced = new StackAdvancedResource(client);
+    this.deploymentAdvanced = new DeploymentAdvancedResource(client);
+    this.batch = new BatchResource(client);
+    this.bulkContainers = new BulkContainerResource(client);
   }
 
   /**

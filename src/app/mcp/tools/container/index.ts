@@ -18,3 +18,13 @@ export { inspectContainerTool } from './info.js';
 export { getContainerLogsTool } from './logs.js';
 export { searchContainerLogsTool } from './search-logs.js';
 export { pruneResourcesTool } from './prune.js';
+export {
+  startAllContainersTool,
+  restartAllContainersTool,
+  pauseAllContainersTool,
+  unpauseAllContainersTool,
+  stopAllContainersTool,
+  destroyContainerTool,
+  pruneDockerBuildersTool,
+  pruneBuildxTool,
+} from './bulk.js';

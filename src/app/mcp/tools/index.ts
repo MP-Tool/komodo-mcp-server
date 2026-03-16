@@ -21,7 +21,29 @@ import {
   getContainerLogsTool,
   searchContainerLogsTool,
   pruneResourcesTool,
+  startAllContainersTool,
+  restartAllContainersTool,
+  pauseAllContainersTool,
+  unpauseAllContainersTool,
+  stopAllContainersTool,
+  destroyContainerTool,
+  pruneDockerBuildersTool,
+  pruneBuildxTool,
 } from './container/index.js';
+
+import {
+  batchDeployTool,
+  batchDestroyDeploymentTool,
+  batchDeployStackTool,
+  batchDestroyStackTool,
+  batchPullStackTool,
+  batchRunBuildTool,
+  batchCloneRepoTool,
+  batchPullRepoTool,
+  batchBuildRepoTool,
+  batchRunActionTool,
+  batchRunProcedureTool,
+} from './batch/index.js';
 
 import {
   listServersTool,
@@ -46,6 +68,11 @@ import {
   createDeploymentTool,
   updateDeploymentTool,
   deleteDeploymentTool,
+  getDeploymentLogTool,
+  searchDeploymentLogTool,
+  getDeploymentStatsTool,
+  getDeploymentContainerTool,
+  inspectDeploymentContainerTool,
 } from './deployment/index.js';
 
 import {
@@ -62,6 +89,12 @@ import {
   createStackTool,
   updateStackTool,
   deleteStackTool,
+  listStackServicesTool,
+  getStackLogTool,
+  searchStackLogTool,
+  getStackWebhooksEnabledTool,
+  deployStackIfChangedTool,
+  runStackServiceTool,
 } from './stack/index.js';
 
 import {
@@ -146,6 +179,35 @@ import {
 
 import { listUpdatesTool, listAlertsTool, getUpdateTool, getAlertTool } from './update/index.js';
 
+import {
+  listDockerNetworksTool,
+  inspectDockerNetworkTool,
+  createDockerNetworkTool,
+  deleteDockerNetworkTool,
+} from './docker-network/index.js';
+
+import {
+  listDockerImagesTool,
+  inspectDockerImageTool,
+  dockerImageHistoryTool,
+  deleteDockerImageTool,
+} from './docker-image/index.js';
+
+import { listDockerVolumesTool, inspectDockerVolumeTool, deleteDockerVolumeTool } from './docker-volume/index.js';
+
+import {
+  getSystemInfoTool,
+  getSystemStatsTool,
+  listSystemProcessesTool,
+  getHistoricalStatsTool,
+  getPeripheryVersionTool,
+  getCoreInfoTool,
+  listComposeProjectsTool,
+  getServersSummaryTool,
+} from './system/index.js';
+
+import { execContainerTool, execDeploymentTool, execStackTool } from './exec/index.js';
+
 import { configureTool, healthCheckTool } from './config/index.js';
 
 /**
@@ -188,6 +250,13 @@ export function registerTools() {
   toolRegistry.register(updateDeploymentTool);
   toolRegistry.register(deleteDeploymentTool);
 
+  // Deployment Advanced Tools
+  toolRegistry.register(getDeploymentLogTool);
+  toolRegistry.register(searchDeploymentLogTool);
+  toolRegistry.register(getDeploymentStatsTool);
+  toolRegistry.register(getDeploymentContainerTool);
+  toolRegistry.register(inspectDeploymentContainerTool);
+
   // Stack Tools
   toolRegistry.register(listStacksTool);
   toolRegistry.register(deployStackTool);
@@ -202,6 +271,14 @@ export function registerTools() {
   toolRegistry.register(createStackTool);
   toolRegistry.register(updateStackTool);
   toolRegistry.register(deleteStackTool);
+
+  // Stack Advanced Tools
+  toolRegistry.register(listStackServicesTool);
+  toolRegistry.register(getStackLogTool);
+  toolRegistry.register(searchStackLogTool);
+  toolRegistry.register(getStackWebhooksEnabledTool);
+  toolRegistry.register(deployStackIfChangedTool);
+  toolRegistry.register(runStackServiceTool);
 
   // Procedure Tools
   toolRegistry.register(listProceduresTool);
@@ -282,6 +359,61 @@ export function registerTools() {
   toolRegistry.register(getUpdateTool);
   toolRegistry.register(listAlertsTool);
   toolRegistry.register(getAlertTool);
+
+  // Docker Network Tools
+  toolRegistry.register(listDockerNetworksTool);
+  toolRegistry.register(inspectDockerNetworkTool);
+  toolRegistry.register(createDockerNetworkTool);
+  toolRegistry.register(deleteDockerNetworkTool);
+
+  // Docker Image Tools
+  toolRegistry.register(listDockerImagesTool);
+  toolRegistry.register(inspectDockerImageTool);
+  toolRegistry.register(dockerImageHistoryTool);
+  toolRegistry.register(deleteDockerImageTool);
+
+  // Docker Volume Tools
+  toolRegistry.register(listDockerVolumesTool);
+  toolRegistry.register(inspectDockerVolumeTool);
+  toolRegistry.register(deleteDockerVolumeTool);
+
+  // System Tools
+  toolRegistry.register(getSystemInfoTool);
+  toolRegistry.register(getSystemStatsTool);
+  toolRegistry.register(listSystemProcessesTool);
+  toolRegistry.register(getHistoricalStatsTool);
+  toolRegistry.register(getPeripheryVersionTool);
+  toolRegistry.register(getCoreInfoTool);
+  toolRegistry.register(listComposeProjectsTool);
+  toolRegistry.register(getServersSummaryTool);
+
+  // Exec Tools
+  toolRegistry.register(execContainerTool);
+  toolRegistry.register(execDeploymentTool);
+  toolRegistry.register(execStackTool);
+
+  // Bulk Container Tools
+  toolRegistry.register(startAllContainersTool);
+  toolRegistry.register(restartAllContainersTool);
+  toolRegistry.register(pauseAllContainersTool);
+  toolRegistry.register(unpauseAllContainersTool);
+  toolRegistry.register(stopAllContainersTool);
+  toolRegistry.register(destroyContainerTool);
+  toolRegistry.register(pruneDockerBuildersTool);
+  toolRegistry.register(pruneBuildxTool);
+
+  // Batch Tools
+  toolRegistry.register(batchDeployTool);
+  toolRegistry.register(batchDestroyDeploymentTool);
+  toolRegistry.register(batchDeployStackTool);
+  toolRegistry.register(batchDestroyStackTool);
+  toolRegistry.register(batchPullStackTool);
+  toolRegistry.register(batchRunBuildTool);
+  toolRegistry.register(batchCloneRepoTool);
+  toolRegistry.register(batchPullRepoTool);
+  toolRegistry.register(batchBuildRepoTool);
+  toolRegistry.register(batchRunActionTool);
+  toolRegistry.register(batchRunProcedureTool);
 
   // Config Tools
   toolRegistry.register(configureTool);

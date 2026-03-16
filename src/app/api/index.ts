@@ -39,8 +39,16 @@ export {
   VariableResource,
   TagResource,
   UpdateResource,
+  DockerNetworkResource,
+  DockerImageResource,
+  DockerVolumeResource,
+  SystemResource,
+  ExecResource,
+  StackAdvancedResource,
+  DeploymentAdvancedResource,
 } from './resources/index.js';
 export type { PruneType } from './resources/containers.js';
+export type { ExecResult } from './resources/exec.js';
 
 // Types
 export * from './types.js';

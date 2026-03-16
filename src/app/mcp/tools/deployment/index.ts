@@ -18,3 +18,10 @@ export {
   destroyDeploymentTool,
 } from './actions.js';
 export { getDeploymentInfoTool, createDeploymentTool, updateDeploymentTool, deleteDeploymentTool } from './manage.js';
+export {
+  getDeploymentLogTool,
+  searchDeploymentLogTool,
+  getDeploymentStatsTool,
+  getDeploymentContainerTool,
+  inspectDeploymentContainerTool,
+} from './advanced.js';

@@ -36,6 +36,15 @@ import {
   DeploymentAdvancedResource,
   BatchResource,
   BulkContainerResource,
+  TerminalResource,
+  ResourceOpsResource,
+  WebhookResource,
+  UserResource,
+  PermissionResource,
+  ResourceInfoResource,
+  FileOpsResource,
+  ProviderResource,
+  MiscResource,
 } from './resources/index.js';
 
 const logger = baseLogger.child({ component: 'KomodoClient' });
@@ -96,6 +105,15 @@ export class KomodoClient implements IApiClient {
   public readonly deploymentAdvanced: DeploymentAdvancedResource;
   public readonly batch: BatchResource;
   public readonly bulkContainers: BulkContainerResource;
+  public readonly terminals: TerminalResource;
+  public readonly resourceOps: ResourceOpsResource;
+  public readonly webhooks: WebhookResource;
+  public readonly users: UserResource;
+  public readonly permissions: PermissionResource;
+  public readonly resourceInfo: ResourceInfoResource;
+  public readonly fileOps: FileOpsResource;
+  public readonly providers: ProviderResource;
+  public readonly misc: MiscResource;
 
   private constructor(baseUrl: string, client: ReturnType<typeof createKomodoClient>) {
     this.baseUrl = baseUrl;
@@ -125,6 +143,15 @@ export class KomodoClient implements IApiClient {
     this.deploymentAdvanced = new DeploymentAdvancedResource(client);
     this.batch = new BatchResource(client);
     this.bulkContainers = new BulkContainerResource(client);
+    this.terminals = new TerminalResource(client);
+    this.resourceOps = new ResourceOpsResource(client);
+    this.webhooks = new WebhookResource(client);
+    this.resourceInfo = new ResourceInfoResource(client);
+    this.users = new UserResource(client);
+    this.permissions = new PermissionResource(client);
+    this.fileOps = new FileOpsResource(client);
+    this.providers = new ProviderResource(client);
+    this.misc = new MiscResource(client);
   }
 
   /**

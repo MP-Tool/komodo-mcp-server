@@ -208,6 +208,159 @@ import {
 
 import { execContainerTool, execDeploymentTool, execStackTool } from './exec/index.js';
 
+import { listTerminalsTool, createTerminalTool, deleteTerminalTool, deleteAllTerminalsTool } from './terminal/index.js';
+
+import {
+  copyServerTool,
+  copyDeploymentTool,
+  copyStackTool,
+  copyBuildTool,
+  copyBuilderTool,
+  copyRepoTool,
+  copyResourceSyncTool,
+  copyActionTool,
+  copyProcedureTool,
+  copyAlerterTool,
+  renameServerTool,
+  renameDeploymentTool,
+  renameStackTool,
+  renameBuildTool,
+  renameBuilderTool,
+  renameRepoTool,
+  renameResourceSyncTool,
+  renameActionTool,
+  renameProcedureTool,
+  renameAlerterTool,
+} from './resource-ops/index.js';
+
+import {
+  createBuildWebhookTool,
+  deleteBuildWebhookTool,
+  getBuildWebhookEnabledTool,
+  createStackWebhookTool,
+  deleteStackWebhookTool,
+  createRepoWebhookTool,
+  deleteRepoWebhookTool,
+  getRepoWebhooksEnabledTool,
+  createSyncWebhookTool,
+  deleteSyncWebhookTool,
+  getSyncWebhooksEnabledTool,
+  createActionWebhookTool,
+  deleteActionWebhookTool,
+} from './webhook/index.js';
+
+import {
+  listUsersTool,
+  findUserTool,
+  getUsernameTool,
+  createServiceUserTool,
+  deleteUserTool,
+  updateUsernameTool,
+  updateUserPasswordTool,
+  updateServiceUserDescriptionTool,
+  updateUserAdminTool,
+  listUserGroupsTool,
+  getUserGroupTool,
+  createUserGroupTool,
+  renameUserGroupTool,
+  deleteUserGroupTool,
+  addUserToUserGroupTool,
+  removeUserFromUserGroupTool,
+} from './user/index.js';
+
+import {
+  listPermissionsTool,
+  getPermissionTool,
+  listUserTargetPermissionsTool,
+  updatePermissionOnTargetTool,
+  updateUserBasePermissionsTool,
+  listApiKeysTool,
+  listApiKeysForServiceUserTool,
+  createApiKeyForServiceUserTool,
+  deleteApiKeyForServiceUserTool,
+} from './permission/index.js';
+
+import {
+  getServerActionStateTool,
+  getDeploymentActionStateTool,
+  getStackActionStateTool,
+  getBuildActionStateTool,
+  getRepoActionStateTool,
+  getProcedureActionStateTool,
+  getActionActionStateTool,
+  getResourceSyncActionStateTool,
+  getDeploymentsSummaryTool,
+  getStacksSummaryTool,
+  getBuildsSummaryTool,
+  getBuildersSummaryTool,
+  getReposSummaryTool,
+  getResourceSyncsSummaryTool,
+  getActionsSummaryTool,
+  getProceduresSummaryTool,
+  getAlertersSummaryTool,
+  listFullServersTool,
+  listFullDeploymentsTool,
+  listFullStacksTool,
+  listFullBuildsTool,
+  listFullBuildersTool,
+  listFullReposTool,
+  listFullResourceSyncsTool,
+  listFullActionsTool,
+  listFullProceduresTool,
+  listFullAlertersTool,
+} from './resource-info/index.js';
+
+import {
+  writeStackFileTool,
+  writeBuildFileTool,
+  writeSyncFileTool,
+  refreshStackCacheTool,
+  refreshBuildCacheTool,
+  refreshRepoCacheTool,
+  refreshResourceSyncPendingTool,
+} from './file-ops/index.js';
+
+import {
+  listGitProviderAccountsTool,
+  getGitProviderAccountTool,
+  createGitProviderAccountTool,
+  updateGitProviderAccountTool,
+  deleteGitProviderAccountTool,
+  listDockerRegistryAccountsTool,
+  getDockerRegistryAccountTool,
+  createDockerRegistryAccountTool,
+  updateDockerRegistryAccountTool,
+  deleteDockerRegistryAccountTool,
+} from './provider/index.js';
+
+import {
+  listGitProvidersFromConfigTool,
+  listDockerRegistriesFromConfigTool,
+  listSecretsTool,
+  listSchedulesTool,
+  listAllDockerContainersTool,
+  getDockerContainersSummaryTool,
+  getResourceMatchingContainerTool,
+  inspectStackContainerTool,
+  getBuildMonthlyStatsTool,
+  listBuildVersionsTool,
+  listCommonDeploymentExtraArgsTool,
+  listCommonStackExtraArgsTool,
+  listCommonStackBuildExtraArgsTool,
+  listCommonBuildExtraArgsTool,
+  updateResourceMetaTool,
+  updateTagColorTool,
+  updateVariableIsSecretTool,
+  createDeploymentFromContainerTool,
+  cancelRepoBuildTool,
+  sendAlertTool,
+  clearRepoCacheTool,
+  backupCoreDatabaseTool,
+  batchDeployStackIfChangedTool,
+  exportAllResourcesToTomlTool,
+  exportResourcesToTomlTool,
+} from './misc/index.js';
+
 import { configureTool, healthCheckTool } from './config/index.js';
 
 /**
@@ -414,6 +567,165 @@ export function registerTools() {
   toolRegistry.register(batchBuildRepoTool);
   toolRegistry.register(batchRunActionTool);
   toolRegistry.register(batchRunProcedureTool);
+
+  // Terminal Tools
+  toolRegistry.register(listTerminalsTool);
+  toolRegistry.register(createTerminalTool);
+  toolRegistry.register(deleteTerminalTool);
+  toolRegistry.register(deleteAllTerminalsTool);
+
+  // Resource Copy Tools
+  toolRegistry.register(copyServerTool);
+  toolRegistry.register(copyDeploymentTool);
+  toolRegistry.register(copyStackTool);
+  toolRegistry.register(copyBuildTool);
+  toolRegistry.register(copyBuilderTool);
+  toolRegistry.register(copyRepoTool);
+  toolRegistry.register(copyResourceSyncTool);
+  toolRegistry.register(copyActionTool);
+  toolRegistry.register(copyProcedureTool);
+  toolRegistry.register(copyAlerterTool);
+
+  // Resource Rename Tools
+  toolRegistry.register(renameServerTool);
+  toolRegistry.register(renameDeploymentTool);
+  toolRegistry.register(renameStackTool);
+  toolRegistry.register(renameBuildTool);
+  toolRegistry.register(renameBuilderTool);
+  toolRegistry.register(renameRepoTool);
+  toolRegistry.register(renameResourceSyncTool);
+  toolRegistry.register(renameActionTool);
+  toolRegistry.register(renameProcedureTool);
+  toolRegistry.register(renameAlerterTool);
+
+  // Webhook Tools
+  toolRegistry.register(createBuildWebhookTool);
+  toolRegistry.register(deleteBuildWebhookTool);
+  toolRegistry.register(getBuildWebhookEnabledTool);
+  toolRegistry.register(createStackWebhookTool);
+  toolRegistry.register(deleteStackWebhookTool);
+  toolRegistry.register(createRepoWebhookTool);
+  toolRegistry.register(deleteRepoWebhookTool);
+  toolRegistry.register(getRepoWebhooksEnabledTool);
+  toolRegistry.register(createSyncWebhookTool);
+  toolRegistry.register(deleteSyncWebhookTool);
+  toolRegistry.register(getSyncWebhooksEnabledTool);
+  toolRegistry.register(createActionWebhookTool);
+  toolRegistry.register(deleteActionWebhookTool);
+
+  // User Tools
+  toolRegistry.register(listUsersTool);
+  toolRegistry.register(findUserTool);
+  toolRegistry.register(getUsernameTool);
+  toolRegistry.register(createServiceUserTool);
+  toolRegistry.register(deleteUserTool);
+  toolRegistry.register(updateUsernameTool);
+  toolRegistry.register(updateUserPasswordTool);
+  toolRegistry.register(updateServiceUserDescriptionTool);
+  toolRegistry.register(updateUserAdminTool);
+
+  // User Group Tools
+  toolRegistry.register(listUserGroupsTool);
+  toolRegistry.register(getUserGroupTool);
+  toolRegistry.register(createUserGroupTool);
+  toolRegistry.register(renameUserGroupTool);
+  toolRegistry.register(deleteUserGroupTool);
+  toolRegistry.register(addUserToUserGroupTool);
+  toolRegistry.register(removeUserFromUserGroupTool);
+
+  // Permission Tools
+  toolRegistry.register(listPermissionsTool);
+  toolRegistry.register(getPermissionTool);
+  toolRegistry.register(listUserTargetPermissionsTool);
+  toolRegistry.register(updatePermissionOnTargetTool);
+  toolRegistry.register(updateUserBasePermissionsTool);
+
+  // API Key Tools
+  toolRegistry.register(listApiKeysTool);
+  toolRegistry.register(listApiKeysForServiceUserTool);
+  toolRegistry.register(createApiKeyForServiceUserTool);
+  toolRegistry.register(deleteApiKeyForServiceUserTool);
+
+  // Resource Info: Action State Tools
+  toolRegistry.register(getServerActionStateTool);
+  toolRegistry.register(getDeploymentActionStateTool);
+  toolRegistry.register(getStackActionStateTool);
+  toolRegistry.register(getBuildActionStateTool);
+  toolRegistry.register(getRepoActionStateTool);
+  toolRegistry.register(getProcedureActionStateTool);
+  toolRegistry.register(getActionActionStateTool);
+  toolRegistry.register(getResourceSyncActionStateTool);
+
+  // Resource Info: Summary Tools
+  toolRegistry.register(getDeploymentsSummaryTool);
+  toolRegistry.register(getStacksSummaryTool);
+  toolRegistry.register(getBuildsSummaryTool);
+  toolRegistry.register(getBuildersSummaryTool);
+  toolRegistry.register(getReposSummaryTool);
+  toolRegistry.register(getResourceSyncsSummaryTool);
+  toolRegistry.register(getActionsSummaryTool);
+  toolRegistry.register(getProceduresSummaryTool);
+  toolRegistry.register(getAlertersSummaryTool);
+
+  // Resource Info: List Full Tools
+  toolRegistry.register(listFullServersTool);
+  toolRegistry.register(listFullDeploymentsTool);
+  toolRegistry.register(listFullStacksTool);
+  toolRegistry.register(listFullBuildsTool);
+  toolRegistry.register(listFullBuildersTool);
+  toolRegistry.register(listFullReposTool);
+  toolRegistry.register(listFullResourceSyncsTool);
+  toolRegistry.register(listFullActionsTool);
+  toolRegistry.register(listFullProceduresTool);
+  toolRegistry.register(listFullAlertersTool);
+
+  // File Operations Tools
+  toolRegistry.register(writeStackFileTool);
+  toolRegistry.register(writeBuildFileTool);
+  toolRegistry.register(writeSyncFileTool);
+  toolRegistry.register(refreshStackCacheTool);
+  toolRegistry.register(refreshBuildCacheTool);
+  toolRegistry.register(refreshRepoCacheTool);
+  toolRegistry.register(refreshResourceSyncPendingTool);
+
+  // Provider Tools
+  toolRegistry.register(listGitProviderAccountsTool);
+  toolRegistry.register(getGitProviderAccountTool);
+  toolRegistry.register(createGitProviderAccountTool);
+  toolRegistry.register(updateGitProviderAccountTool);
+  toolRegistry.register(deleteGitProviderAccountTool);
+  toolRegistry.register(listDockerRegistryAccountsTool);
+  toolRegistry.register(getDockerRegistryAccountTool);
+  toolRegistry.register(createDockerRegistryAccountTool);
+  toolRegistry.register(updateDockerRegistryAccountTool);
+  toolRegistry.register(deleteDockerRegistryAccountTool);
+
+  // Misc Tools
+  toolRegistry.register(listGitProvidersFromConfigTool);
+  toolRegistry.register(listDockerRegistriesFromConfigTool);
+  toolRegistry.register(listSecretsTool);
+  toolRegistry.register(listSchedulesTool);
+  toolRegistry.register(listAllDockerContainersTool);
+  toolRegistry.register(getDockerContainersSummaryTool);
+  toolRegistry.register(getResourceMatchingContainerTool);
+  toolRegistry.register(inspectStackContainerTool);
+  toolRegistry.register(getBuildMonthlyStatsTool);
+  toolRegistry.register(listBuildVersionsTool);
+  toolRegistry.register(listCommonDeploymentExtraArgsTool);
+  toolRegistry.register(listCommonStackExtraArgsTool);
+  toolRegistry.register(listCommonStackBuildExtraArgsTool);
+  toolRegistry.register(listCommonBuildExtraArgsTool);
+  toolRegistry.register(updateResourceMetaTool);
+  toolRegistry.register(updateTagColorTool);
+  toolRegistry.register(updateVariableIsSecretTool);
+  toolRegistry.register(createDeploymentFromContainerTool);
+  toolRegistry.register(cancelRepoBuildTool);
+  toolRegistry.register(sendAlertTool);
+  toolRegistry.register(clearRepoCacheTool);
+  toolRegistry.register(backupCoreDatabaseTool);
+  toolRegistry.register(batchDeployStackIfChangedTool);
+  toolRegistry.register(exportAllResourcesToTomlTool);
+  toolRegistry.register(exportResourcesToTomlTool);
 
   // Config Tools
   toolRegistry.register(configureTool);

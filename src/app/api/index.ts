@@ -46,9 +46,14 @@ export {
   ExecResource,
   StackAdvancedResource,
   DeploymentAdvancedResource,
+  TerminalResource,
+  ResourceOpsResource,
+  WebhookResource,
+  ResourceInfoResource,
 } from './resources/index.js';
 export type { PruneType } from './resources/containers.js';
 export type { ExecResult } from './resources/exec.js';
+export type { CopyableResource } from './resources/resource-ops.js';
 
 // Types
 export * from './types.js';

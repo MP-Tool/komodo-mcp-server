@@ -1,98 +1,75 @@
-#!/usr/bin/env node
-
 /**
- * Komodo MCP Server - Main Entry Point
+ * Komodo MCP Application Layer
  *
- * Model Context Protocol server for managing Docker containers,
- * deployments, and stacks through Komodo.
+ * This module contains Komodo-specific application code that builds on the generic
+ * MCP framework in `server/`. It provides:
  *
- * Uses McpServerBuilder for declarative server construction.
+ * - Typed KomodoClient connection management
+ * - Auto-configuration from environment variables
+ * - Komodo-specific bootstrap logic
+ * - Komodo-specific telemetry attributes
+ * - Application-specific errors (API, Auth, Resource)
+ * - Server options and lifecycle hooks
+ * - Registry adapters for the builder pattern
  *
- * @module index
+ * The separation allows the `server/` module to be extracted as a reusable
+ * MCP framework package in the future, while keeping app-specific code here.
+ *
+ * @module app
  */
 
-// Initialize OpenTelemetry FIRST, before any other imports
-// This ensures all modules are instrumented
-import { initializeTelemetry } from './server/telemetry/index.js';
-initializeTelemetry();
+// ─────────────────────────────────────────────────────────────────────────
+// Server Configuration & Options
+// ─────────────────────────────────────────────────────────────────────────
 
-// Configure logger BEFORE any other imports that use it
-// This ensures LOG_LEVEL and other settings from env are applied
-import { configureLogger } from './app/framework.js';
-import { config, SERVER_NAME, SERVER_VERSION } from './app/config/index.js';
-configureLogger({
-  LOG_LEVEL: config.LOG_LEVEL,
-  LOG_FORMAT: config.LOG_FORMAT,
-  LOG_DIR: config.LOG_DIR,
-  MCP_TRANSPORT: config.MCP_TRANSPORT,
-  NODE_ENV: config.NODE_ENV,
-  SERVER_NAME,
-  SERVER_VERSION,
-});
-
-// Server Builder
-import { McpServerBuilder } from './server/builder/index.js';
-import type { IServerInstance } from './server/types/index.js';
-
-// Komodo application layer
-import type { KomodoClient } from './app/api/index.js';
-import { registerTools } from './app/mcp/tools/index.js';
-import { registerResources } from './app/mcp/resources/index.js';
-import { registerPrompts } from './app/mcp/prompts/index.js';
-import {
+export {
   komodoServerOptions,
-  toolRegistryAdapter,
-  resourceRegistryAdapter,
-  promptRegistryAdapter,
-  initializeKomodoClientFromEnv,
-} from './app/index.js';
+  createKomodoServerOptions,
+  createKomodoLifecycleHooks,
+  createKomodoClientFromEnv,
+} from './server-options.js';
 
-// Logger
-import { logger } from './server/logger/index.js';
+// ─────────────────────────────────────────────────────────────────────────
+// Registry Adapters (for McpServerBuilder)
+// ─────────────────────────────────────────────────────────────────────────
 
-// Store server instance for tool notifications
-let serverInstance: IServerInstance | null = null;
+export { toolRegistryAdapter, resourceRegistryAdapter, promptRegistryAdapter } from './adapters.js';
 
-/**
- * Bootstrap the Komodo MCP Server.
- *
- * This function:
- * 1. Registers all tools, resources, and prompts with their registries
- * 2. Sets up connection state listener for dynamic tool availability
- * 3. Builds the server using McpServerBuilder with adapters
- * 4. Starts the server
- * 5. Attempts auto-configuration from environment variables
- */
-async function main(): Promise<void> {
-  // Register all tools, resources, and prompts with their registries
-  registerTools();
-  registerResources();
-  registerPrompts();
+// ─────────────────────────────────────────────────────────────────────────
+// Connection Management
+// ─────────────────────────────────────────────────────────────────────────
 
-  // Build server using McpServerBuilder with adapters
-  // The builder's internal connection state listener handles:
-  // - Updating tool providers via setConnectionState()
-  // - Sending tool list changed notifications to MCP clients
-  //
-  // Note: We use autoConnect: false because we manually call initializeKomodoClientFromEnv()
-  // after server start to support Docker env_file loading at runtime
-  serverInstance = new McpServerBuilder<KomodoClient>()
-    .withOptions(komodoServerOptions)
-    .withToolProvider(toolRegistryAdapter)
-    .withResourceProvider(resourceRegistryAdapter)
-    .withPromptProvider(promptRegistryAdapter)
-    .build();
+// Komodo-specific connection manager
+export { komodoConnectionManager } from './connection.js';
+export type { KomodoClient } from './connection.js';
 
-  // Start the server (handles transport selection internally)
-  await serverInstance.start();
+// Komodo client auto-initialization
+export { initializeKomodoClientFromEnv } from './client-initializer.js';
 
-  // Try to initialize Komodo client from environment variables
-  // This is called after server start to support Docker runtime credential loading
-  await initializeKomodoClientFromEnv();
-}
+// Application-specific types
+export type { ClientInitResult, ClientEnvConfig } from './types.js';
 
-// Start the server
-main().catch((error) => {
-  logger.error('Fatal error running server:', error);
-  process.exit(1);
-});
+// Komodo-specific telemetry attributes
+export { KOMODO_ATTRIBUTES } from './telemetry.js';
+export type { KomodoAttributeKey, KomodoAttributeValue } from './telemetry.js';
+
+// ─────────────────────────────────────────────────────────────────────────
+// Application Errors
+// ─────────────────────────────────────────────────────────────────────────
+
+export {
+  // Factory (recommended for error creation)
+  AppErrorFactory,
+  // Classes
+  ApiError,
+  ConnectionError,
+  AuthenticationError,
+  NotFoundError,
+  ClientNotConfiguredError,
+  // Messages
+  AppMessages,
+  getAppMessage,
+  // Types
+  type AppMessageKey,
+  type AppErrorFactoryType,
+} from './errors/index.js';

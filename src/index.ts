@@ -1,75 +1,58 @@
 /**
- * Komodo MCP Application Layer
+ * Komodo MCP Server — Entry Point
  *
- * This module contains Komodo-specific application code that builds on the generic
- * MCP framework in `server/`. It provides:
- *
- * - Typed KomodoClient connection management
- * - Auto-configuration from environment variables
- * - Komodo-specific bootstrap logic
- * - Komodo-specific telemetry attributes
- * - Application-specific errors (API, Auth, Resource)
- * - Server options and lifecycle hooks
- * - Registry adapters for the builder pattern
- *
- * The separation allows the `server/` module to be extracted as a reusable
- * MCP framework package in the future, while keeping app-specific code here.
- *
- * @module app
+ * Creates and starts the MCP server with all Komodo tools auto-registered.
  */
 
-// ─────────────────────────────────────────────────────────────────────────
-// Server Configuration & Options
-// ─────────────────────────────────────────────────────────────────────────
+import { createServer, logger } from "mcp-server-framework";
+import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection } from "./config/index.js";
+import { komodoConnectionManager, initializeKomodoClientFromEnv, komodoConnectionMonitor } from "./client.js";
+import { getKomodoCredentials } from "./config/index.js";
 
-export {
-  komodoServerOptions,
-  createKomodoServerOptions,
-  createKomodoLifecycleHooks,
-  createKomodoClientFromEnv,
-} from './server-options.js';
+// Side-effect imports — register all tools in the global registry
+import "./tools/index.js";
 
-// ─────────────────────────────────────────────────────────────────────────
-// Registry Adapters (for McpServerBuilder)
-// ─────────────────────────────────────────────────────────────────────────
+// Register [komodo] config file section before server init
+registerKomodoConfigSection();
 
-export { toolRegistryAdapter, resourceRegistryAdapter, promptRegistryAdapter } from './adapters.js';
+// ============================================================================
+// Server Instance
+// ============================================================================
 
-// ─────────────────────────────────────────────────────────────────────────
-// Connection Management
-// ─────────────────────────────────────────────────────────────────────────
+const { start } = createServer({
+  name: SERVER_NAME,
+  version: SERVER_VERSION,
 
-// Komodo-specific connection manager
-export { komodoConnectionManager } from './connection.js';
-export type { KomodoClient } from './connection.js';
+  capabilities: {
+    tools: { listChanged: true },
+    logging: true,
+  },
 
-// Komodo client auto-initialization
-export { initializeKomodoClientFromEnv } from './client-initializer.js';
+  lifecycle: {
+    onStarting: initializeKomodoClientFromEnv,
+    onStopping: () => {
+      komodoConnectionMonitor.stop();
+    },
+  },
 
-// Application-specific types
-export type { ClientInitResult, ClientEnvConfig } from './types.js';
+  health: {
+    connectionManager: komodoConnectionManager,
+    isApiConfigured: () => !!getKomodoCredentials().url,
+    apiLabel: "komodo",
+  },
 
-// Komodo-specific telemetry attributes
-export { KOMODO_ATTRIBUTES } from './telemetry.js';
-export type { KomodoAttributeKey, KomodoAttributeValue } from './telemetry.js';
+  shutdown: {
+    timeoutMs: 10_000,
+    forceExitOnTimeout: true,
+    signals: ["SIGINT", "SIGTERM"],
+  },
+});
 
-// ─────────────────────────────────────────────────────────────────────────
-// Application Errors
-// ─────────────────────────────────────────────────────────────────────────
+// ============================================================================
+// Start
+// ============================================================================
 
-export {
-  // Factory (recommended for error creation)
-  AppErrorFactory,
-  // Classes
-  ApiError,
-  ConnectionError,
-  AuthenticationError,
-  NotFoundError,
-  ClientNotConfiguredError,
-  // Messages
-  AppMessages,
-  getAppMessage,
-  // Types
-  type AppMessageKey,
-  type AppErrorFactoryType,
-} from './errors/index.js';
+start().catch((error: unknown) => {
+  logger.error("Failed to start Komodo MCP Server: %s", error instanceof Error ? error.message : String(error));
+  process.exit(1);
+});

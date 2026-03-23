@@ -8,14 +8,19 @@
   "bin": {
     "komodo-mcp-server": "./build/index.js"
   },
+  "types": "build/index.d.ts",
   "scripts": {
     "build": "tsc",
     "build:prod": "tsc --project tsconfig.prod.json",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
-    "clean": "rm -rf build node_modules coverage test-results",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf build coverage test-results *.tsbuildinfo",
+    "clean:all": "rm -rf build node_modules coverage test-results *.tsbuildinfo",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
     "docker:build": "docker build --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
   },
@@ -53,18 +58,21 @@
   ],
   "dependencies": {
     "komodo_client": "^1.19.5",
-    "mcp-server-framework": "^1.0.0"
+    "mcp-server-framework": "^1.0.2"
+  },
+  "overrides": {
+    "zod": "$zod"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "prettier": "^3.7.4",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "@types/express": "^5.0.6",
+    "zod": "^3.25.0",
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@types/node": "^25.0.9",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.7.4",
     "typescript": "^5.9.3",
-    "fast-check": "^4.3.0"
+    "typescript-eslint": "^8.57.1"
   }
 }

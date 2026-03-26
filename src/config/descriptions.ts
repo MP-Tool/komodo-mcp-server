@@ -36,6 +36,7 @@ export const RESPONSE_ICONS = {
   TIME: "⚡",
   AUTH: "🔐",
   VERSION: "📦",
+  KOMODO: "🦎",
 } as const;
 
 // ============================================================================

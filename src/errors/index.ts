@@ -10,6 +10,9 @@ export { AppMessages, getAppMessage, type AppMessageKey, type MessageParams } fr
 // Error classes
 export { ApiError, ConnectionError, AuthenticationError, NotFoundError, ClientNotConfiguredError } from "./classes.js";
 
+// Error extraction
+export { formatError, extractKomodoError, isAuthRejection } from "./extraction.js";
+
 // Factory
 export { AppErrorFactory, type AppErrorFactoryType } from "./factory.js";
 

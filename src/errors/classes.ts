@@ -86,7 +86,7 @@ export class ConnectionError extends AppError {
 
   constructor(message: string, target: string, options: Omit<BaseErrorOptions, "code"> = {}) {
     super(message, {
-      code: ErrorCodes.CONNECTION_ERROR,
+      code: "CONNECTION_ERROR",
       statusCode: HttpStatus.BAD_GATEWAY,
       mcpCode: ErrorCode.InternalError,
       cause: options.cause,

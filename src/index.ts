@@ -6,7 +6,7 @@
 
 import { createServer, logger } from "mcp-server-framework";
 import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection } from "./config/index.js";
-import { komodoConnectionManager, initializeKomodoClientFromEnv, komodoConnectionMonitor } from "./client.js";
+import { initializeKomodoClientFromEnv, komodoConnection } from "./client.js";
 import { getKomodoCredentials } from "./config/index.js";
 
 // Side-effect imports — register all tools in the global registry
@@ -31,14 +31,16 @@ const { start } = createServer({
   lifecycle: {
     onStarting: initializeKomodoClientFromEnv,
     onStopping: () => {
-      komodoConnectionMonitor.stop();
+      komodoConnection.stopMonitoring();
     },
   },
 
   health: {
-    connectionManager: komodoConnectionManager,
-    isApiConfigured: () => !!getKomodoCredentials().url,
-    apiLabel: "komodo",
+    readinessCheck: () => {
+      if (!getKomodoCredentials().url) return true;
+      return komodoConnection.connected || "Komodo API not connected";
+    },
+    serviceLabel: "komodo",
   },
 
   shutdown: {

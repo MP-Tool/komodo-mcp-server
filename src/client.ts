@@ -1,92 +1,98 @@
 /**
  * Komodo Client
  *
- * Thin wrapper around komodo_client providing ServiceClient interface
- * for framework compatibility and ConnectionStateManager integration.
+ * Thin wrapper around komodo_client with local connection tracking,
+ * Auth Strategy Pattern, and automatic reconnection.
  *
  * @module client
  */
 
 import { KomodoClient as createKomodoClient } from "komodo_client";
+import { logger as baseLogger } from "mcp-server-framework";
 import {
-  ConnectionStateManager,
-  logger as baseLogger,
-  type ServiceClient,
-  type HealthCheckResult,
-} from "mcp-server-framework";
-import { AuthenticationError, ConnectionError } from "./errors/index.js";
-import { config, getKomodoCredentials, type KomodoCredentials } from "./config/index.js";
+  AuthenticationError,
+  ConnectionError,
+  extractKomodoError,
+  formatError,
+  isAuthRejection,
+} from "./errors/index.js";
+import { config, getKomodoCredentials } from "./config/index.js";
 
 const logger = baseLogger.child({ component: "KomodoClient" });
-
-// ============================================================================
-// Error Extraction
-// ============================================================================
-
-/**
- * Formats an Error, including its cause chain for network errors.
- * Node.js fetch wraps the real cause (ECONNREFUSED, ENOTFOUND, etc.) in error.cause.
- */
-export function formatError(error: Error): string {
-  const cause = "cause" in error && error.cause instanceof Error ? error.cause : null;
-  return cause ? `${error.message}: ${cause.message}` : error.message;
-}
-
-/**
- * Extracts a readable error message from a komodo_client rejection.
- * The library rejects with plain objects: { status, result: { error, trace? }, error? }
- */
-export function extractKomodoError(error: unknown): string {
-  if (error instanceof Error) return formatError(error);
-  if (typeof error === "object" && error !== null) {
-    const e = error as Record<string, unknown>;
-    // Network error has .error as an Error instance
-    if (e.error instanceof Error) return formatError(e.error);
-    // HTTP error has .result.error as a string
-    if (typeof e.result === "object" && e.result !== null) {
-      const result = e.result as Record<string, unknown>;
-      if (typeof result.error === "string") return result.error;
-    }
-    if (typeof e.status === "number") return `HTTP ${e.status}`;
-  }
-  return String(error);
-}
 
 // ============================================================================
 // Client Type
 // ============================================================================
 
 /** The raw komodo_client instance type */
-type RawKomodoClient = ReturnType<typeof createKomodoClient>;
+type KomodoClientInstance = ReturnType<typeof createKomodoClient>;
 
 // ============================================================================
 // Komodo Client
 // ============================================================================
 
-export class KomodoClient implements ServiceClient {
-  readonly clientType = "komodo" as const;
-  readonly client: RawKomodoClient;
-  private readonly baseUrl: string;
+export class KomodoClient {
+  private readonly _client: KomodoClientInstance;
+  private readonly _url: string;
 
-  private constructor(baseUrl: string, client: RawKomodoClient) {
-    this.baseUrl = baseUrl;
-    this.client = client;
+  private constructor(url: string, client: KomodoClientInstance) {
+    this._url = url;
+    this._client = client;
   }
 
-  getBaseUrl(): string {
-    return this.baseUrl;
+  /** The raw komodo_client SDK instance. */
+  get client(): KomodoClientInstance {
+    return this._client;
+  }
+
+  /** The base URL of the connected Komodo server. */
+  get url(): string {
+    return this._url;
+  }
+
+  /** Strip trailing slash from a URL. */
+  private static normalizeUrl(url: string): string {
+    return url.replace(/\/$/, "");
   }
 
   /**
-   * Login with username/password.
+   * Check if a Komodo server is reachable via GET /version.
+   *
+   * Any HTTP response (even 404) means the server is reachable.
+   * Only network errors (ECONNREFUSED, ENOTFOUND, timeout) count as unreachable.
+   */
+  static async ping(url: string): Promise<{ reachable: true; version?: string } | { reachable: false; error: string }> {
+    const normalized = KomodoClient.normalizeUrl(url);
+    try {
+      const response = await fetch(`${normalized}/version`, {
+        signal: AbortSignal.timeout(config.API_TIMEOUT_MS),
+      });
+      if (response.ok) {
+        const version = await response.text();
+        return { reachable: true, version: version.trim() };
+      }
+      // Any HTTP response = server is reachable, even if endpoint is unknown
+      return { reachable: true };
+    } catch (error) {
+      const message = error instanceof Error ? formatError(error) : String(error);
+      return { reachable: false, error: message };
+    }
+  }
+
+  /**
+   * Login with username/password via komodo_client auth API.
+   *
+   * Creates an unauthenticated temporary client (empty JWT → no Authorization header),
+   * calls LoginLocalUser, then constructs an authenticated client with the returned JWT.
    */
   static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
-    const url = baseUrl.replace(/\/$/, "");
+    const url = KomodoClient.normalizeUrl(baseUrl);
     const timeoutMs = config.API_TIMEOUT_MS;
 
     logger.trace('Authenticating as "%s" at %s', username, url);
 
-    // Temporary client — empty jwt is falsy, so no authorization header is sent
+    // Unauthenticated client: empty JWT means no Authorization header is sent,
+    // which is required for the LoginLocalUser endpoint.
     const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
 
     const timeoutPromise = new Promise<never>((_, reject) =>
@@ -103,9 +109,8 @@ export class KomodoClient implements ServiceClient {
       return new KomodoClient(url, client);
     } catch (error) {
       if (error instanceof AuthenticationError || error instanceof ConnectionError) throw error;
-      // Detect 401/403 auth failures from komodo_client plain object rejections
-      const komodoErr = error as Record<string, unknown>;
-      if (komodoErr.status === 401 || komodoErr.status === 403) {
+      // Detect auth failures from komodo_client plain object rejections
+      if (isAuthRejection(error)) {
         throw AuthenticationError.invalidCredentials();
       }
       throw ConnectionError.failed(url, extractKomodoError(error));
@@ -114,69 +119,130 @@ export class KomodoClient implements ServiceClient {
 
   /**
    * Connect with API key/secret.
+   * No network call needed — credentials are sent with every request.
    */
   static connectWithApiKey(baseUrl: string, key: string, secret: string): KomodoClient {
-    const url = baseUrl.replace(/\/$/, "");
-    logger.trace("Connecting with API-Key to %s", url);
+    const url = KomodoClient.normalizeUrl(baseUrl);
+    logger.trace("Creating API-Key client for %s", url);
     const client = createKomodoClient(url, { type: "api-key", params: { key, secret } });
-    logger.info("Connected with API key to %s", url);
     return new KomodoClient(url, client);
   }
 
   /**
-   * Health check for ConnectionStateManager.
+   * Connect with a pre-existing JWT token.
+   *
+   * Useful for tokens obtained via OIDC, GitHub, or Google OAuth in the browser.
+   * No network call needed — the token is sent as Authorization header with every request.
    */
-  async healthCheck(): Promise<HealthCheckResult> {
-    const startTime = Date.now();
+  static connectWithJwt(baseUrl: string, jwt: string): KomodoClient {
+    const url = KomodoClient.normalizeUrl(baseUrl);
+    logger.trace("Creating JWT client for %s", url);
+    const client = createKomodoClient(url, { type: "jwt", params: { jwt } });
+    return new KomodoClient(url, client);
+  }
+
+  /**
+   * Query available login options from the Komodo server.
+   * Useful for displaying which auth methods are enabled (local, GitHub, Google, OIDC).
+   */
+  static async getLoginOptions(
+    baseUrl: string,
+  ): Promise<{ local: boolean; github: boolean; google: boolean; oidc: boolean }> {
+    const url = KomodoClient.normalizeUrl(baseUrl);
+    const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
+    return tempClient.auth("GetLoginOptions", {});
+  }
+
+  /**
+   * Health check using core_version() — lightweight, validates connectivity and auth.
+   *
+   * Throws AuthenticationError on auth failures — these indicate wrong credentials
+   * (API key/secret, expired JWT) and must not be swallowed as generic health failures.
+   */
+  async healthCheck(): Promise<{ healthy: boolean; version?: string; error?: string }> {
     try {
-      const versionRes = await this.client.read("GetVersion", {});
-      return {
-        status: "healthy",
-        message: "Connected",
-        details: {
-          url: this.baseUrl,
-          reachable: true,
-          authenticated: true,
-          responseTime: Date.now() - startTime,
-          apiVersion: versionRes.version,
-        },
-      };
+      const version = await this.client.core_version();
+      return { healthy: true, version };
     } catch (error) {
-      const errorMessage = extractKomodoError(error);
-      return {
-        status: "unhealthy",
-        message: errorMessage,
-        details: {
-          url: this.baseUrl,
-          reachable: false,
-          authenticated: false,
-          responseTime: Date.now() - startTime,
-          error: errorMessage,
-        },
-      };
+      if (isAuthRejection(error)) {
+        throw AuthenticationError.invalidCredentials();
+      }
+      return { healthy: false, error: extractKomodoError(error) };
     }
   }
 }
 
 // ============================================================================
-// Connection Manager Singleton
+// Auth Strategy Pattern
 // ============================================================================
 
-export const komodoConnectionManager = new ConnectionStateManager<KomodoClient>();
+/** Authentication strategy for creating Komodo clients */
+export interface KomodoAuth {
+  readonly method: string;
+  connect(url: string): Promise<KomodoClient>;
+}
+
+/** JWT-based auth via username/password login */
+export class PasswordAuth implements KomodoAuth {
+  readonly method = "password";
+  constructor(
+    private readonly username: string,
+    private readonly password: string,
+  ) {}
+  connect(url: string): Promise<KomodoClient> {
+    return KomodoClient.login(url, this.username, this.password);
+  }
+}
+
+/** API key/secret auth — no network call needed for client creation */
+export class ApiKeyAuth implements KomodoAuth {
+  readonly method = "api-key";
+  constructor(
+    private readonly key: string,
+    private readonly secret: string,
+  ) {}
+  async connect(url: string): Promise<KomodoClient> {
+    return KomodoClient.connectWithApiKey(url, this.key, this.secret);
+  }
+}
+
+/** Pre-existing JWT token auth — for tokens obtained via OIDC/OAuth browser flows */
+export class JwtAuth implements KomodoAuth {
+  readonly method = "jwt";
+  constructor(private readonly jwt: string) {}
+  async connect(url: string): Promise<KomodoClient> {
+    return KomodoClient.connectWithJwt(url, this.jwt);
+  }
+}
+
+/** Resolves credentials to an auth strategy, or null if insufficient */
+export function resolveAuth(creds: {
+  apiKey?: string | undefined;
+  apiSecret?: string | undefined;
+  username?: string | undefined;
+  password?: string | undefined;
+  jwtToken?: string | undefined;
+}): KomodoAuth | null {
+  if (creds.apiKey && creds.apiSecret) return new ApiKeyAuth(creds.apiKey, creds.apiSecret);
+  if (creds.jwtToken) return new JwtAuth(creds.jwtToken);
+  if (creds.username && creds.password) return new PasswordAuth(creds.username, creds.password);
+  return null;
+}
 
 // ============================================================================
-// Connection Monitor (auto-reconnect)
+// Connection Manager
 // ============================================================================
 
 /**
- * Periodic health check + automatic reconnection for the Komodo API.
+ * Unified connection manager: state, client lifecycle, and auto-reconnect monitoring.
  *
- * Stores the last used credentials and re-authenticates on connection loss
- * (re-login for JWT, fresh client for API key). Uses exponential backoff
- * to avoid hammering a restarting Komodo Core.
+ * Owns the KomodoClient reference, auth strategy, and periodic health checks.
+ * Consumer-API: `connect()`, `getClient()`, `connected`, `stopMonitoring()`.
  */
-class KomodoConnectionMonitor {
-  private credentials: KomodoCredentials | null = null;
+class KomodoConnection {
+  private client: KomodoClient | null = null;
+  private auth: KomodoAuth | null = null;
+  private url: string | null = null;
   private timer: NodeJS.Timeout | null = null;
   private retryDelay = 5_000;
   private readonly maxDelay = 60_000;
@@ -186,22 +252,68 @@ class KomodoConnectionMonitor {
     this.checkIntervalMs = checkIntervalMs;
   }
 
-  /** Start monitoring with the given credentials. Stops any previous monitor. */
-  start(credentials: KomodoCredentials): void {
-    this.stop();
-    this.credentials = credentials;
+  /** Returns the connected client, or null if not connected. */
+  getClient(): KomodoClient | null {
+    return this.client;
+  }
+
+  /** Whether a verified connection exists. */
+  get connected(): boolean {
+    return this.client !== null;
+  }
+
+  /**
+   * Connect to Komodo: ping → authenticate → verify health → start monitoring.
+   *
+   * On success, replaces any previous connection and starts health monitoring.
+   * On failure (health check), the previous connection remains active.
+   * If auth.connect() throws, the previous connection is fully preserved.
+   */
+  async connect(auth: KomodoAuth, url: string): Promise<{ success: boolean; version?: string; error?: string }> {
+    // Reachability check — fail fast before attempting auth
+    const ping = await KomodoClient.ping(url);
+    if (!ping.reachable) {
+      throw ConnectionError.failed(url, ping.error);
+    }
+
+    const client = await auth.connect(url);
+    const health = await client.healthCheck();
+
+    if (!health.healthy) {
+      return { success: false, ...(health.error !== undefined && { error: health.error }) };
+    }
+
+    this.stopMonitoring();
+    this.client = client;
+    this.auth = auth;
+    this.url = url;
     this.retryDelay = 5_000;
     this.scheduleHealthCheck();
     logger.trace("Connection monitor started (interval: %dms)", this.checkIntervalMs);
+
+    return health.version ? { success: true, version: health.version } : { success: true };
   }
 
-  /** Stop monitoring and clear stored credentials. */
-  stop(): void {
+  /**
+   * Start the reconnect loop without an active connection.
+   *
+   * Used when the initial connection attempt fails — stores auth + url
+   * so that `attemptReconnect()` can keep trying in the background.
+   */
+  startReconnecting(auth: KomodoAuth, url: string): void {
+    this.stopMonitoring();
+    this.auth = auth;
+    this.url = url;
+    this.retryDelay = 5_000;
+    this.scheduleReconnect();
+  }
+
+  /** Stop health monitoring and reconnect attempts. */
+  stopMonitoring(): void {
     if (this.timer) {
       clearTimeout(this.timer);
       this.timer = null;
     }
-    this.credentials = null;
   }
 
   private scheduleHealthCheck(): void {
@@ -215,47 +327,53 @@ class KomodoConnectionMonitor {
   }
 
   private async runHealthCheck(): Promise<void> {
-    const client = komodoConnectionManager.getClient();
-    if (!client) {
+    if (!this.client) {
       this.scheduleHealthCheck();
       return;
     }
 
-    const health = await client.healthCheck();
-    if (health.status === "healthy") {
-      this.retryDelay = 5_000;
-      this.scheduleHealthCheck();
-    } else {
-      logger.warn("Komodo health check failed: %s — initiating reconnect", health.message);
-      this.scheduleReconnect();
+    try {
+      const health = await this.client.healthCheck();
+      if (health.healthy) {
+        this.retryDelay = 5_000;
+        this.scheduleHealthCheck();
+      } else {
+        logger.warn("Komodo health check failed: %s — initiating reconnect", health.error);
+        this.client = null;
+        this.scheduleReconnect();
+      }
+    } catch (error) {
+      if (error instanceof AuthenticationError) {
+        logger.warn("Authentication failed during health check — stopping monitor (credentials may be invalid)");
+        this.client = null;
+        return;
+      }
+      throw error;
     }
   }
 
   private async attemptReconnect(): Promise<void> {
-    const creds = this.credentials;
-    if (!creds?.url) {
+    if (!this.auth || !this.url) {
       this.scheduleHealthCheck();
       return;
     }
 
-    logger.debug("Attempting Komodo reconnection to %s...", creds.url);
+    // Reachability check — skip full auth if server is down
+    const ping = await KomodoClient.ping(this.url);
+    if (!ping.reachable) {
+      logger.trace("Server unreachable (%s) — skipping auth, retrying later", ping.error);
+      this.scheduleReconnect();
+      return;
+    }
+
+    logger.trace("Server reachable — attempting Komodo reconnection...");
 
     try {
-      let client: KomodoClient;
+      const client = await this.auth.connect(this.url);
+      const health = await client.healthCheck();
 
-      if (creds.apiKey && creds.apiSecret) {
-        client = KomodoClient.connectWithApiKey(creds.url, creds.apiKey, creds.apiSecret);
-      } else if (creds.username && creds.password) {
-        client = await KomodoClient.login(creds.url, creds.username, creds.password);
-      } else {
-        logger.error("No credentials available for reconnect");
-        this.scheduleHealthCheck();
-        return;
-      }
-
-      const success = await komodoConnectionManager.connect(client);
-
-      if (success) {
+      if (health.healthy) {
+        this.client = client;
         logger.info("Komodo reconnection successful");
         this.retryDelay = 5_000;
         this.scheduleHealthCheck();
@@ -264,13 +382,18 @@ class KomodoConnectionMonitor {
         this.scheduleReconnect();
       }
     } catch (error) {
+      // Auth errors = bad credentials → stop retrying (would fail forever)
+      if (isAuthRejection(error)) {
+        logger.warn("Authentication failed during reconnect — stopping retry (credentials may be invalid)");
+        return;
+      }
       logger.trace("Reconnection attempt failed: %s", error instanceof Error ? error.message : String(error));
       this.scheduleReconnect();
     }
   }
 }
 
-export const komodoConnectionMonitor = new KomodoConnectionMonitor();
+export const komodoConnection = new KomodoConnection();
 
 // ============================================================================
 // Auto-Init from Environment
@@ -288,35 +411,32 @@ export async function initializeKomodoClientFromEnv(): Promise<void> {
     return;
   }
 
-  logger.debug(
-    "Komodo credentials: url=%s, auth=%s",
-    creds.url,
-    creds.apiKey ? "api-key" : creds.username ? "username/password" : "none",
-  );
+  const auth = resolveAuth(creds);
+  if (!auth) {
+    logger.info("No Komodo credentials configured - use komodo_configure tool to connect");
+    return;
+  }
 
   try {
-    let client: KomodoClient;
-
-    if (creds.apiKey && creds.apiSecret) {
-      logger.debug("Connecting to Komodo at %s (api-key)...", creds.url);
-      client = KomodoClient.connectWithApiKey(creds.url, creds.apiKey, creds.apiSecret);
-    } else if (creds.username && creds.password) {
-      logger.debug("Connecting to Komodo at %s (login)...", creds.url);
-      client = await KomodoClient.login(creds.url, creds.username, creds.password);
-    } else {
-      logger.info("No Komodo credentials configured - use komodo_configure tool to connect");
-      return;
-    }
-
-    const success = await komodoConnectionManager.connect(client);
+    logger.debug("Connecting to Komodo at %s (%s)...", creds.url, auth.method);
+    const { success } = await komodoConnection.connect(auth, creds.url);
 
     if (success) {
       logger.info("Komodo connection established");
-      komodoConnectionMonitor.start(creds);
     } else {
-      logger.warn("Komodo connection failed: health check unsuccessful");
+      logger.warn("Komodo health check failed — will keep retrying in the background");
+      komodoConnection.startReconnecting(auth, creds.url);
     }
   } catch (error) {
-    logger.warn("Komodo connection failed: %s", error instanceof Error ? error.message : String(error));
+    // Auth errors = bad credentials — don't retry, would fail forever
+    if (isAuthRejection(error)) {
+      logger.warn("Komodo authentication failed: %s", error instanceof Error ? error.message : String(error));
+      return;
+    }
+    logger.warn(
+      "Komodo connection failed: %s — will keep retrying in the background",
+      error instanceof Error ? error.message : String(error),
+    );
+    komodoConnection.startReconnecting(auth, creds.url);
   }
 }

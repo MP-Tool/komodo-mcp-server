@@ -7,6 +7,54 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [Unreleased]
+
+### Added
+
+- **Three authentication methods**: Support for API Key, JWT Token, and Username/Password authentication — choose the method that fits your setup
+- **JWT Token support**: Use pre-existing JWT tokens from browser-based logins (OIDC, GitHub, Google OAuth) to authenticate without storing credentials
+- **Automatic connection on startup**: When credentials are configured via environment variables or config file, the server connects to Komodo automatically at launch — no manual `komodo_configure` call needed
+- **Connection monitoring with auto-reconnect**: Periodic health checks detect connection loss and automatically re-establish the connection with exponential backoff
+- **Login method discovery**: The `komodo_configure` tool queries available login methods (local, GitHub, Google, OIDC) from the Komodo server and displays them for informational purposes
+- **Auth rejection detection**: Authentication failures (invalid credentials, expired tokens, unknown users) are clearly distinguished from network errors and reported with actionable messages
+- **Error extraction utilities**: Komodo API errors are parsed and formatted into human-readable messages with proper error classification
+
+### Changed
+
+- **Connection architecture**: Unified connection management — a single `KomodoConnection` class handles client lifecycle, authentication, health monitoring, and reconnect logic
+- **Configure tool**: Richer feedback on connection status including Komodo version, health check results, and available login methods
+- **Health check tool**: Reports detailed connection state including server version, MCP server version, and clear status indicators
+- **Credential configuration**: Support for Docker secrets (`*_FILE` env vars), config file (`[komodo]` section), and direct environment variables with clear priority chain
+- **Environment variable naming**: `KOMODO_JWT_TOKEN` (was `KOMODO_JWT_SECRET`) — clearly identifies the value as a token, not a signing key
+- **Validation error handling**: Invalid tool inputs (e.g. multiple auth methods) return clean MCP error responses with server-side warning logs instead of unhandled exceptions
+
+### Removed
+
+- Framework's `ConnectionStateManager` dependency — connection management is now fully self-contained
+
+### Dependencies
+
+- Updated `mcp-server-framework` to v2.0.0 (`ReadinessConfig` replaces removed `HealthConfig`)
+
+--------------------------------------------------------------
+
+## [1.3.0] - Framework Integration & Config Improvements
+
+### Fixed
+
+- **Tool error messages**: `requireClient()` now throws state-aware error messages instead of the tool name. When Komodo is not configured, the error clearly says "Komodo client is not configured. Use komodo_configure to set up connection." For connection failures: "Komodo client is not connected. Check configuration and connectivity."
+
+### Changed
+
+- **Transport fully config-driven**: Removed programmatic `resolveTransport()` — transport mode, host, and port are now resolved entirely from the framework config cascade (env schema defaults → `.env` → config file → env vars). No application-level transport resolution needed
+- **Interpolation from framework**: Replaced local `interpolate()` utility with the framework's exported `interpolate()` and `MessageParams` type from `mcp-server-framework`, removing code duplication
+
+### Dependencies
+
+- Updated `mcp-server-framework` with OTEL connection error handling, TextFormatter defaults fix, and DiagLogLevel improvements
+
+--------------------------------------------------------------
+
 ## [1.2.2] - Docker Security & Build Optimization
 
 ### 🔐 Security

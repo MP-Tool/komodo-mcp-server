@@ -57,8 +57,8 @@
     "CHANGELOG.md"
   ],
   "dependencies": {
-    "komodo_client": "^1.19.5",
-    "mcp-server-framework": "^1.0.2"
+    "komodo_client": "^2.0.0",
+    "mcp-server-framework": "^1.0.3"
   },
   "overrides": {
     "zod": "$zod"

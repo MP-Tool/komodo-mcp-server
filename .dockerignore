@@ -46,7 +46,6 @@ pids/
 
 # Test coverage
 coverage/
-.nyc_output/
 
 # Development files that aren't needed in container
 local-files/

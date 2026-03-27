@@ -1,0 +1,13 @@
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+
+# Package metadata
+package-lock.json
+
+# Generated
+*.tsbuildinfo
+coverage/

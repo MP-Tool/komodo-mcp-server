@@ -100,11 +100,20 @@ export class KomodoClient {
     );
 
     try {
-      const result = await Promise.race([tempClient.auth("LoginLocalUser", { username, password }), timeoutPromise]);
+      const result = await Promise.race([
+        tempClient.auth.login("LoginLocalUser", { username, password }),
+        timeoutPromise,
+      ]);
 
-      if (!result.jwt) throw AuthenticationError.noToken();
+      if (result.type !== "Jwt") {
+        throw AuthenticationError.failed(
+          `Two-factor authentication (${result.type}) is not supported by the MCP server`,
+        );
+      }
 
-      const client = createKomodoClient(url, { type: "jwt", params: { jwt: result.jwt } });
+      if (!result.data.jwt) throw AuthenticationError.noToken();
+
+      const client = createKomodoClient(url, { type: "jwt", params: { jwt: result.data.jwt } });
       logger.info("Successfully authenticated to %s", url);
       return new KomodoClient(url, client);
     } catch (error) {
@@ -147,10 +156,10 @@ export class KomodoClient {
    */
   static async getLoginOptions(
     baseUrl: string,
-  ): Promise<{ local: boolean; github: boolean; google: boolean; oidc: boolean }> {
+  ): Promise<{ local: boolean; github: boolean; google: boolean; oidc: boolean; registration_disabled: boolean }> {
     const url = KomodoClient.normalizeUrl(baseUrl);
     const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
-    return tempClient.auth("GetLoginOptions", {});
+    return tempClient.auth.login("GetLoginOptions", {});
   }
 
   /**

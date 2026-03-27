@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
-## [Unreleased]
+## [1.3.0]
 
 ### Added
 
@@ -21,6 +21,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **komodo_client v2.0.0 Auth API**: Migrated authentication calls to namespaced API (`auth.login()`, `auth.manage()`) — supports `JwtOrTwoFactor` discriminated union response with explicit 2FA rejection
+- **Login options**: `getLoginOptions()` now includes `registration_disabled` field from Komodo v2
 - **Connection architecture**: Unified connection management — a single `KomodoConnection` class handles client lifecycle, authentication, health monitoring, and reconnect logic
 - **Configure tool**: Richer feedback on connection status including Komodo version, health check results, and available login methods
 - **Health check tool**: Reports detailed connection state including server version, MCP server version, and clear status indicators
@@ -28,30 +30,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Environment variable naming**: `KOMODO_JWT_TOKEN` (was `KOMODO_JWT_SECRET`) — clearly identifies the value as a token, not a signing key
 - **Validation error handling**: Invalid tool inputs (e.g. multiple auth methods) return clean MCP error responses with server-side warning logs instead of unhandled exceptions
 
+### Fixed
+
+- **localStorage crash on startup**: Added temporary polyfill for `localStorage` in Node.js — `mogh_auth_client` (transitive dependency of `komodo_client` v2) calls `localStorage.getItem()` at module load, which crashes in Node.js 22+ where `localStorage` exists but has no methods without `--localstorage-file`
+
 ### Removed
 
 - Framework's `ConnectionStateManager` dependency — connection management is now fully self-contained
 
 ### Dependencies
 
-- Updated `mcp-server-framework` to v2.0.0 (`ReadinessConfig` replaces removed `HealthConfig`)
-
---------------------------------------------------------------
-
-## [1.3.0] - Framework Integration & Config Improvements
-
-### Fixed
-
-- **Tool error messages**: `requireClient()` now throws state-aware error messages instead of the tool name. When Komodo is not configured, the error clearly says "Komodo client is not configured. Use komodo_configure to set up connection." For connection failures: "Komodo client is not connected. Check configuration and connectivity."
-
-### Changed
-
-- **Transport fully config-driven**: Removed programmatic `resolveTransport()` — transport mode, host, and port are now resolved entirely from the framework config cascade (env schema defaults → `.env` → config file → env vars). No application-level transport resolution needed
-- **Interpolation from framework**: Replaced local `interpolate()` utility with the framework's exported `interpolate()` and `MessageParams` type from `mcp-server-framework`, removing code duplication
-
-### Dependencies
-
-- Updated `mcp-server-framework` with OTEL connection error handling, TextFormatter defaults fix, and DiagLogLevel improvements
+- Updated `komodo_client` to v2.0.0
+- Updated `mcp-server-framework` to v1.0.3
 
 --------------------------------------------------------------
 

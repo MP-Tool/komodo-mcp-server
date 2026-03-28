@@ -5,7 +5,7 @@
  */
 
 // Must be first import — polyfills localStorage for mogh_auth_client (Node.js)
-import "./polyfills.js";
+import "./utils/polyfills.js";
 
 import { createServer, logger } from "mcp-server-framework";
 import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection } from "./config/index.js";

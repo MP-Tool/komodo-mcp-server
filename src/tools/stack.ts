@@ -9,7 +9,14 @@
 import { defineTool, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../config/index.js";
-import { formatActionResponse, formatInfoResponse } from "../utils/index.js";
+import {
+  formatActionResponse,
+  formatInfoResponse,
+  requireClient,
+  wrapApiCall,
+  wrapExecuteAndPoll,
+  formatUpdateResult,
+} from "../utils/index.js";
 import {
   stackConfigSchema,
   createStackConfigSchema,
@@ -17,7 +24,6 @@ import {
   resourceNameSchema,
   serverIdSchema,
 } from "./schemas/index.js";
-import { requireClient, wrapApiCall, extractUpdateId } from "./utils.js";
 
 type StackListItem = Types.StackListItem;
 
@@ -160,22 +166,15 @@ export const deployStackTool = defineTool({
   description: "Deploy a Komodo-managed Compose stack. Runs `docker compose up -d`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "deploy stack",
       () => komodo.client.execute("DeployStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "deploy",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "deploy", "stack", args.stack));
   },
 });
 
@@ -184,22 +183,15 @@ export const pullStackTool = defineTool({
   description: "Pull the latest images for a Compose stack without redeploying. Runs `docker compose pull`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pull stack",
       () => komodo.client.execute("PullStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "pull",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "pull", "stack", args.stack));
   },
 });
 
@@ -208,22 +200,15 @@ export const startStackTool = defineTool({
   description: "Start a stopped Compose stack. Runs `docker compose start`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "start stack",
       () => komodo.client.execute("StartStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "start",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "start", "stack", args.stack));
   },
 });
 
@@ -232,22 +217,15 @@ export const restartStackTool = defineTool({
   description: "Restart a Compose stack. Runs `docker compose restart`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "restart stack",
       () => komodo.client.execute("RestartStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "restart",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "restart", "stack", args.stack));
   },
 });
 
@@ -256,22 +234,15 @@ export const pauseStackTool = defineTool({
   description: "Pause a running Compose stack. Runs `docker compose pause`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pause stack",
       () => komodo.client.execute("PauseStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "pause",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "pause", "stack", args.stack));
   },
 });
 
@@ -280,22 +251,15 @@ export const unpauseStackTool = defineTool({
   description: "Unpause a paused Compose stack. Runs `docker compose unpause`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "unpause stack",
       () => komodo.client.execute("UnpauseStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "unpause",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "unpause", "stack", args.stack));
   },
 });
 
@@ -304,22 +268,15 @@ export const stopStackTool = defineTool({
   description: "Stop a running Compose stack. Runs `docker compose stop`.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "stop stack",
       () => komodo.client.execute("StopStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "stop",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "stop", "stack", args.stack));
   },
 });
 
@@ -328,21 +285,14 @@ export const destroyStackTool = defineTool({
   description: "Destroy a Compose stack. Runs `docker compose down` to stop and remove containers.",
   input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
   annotations: { destructiveHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "destroy stack",
       () => komodo.client.execute("DestroyStack", { stack: args.stack }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "destroy",
-        resourceType: "stack",
-        resourceId: args.stack,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "destroy", "stack", args.stack));
   },
 });

@@ -81,6 +81,58 @@ export function formatActionResponse(options: ActionResponseOptions): string {
   return message;
 }
 
+export interface CompletedActionResponseOptions {
+  action: ActionType;
+  resourceType: ResourceType;
+  resourceId: string;
+  updateId: string;
+  success: boolean;
+  status: string;
+  serverName?: string;
+  logs?: Array<{ stage: string; command: string; stdout: string; stderr: string; success: boolean }>;
+  version?: string;
+}
+
+export function formatCompletedActionResponse(options: CompletedActionResponseOptions): string {
+  const { action, resourceType, resourceId, updateId, success, status, serverName, logs, version } = options;
+  const icon = success ? ACTION_ICONS[action] : RESPONSE_ICONS.ERROR;
+  const pastTense = ACTION_PAST_TENSE[action];
+  const resourceLabel = resourceType.charAt(0).toUpperCase() + resourceType.slice(1);
+  const outcome = success ? pastTense : `${action} failed`;
+
+  let message: string;
+  if (serverName) {
+    message = `${icon} ${resourceLabel} "${resourceId}" ${outcome} on server "${serverName}".`;
+  } else {
+    message = `${icon} ${resourceLabel} "${resourceId}" ${outcome}.`;
+  }
+
+  const details: string[] = [];
+  details.push(`Result: ${success ? "✅ Success" : "❌ Failed"}`);
+  details.push(`Status: ${status}`);
+  details.push(`Update ID: ${updateId}`);
+  if (version) details.push(`Version: ${version}`);
+  message += "\n\n" + details.join("\n");
+
+  // Include relevant log output for failures or when there's meaningful output
+  if (logs && logs.length > 0) {
+    const relevantLogs = success
+      ? logs.filter((l) => l.stdout.trim() || l.stderr.trim()).slice(-2)
+      : logs.filter((l) => !l.success || l.stderr.trim());
+
+    if (relevantLogs.length > 0) {
+      message += "\n\n" + (success ? "📋 Output:" : "📋 Error Details:");
+      for (const log of relevantLogs) {
+        if (log.stage) message += `\n[${log.stage}]`;
+        const output = log.stderr.trim() || log.stdout.trim();
+        if (output) message += `\n\`\`\`\n${output.slice(0, 1000)}\n\`\`\``;
+      }
+    }
+  }
+
+  return message;
+}
+
 export interface ListResponseOptions {
   resourceType: ResourceType;
   count: number;

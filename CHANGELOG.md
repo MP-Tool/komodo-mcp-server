@@ -11,6 +11,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Live progress reporting**: Long-running operations (deploy, start, stop, restart, etc.) now report progress updates to the AI client in real time — no more silent waiting
+- **Cancellation support**: All lifecycle operations can be cancelled mid-flight — the AI client can abort running deployments, stack operations, or container actions at any time
+- **Richer operation results**: Completed operations now include success/failure status, version info, and relevant log output directly in the response — faster diagnosis without separate log queries
+- **Stack file dependencies**: Full support for Komodo v2 stack file dependencies with service mappings and cross-stack requires
+- **Environment file tracking**: Stack environment files now support the `track` flag for change detection
+- **Compose wrapper includes**: New `compose_cmd_wrapper_include` field for selective compose command wrapping
+
 - **Three authentication methods**: Support for API Key, JWT Token, and Username/Password authentication — choose the method that fits your setup
 - **JWT Token support**: Use pre-existing JWT tokens from browser-based logins (OIDC, GitHub, Google OAuth) to authenticate without storing credentials
 - **Automatic connection on startup**: When credentials are configured via environment variables or config file, the server connects to Komodo automatically at launch — no manual `komodo_configure` call needed

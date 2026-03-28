@@ -8,6 +8,7 @@
  */
 
 import { z } from "mcp-server-framework";
+import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
 
 /** System command configuration for pre/post deploy hooks */
@@ -18,13 +19,17 @@ const systemCommandSchema = z
   })
   .describe("System command configuration");
 
-/** Additional config file to track alongside the compose file */
+/** Additional config file dependency for the Stack */
 const stackConfigFileDependencySchema = z
   .object({
     path: z.string().describe("Path to the config file relative to run directory"),
-    contents: z.string().optional().describe("Contents of the file (if defined in UI)"),
+    services: z.array(z.string()).optional().describe("Specific services this file applies to"),
+    requires: z
+      .nativeEnum(Types.StackFileRequires)
+      .optional()
+      .describe("Action required when file changes: Redeploy, Restart, or None (default)"),
   })
-  .describe("Additional config file to track");
+  .describe("Additional config file dependency for the Stack");
 
 /** Stack configuration — all fields optional (partial by design) */
 export const stackConfigSchema = z
@@ -60,7 +65,16 @@ export const stackConfigSchema = z
     file_paths: z.array(z.string()).optional().describe('Compose file paths. Default: ["compose.yaml"]'),
     env_file_path: z.string().optional().describe('Path for environment file. Default: ".env"'),
     additional_env_files: z
-      .array(z.string())
+      .array(
+        z.object({
+          path: z.string().describe("File path relative to run directory"),
+          track: z
+            .boolean()
+            .describe(
+              "Whether Komodo should track this file's contents. If true, Komodo will read, display, diff, and validate. If false, only passed via --env-file.",
+            ),
+        }),
+      )
       .optional()
       .describe("Additional env file paths, attached with --env-file"),
     config_files: z.array(stackConfigFileDependencySchema).optional().describe("Additional config files to track"),
@@ -72,6 +86,10 @@ export const stackConfigSchema = z
     extra_args: z.array(z.string()).optional().describe("Extra arguments for deploy command"),
     build_extra_args: z.array(z.string()).optional().describe('Extra arguments for "docker compose build"'),
     compose_cmd_wrapper: z.string().optional().describe("Command wrapper for secrets management"),
+    compose_cmd_wrapper_include: z
+      .array(z.string())
+      .optional()
+      .describe("Commands to include in the compose command wrapper (e.g. specific compose subcommands)"),
     ignore_services: z.array(z.string()).optional().describe("Services to ignore when checking stack health"),
     file_contents: z
       .string()

@@ -10,8 +10,7 @@ import { defineTool, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../config/index.js";
 import { serverConfigSchema, serverIdSchema, resourceNameSchema } from "./schemas/index.js";
-import { formatActionResponse, formatInfoResponse } from "../utils/index.js";
-import { requireClient, wrapApiCall } from "./utils.js";
+import { formatActionResponse, formatInfoResponse, requireClient, wrapApiCall } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
 

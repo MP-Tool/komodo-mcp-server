@@ -9,11 +9,19 @@
 import { defineTool, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONTAINER_LOGS_DEFAULTS, LOG_DESCRIPTIONS, LOG_SEARCH_DEFAULTS } from "../config/index.js";
-import { formatActionResponse, formatLogsResponse, formatSearchResponse, formatPruneResponse } from "../utils/index.js";
+import {
+  formatLogsResponse,
+  formatSearchResponse,
+  formatPruneResponse,
+  requireClient,
+  wrapApiCall,
+  wrapExecuteAndPoll,
+  formatUpdateResult,
+} from "../utils/index.js";
 import { pruneTargetSchema, containerActionSchema, serverIdSchema, containerNameSchema } from "./schemas/index.js";
-import { requireClient, wrapApiCall, extractUpdateId } from "./utils.js";
 
 type ContainerListItem = Types.ContainerListItem;
+type Log = Types.Log;
 
 // ============================================================================
 // List
@@ -95,7 +103,7 @@ export const getContainerLogsTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
 
-    const result = await wrapApiCall(
+    const result: Log = await wrapApiCall(
       "getContainerLogs",
       () =>
         komodo.client.read("GetContainerLog", {
@@ -156,7 +164,7 @@ export const searchContainerLogsTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
 
-    const result = await wrapApiCall(
+    const result: Log = await wrapApiCall(
       "searchContainerLogs",
       () =>
         komodo.client.read("GetContainerLog", {
@@ -211,16 +219,17 @@ export const pruneResourcesTool = defineTool({
     pruneTarget: pruneTargetSchema,
   }),
   annotations: { destructiveHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
 
     if (args.pruneTarget === "all") {
       const targets = ["containers", "images", "volumes", "networks"] as const;
       for (const target of targets) {
-        await wrapApiCall(
+        await wrapExecuteAndPoll(
           `prune${target}`,
           () => komodo.client.execute(PRUNE_ACTION_MAP[target] as "PruneContainers", { server: args.server }),
           abortSignal,
+          reportProgress,
         );
       }
       return text(
@@ -233,16 +242,17 @@ export const pruneResourcesTool = defineTool({
     }
 
     const action = PRUNE_ACTION_MAP[args.pruneTarget];
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pruneResources",
       () => komodo.client.execute(action as "PruneContainers", { server: args.server }),
       abortSignal,
+      reportProgress,
     );
     return text(
       formatPruneResponse({
         target: args.pruneTarget,
         serverName: args.server,
-        output: `Status: ${result.status}`,
+        output: `Result: ${update.success ? "✅ Success" : "❌ Failed"} | Status: ${update.status}`,
       }),
     );
   },
@@ -254,53 +264,35 @@ export const pruneResourcesTool = defineTool({
 
 export const startContainerTool = defineTool({
   name: "komodo_start_container",
-  description:
-    "Start a stopped or paused container. The container must exist and be in a stopped or paused state. Returns an update ID to track the operation.",
+  description: "Start a stopped or paused container. The container must exist and be in a stopped or paused state.",
   input: containerActionSchema,
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "startContainer",
       () => komodo.client.execute("StartContainer", { server: args.server, container: args.container }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "start",
-        resourceType: "container",
-        resourceId: args.container,
-        serverName: args.server,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "start", "container", args.container, args.server));
   },
 });
 
 export const stopContainerTool = defineTool({
   name: "komodo_stop_container",
-  description:
-    "Stop a running container gracefully. Sends SIGTERM first, then SIGKILL after timeout. Returns an update ID to track the operation.",
+  description: "Stop a running container gracefully. Sends SIGTERM first, then SIGKILL after timeout.",
   input: containerActionSchema,
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "stopContainer",
       () => komodo.client.execute("StopContainer", { server: args.server, container: args.container }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "stop",
-        resourceType: "container",
-        resourceId: args.container,
-        serverName: args.server,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "stop", "container", args.container, args.server));
   },
 });
 
@@ -310,23 +302,15 @@ export const restartContainerTool = defineTool({
     "Restart a container. Stops the container if running, then starts it again. Useful for applying configuration changes.",
   input: containerActionSchema,
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "restartContainer",
       () => komodo.client.execute("RestartContainer", { server: args.server, container: args.container }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "restart",
-        resourceType: "container",
-        resourceId: args.container,
-        serverName: args.server,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "restart", "container", args.container, args.server));
   },
 });
 
@@ -336,23 +320,15 @@ export const pauseContainerTool = defineTool({
     "Pause all processes in a running container using cgroups freezer. The container remains in memory but consumes no CPU cycles.",
   input: containerActionSchema,
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pauseContainer",
       () => komodo.client.execute("PauseContainer", { server: args.server, container: args.container }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "pause",
-        resourceType: "container",
-        resourceId: args.container,
-        serverName: args.server,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "pause", "container", args.container, args.server));
   },
 });
 
@@ -361,22 +337,14 @@ export const unpauseContainerTool = defineTool({
   description: "Resume a paused container. All processes that were frozen will continue execution.",
   input: containerActionSchema,
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "unpauseContainer",
       () => komodo.client.execute("UnpauseContainer", { server: args.server, container: args.container }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "unpause",
-        resourceType: "container",
-        resourceId: args.container,
-        serverName: args.server,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "unpause", "container", args.container, args.server));
   },
 });

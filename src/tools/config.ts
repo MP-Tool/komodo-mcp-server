@@ -154,7 +154,7 @@ export const healthCheckTool = defineTool({
           `Authentication methods:\n` +
           `• username + password — Local account login\n` +
           `• apiKey + apiSecret — API key authentication\n` +
-          `• jwtTokenToken — JWT token authentication`,
+          `• jwtToken — JWT token authentication`,
       );
     }
 

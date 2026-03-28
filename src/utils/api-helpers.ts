@@ -1,16 +1,26 @@
 /**
- * Tool Utilities
+ * API Helpers
  *
- * Common utilities for MCP tool handlers including client validation,
- * error wrapping, and cancellation handling.
+ * Low-level utilities for Komodo API interaction including client access,
+ * cancellation checks, and error classification/wrapping.
  *
- * @module tools/utils
+ * @module utils/api-helpers
  */
 
 import type { KomodoClient } from "../client.js";
-import { ClientNotConfiguredError, ApiError, ConnectionError, AuthenticationError } from "../errors/index.js";
+import {
+  ClientNotConfiguredError,
+  ApiError,
+  ConnectionError,
+  AuthenticationError,
+  extractKomodoError,
+} from "../errors/index.js";
 import { OperationCancelledError } from "mcp-server-framework";
-import { komodoConnectionManager, extractKomodoError } from "../client.js";
+import { komodoConnection } from "../client.js";
+
+// ============================================================================
+// Error Code Sets
+// ============================================================================
 
 /** Connection-related Node.js error codes */
 const CONNECTION_ERROR_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ENOTFOUND", "ERR_NETWORK"]);
@@ -18,19 +28,25 @@ const CONNECTION_ERROR_CODES = new Set(["ECONNREFUSED", "ECONNRESET", "ENOTFOUND
 /** Timeout-related Node.js error codes */
 const TIMEOUT_ERROR_CODES = new Set(["ECONNABORTED", "UND_ERR_CONNECT_TIMEOUT"]);
 
+// ============================================================================
+// Client Access
+// ============================================================================
+
 /**
  * Returns the connected Komodo client.
  * Throws ClientNotConfiguredError with a state-aware message if not connected.
  */
 export function requireClient(): KomodoClient {
-  const client = komodoConnectionManager.getClient();
+  const client = komodoConnection.getClient();
   if (!client) {
-    throw komodoConnectionManager.getState() === "disconnected"
-      ? ClientNotConfiguredError.notConfigured()
-      : ClientNotConfiguredError.notConnected();
+    throw ClientNotConfiguredError.notConfigured();
   }
   return client;
 }
+
+// ============================================================================
+// Cancellation
+// ============================================================================
 
 /**
  * Checks if an operation was cancelled via AbortSignal.
@@ -40,6 +56,10 @@ export function checkCancelled(signal: AbortSignal | undefined, operation: strin
     throw new OperationCancelledError(operation);
   }
 }
+
+// ============================================================================
+// API Call Wrapper
+// ============================================================================
 
 /**
  * Extracts the HTTP status code from a komodo_client plain-object rejection.
@@ -132,11 +152,4 @@ export async function wrapApiCall<T>(operation: string, apiCall: () => Promise<T
 
     throw ApiError.requestFailed(`${operation}: ${String(error)}`);
   }
-}
-
-/**
- * Extract the MongoDB ObjectId string from a Komodo Update object.
- */
-export function extractUpdateId(update: { _id?: { $oid?: string } }): string {
-  return update._id?.$oid || "unknown";
 }

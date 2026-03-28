@@ -9,7 +9,14 @@
 import { defineTool, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../config/index.js";
-import { formatActionResponse, formatInfoResponse } from "../utils/index.js";
+import {
+  formatActionResponse,
+  formatInfoResponse,
+  requireClient,
+  wrapApiCall,
+  wrapExecuteAndPoll,
+  formatUpdateResult,
+} from "../utils/index.js";
 import {
   deploymentConfigSchema,
   createDeploymentConfigSchema,
@@ -17,7 +24,6 @@ import {
   deploymentIdSchema,
   resourceNameSchema,
 } from "./schemas/index.js";
-import { requireClient, wrapApiCall, extractUpdateId } from "./utils.js";
 
 type DeploymentListItem = Types.DeploymentListItem;
 
@@ -180,22 +186,15 @@ export const deployContainerTool = defineTool({
     "Deploy or redeploy a Komodo-managed deployment. Pulls the configured image and (re)creates the container.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "deploy",
       () => komodo.client.execute("Deploy", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "deploy",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "deploy", "deployment", args.deployment));
   },
 });
 
@@ -204,22 +203,15 @@ export const pullDeploymentImageTool = defineTool({
   description: "Pull the latest image for a deployment without recreating the container.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pull",
       () => komodo.client.execute("PullDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "pull",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "pull", "deployment", args.deployment));
   },
 });
 
@@ -228,22 +220,15 @@ export const startDeploymentTool = defineTool({
   description: "Start a stopped Komodo-managed deployment.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "start deployment",
       () => komodo.client.execute("StartDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "start",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "start", "deployment", args.deployment));
   },
 });
 
@@ -252,22 +237,15 @@ export const restartDeploymentTool = defineTool({
   description: "Restart a Komodo-managed deployment without pulling a new image.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "restart deployment",
       () => komodo.client.execute("RestartDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "restart",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "restart", "deployment", args.deployment));
   },
 });
 
@@ -276,22 +254,15 @@ export const pauseDeploymentTool = defineTool({
   description: "Pause a running Komodo-managed deployment.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "pause deployment",
       () => komodo.client.execute("PauseDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "pause",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "pause", "deployment", args.deployment));
   },
 });
 
@@ -300,22 +271,15 @@ export const unpauseDeploymentTool = defineTool({
   description: "Unpause a paused Komodo-managed deployment.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "unpause deployment",
       () => komodo.client.execute("UnpauseDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "unpause",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "unpause", "deployment", args.deployment));
   },
 });
 
@@ -324,22 +288,15 @@ export const stopDeploymentTool = defineTool({
   description: "Stop a running Komodo-managed deployment.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "stop deployment",
       () => komodo.client.execute("StopDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "stop",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "stop", "deployment", args.deployment));
   },
 });
 
@@ -349,21 +306,14 @@ export const destroyDeploymentTool = defineTool({
     "Destroy (remove) the container of a Komodo-managed deployment. The deployment configuration is preserved.",
   input: z.object({ deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID) }),
   annotations: { destructiveHint: true },
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
+    const update = await wrapExecuteAndPoll(
       "destroy deployment",
       () => komodo.client.execute("DestroyDeployment", { deployment: args.deployment }),
       abortSignal,
+      reportProgress,
     );
-    return text(
-      formatActionResponse({
-        action: "destroy",
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        updateId: extractUpdateId(result),
-        status: result.status,
-      }),
-    );
+    return text(formatUpdateResult(update, "destroy", "deployment", args.deployment));
   },
 });

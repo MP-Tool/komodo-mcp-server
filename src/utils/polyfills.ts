@@ -35,19 +35,19 @@
  * @module polyfills
  */
 
-// eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- localStorage exists in Node.js 22+ but has no methods without --localstorage-file
-if (typeof globalThis.localStorage?.getItem !== "function") {
-  const store = new Map<string, string>();
-  globalThis.localStorage = {
-    getItem: (key: string) => store.get(key) ?? null,
-    setItem: (key: string, value: string) => store.set(key, value),
-    removeItem: (key: string) => {
-      store.delete(key);
-    },
-    clear: () => store.clear(),
-    get length() {
-      return store.size;
-    },
-    key: (index: number) => [...store.keys()][index] ?? null,
-  } as Storage;
-}
+// Install unconditionally — we never need real localStorage in Node.js,
+// and merely *reading* globalThis.localStorage in Node 22+ triggers
+// "Warning: `--localstorage-file` was provided without a valid path".
+const store = new Map<string, string>();
+globalThis.localStorage = {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => store.set(key, value),
+  removeItem: (key: string) => {
+    store.delete(key);
+  },
+  clear: () => store.clear(),
+  get length() {
+    return store.size;
+  },
+  key: (index: number) => [...store.keys()][index] ?? null,
+} as Storage;

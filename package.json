@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.2.2",
+  "version": "1.3.0",
   "mcpName": "io.github.MP-Tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
@@ -8,14 +8,19 @@
   "bin": {
     "komodo-mcp-server": "./build/index.js"
   },
+  "types": "build/index.d.ts",
   "scripts": {
     "build": "tsc",
     "build:prod": "tsc --project tsconfig.prod.json",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
-    "clean": "rm -rf build node_modules coverage test-results",
-    "lint": "eslint 'src/**/*.ts' 'tests/**/*.ts'",
-    "format": "prettier --write 'src/**/*.ts' 'tests/**/*.ts'",
+    "typecheck": "tsc --noEmit",
+    "clean": "rm -rf build coverage test-results *.tsbuildinfo",
+    "clean:all": "rm -rf build node_modules coverage test-results *.tsbuildinfo",
+    "lint": "eslint 'src/**/*.ts'",
+    "lint:fix": "eslint 'src/**/*.ts' --fix",
+    "format": "prettier --write 'src/**/*.ts'",
+    "format:check": "prettier --check 'src/**/*.ts'",
     "docker:build": "docker build --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
   },
@@ -48,33 +53,26 @@
     "build/**/*.d.ts",
     "build/VERSION",
     "README.md",
-    "LICENSE",
+    "LICENSE.txt",
     "CHANGELOG.md"
   ],
   "dependencies": {
-    "komodo_client": "^1.19.5",
-    "@modelcontextprotocol/sdk": "^1.26.0",
-    "@opentelemetry/api": "^1.9.0",
-    "@opentelemetry/auto-instrumentations-node": "^0.69.0",
-    "@opentelemetry/exporter-trace-otlp-http": "^0.211.0",
-    "@opentelemetry/resources": "^2.0.0",
-    "@opentelemetry/sdk-node": "^0.211.0",
-    "@opentelemetry/semantic-conventions": "^1.33.0",
-    "express": "^5.2.1",
-    "express-rate-limit": "^8.2.1",
-    "helmet": "^8.1.0",
-    "zod": "^3.23.8"
+    "komodo_client": "^2.0.0",
+    "mcp-server-framework": "^1.0.3"
+  },
+  "overrides": {
+    "zod": "$zod"
   },
   "devDependencies": {
-    "eslint": "^8.57.1",
-    "eslint-config-prettier": "^10.1.8",
-    "eslint-plugin-prettier": "^5.5.4",
-    "prettier": "^3.7.4",
-    "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "@typescript-eslint/parser": "^7.18.0",
-    "@types/express": "^5.0.6",
+    "zod": "^3.25.0",
+    "@eslint/js": "^10.0.1",
+    "@modelcontextprotocol/sdk": "^1.27.1",
     "@types/node": "^25.0.9",
+    "eslint": "^10.0.3",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "prettier": "^3.7.4",
     "typescript": "^5.9.3",
-    "fast-check": "^4.3.0"
+    "typescript-eslint": "^8.57.1"
   }
 }

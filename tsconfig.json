@@ -1,17 +1,38 @@
 {
+  "$schema": "https://json.schemastore.org/tsconfig",
+
   "compilerOptions": {
+    // ── Language & Runtime ──────────────────────────────────────────────
     "target": "ES2022",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    // ── Module System ──────────────────────────────────────────────────
     "module": "Node16",
     "moduleResolution": "Node16",
+    "esModuleInterop": true,
+    "isolatedModules": true,
+    "verbatimModuleSyntax": true,
+    "preserveSymlinks": true,
+
+    // ── Output ─────────────────────────────────────────────────────────
     "outDir": "./build",
     "rootDir": "./src",
-    "strict": true,
-    "esModuleInterop": true,
-    "skipLibCheck": true,
-    "forceConsistentCasingInFileNames": true,
     "declaration": true,
     "declarationMap": true,
-    "sourceMap": true
+    "sourceMap": true,
+
+    // ── Type Checking (Strict) ─────────────────────────────────────────
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+    "forceConsistentCasingInFileNames": true,
+    "exactOptionalPropertyTypes": true,
+
+    // ── Performance ────────────────────────────────────────────────────
+    "skipLibCheck": true,
+    "incremental": true,
+    "tsBuildInfoFile": "./build/.tsbuildinfo"
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "build", "**/*.test.ts"]

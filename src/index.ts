@@ -1,98 +1,63 @@
-#!/usr/bin/env node
-
 /**
- * Komodo MCP Server - Main Entry Point
+ * Komodo MCP Server — Entry Point
  *
- * Model Context Protocol server for managing Docker containers,
- * deployments, and stacks through Komodo.
- *
- * Uses McpServerBuilder for declarative server construction.
- *
- * @module index
+ * Creates and starts the MCP server with all Komodo tools auto-registered.
  */
 
-// Initialize OpenTelemetry FIRST, before any other imports
-// This ensures all modules are instrumented
-import { initializeTelemetry } from './server/telemetry/index.js';
-initializeTelemetry();
+// Must be first import — polyfills localStorage for mogh_auth_client (Node.js)
+import "./utils/polyfills.js";
 
-// Configure logger BEFORE any other imports that use it
-// This ensures LOG_LEVEL and other settings from env are applied
-import { configureLogger } from './app/framework.js';
-import { config, SERVER_NAME, SERVER_VERSION } from './app/config/index.js';
-configureLogger({
-  LOG_LEVEL: config.LOG_LEVEL,
-  LOG_FORMAT: config.LOG_FORMAT,
-  LOG_DIR: config.LOG_DIR,
-  MCP_TRANSPORT: config.MCP_TRANSPORT,
-  NODE_ENV: config.NODE_ENV,
-  SERVER_NAME,
-  SERVER_VERSION,
+import { createServer, logger } from "mcp-server-framework";
+import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection } from "./config/index.js";
+import { initializeKomodoClientFromEnv, komodoConnection } from "./client.js";
+import { getKomodoCredentials } from "./config/index.js";
+
+// Side-effect imports — register all tools in the global registry
+import "./tools/index.js";
+
+// Register [komodo] config file section before server init
+registerKomodoConfigSection();
+
+// ============================================================================
+// Server Instance
+// ============================================================================
+
+const { start } = createServer({
+  name: SERVER_NAME,
+  version: SERVER_VERSION,
+
+  capabilities: {
+    tools: { listChanged: true },
+    logging: true,
+  },
+
+  lifecycle: {
+    onStarting: initializeKomodoClientFromEnv,
+    onStopping: () => {
+      komodoConnection.stopMonitoring();
+    },
+  },
+
+  health: {
+    readinessCheck: () => {
+      if (!getKomodoCredentials().url) return true;
+      return komodoConnection.connected || "Komodo API not connected";
+    },
+    serviceLabel: "komodo",
+  },
+
+  shutdown: {
+    timeoutMs: 10_000,
+    forceExitOnTimeout: true,
+    signals: ["SIGINT", "SIGTERM"],
+  },
 });
 
-// Server Builder
-import { McpServerBuilder } from './server/builder/index.js';
-import type { IServerInstance } from './server/types/index.js';
+// ============================================================================
+// Start
+// ============================================================================
 
-// Komodo application layer
-import type { KomodoClient } from './app/api/index.js';
-import { registerTools } from './app/mcp/tools/index.js';
-import { registerResources } from './app/mcp/resources/index.js';
-import { registerPrompts } from './app/mcp/prompts/index.js';
-import {
-  komodoServerOptions,
-  toolRegistryAdapter,
-  resourceRegistryAdapter,
-  promptRegistryAdapter,
-  initializeKomodoClientFromEnv,
-} from './app/index.js';
-
-// Logger
-import { logger } from './server/logger/index.js';
-
-// Store server instance for tool notifications
-let serverInstance: IServerInstance | null = null;
-
-/**
- * Bootstrap the Komodo MCP Server.
- *
- * This function:
- * 1. Registers all tools, resources, and prompts with their registries
- * 2. Sets up connection state listener for dynamic tool availability
- * 3. Builds the server using McpServerBuilder with adapters
- * 4. Starts the server
- * 5. Attempts auto-configuration from environment variables
- */
-async function main(): Promise<void> {
-  // Register all tools, resources, and prompts with their registries
-  registerTools();
-  registerResources();
-  registerPrompts();
-
-  // Build server using McpServerBuilder with adapters
-  // The builder's internal connection state listener handles:
-  // - Updating tool providers via setConnectionState()
-  // - Sending tool list changed notifications to MCP clients
-  //
-  // Note: We use autoConnect: false because we manually call initializeKomodoClientFromEnv()
-  // after server start to support Docker env_file loading at runtime
-  serverInstance = new McpServerBuilder<KomodoClient>()
-    .withOptions(komodoServerOptions)
-    .withToolProvider(toolRegistryAdapter)
-    .withResourceProvider(resourceRegistryAdapter)
-    .withPromptProvider(promptRegistryAdapter)
-    .build();
-
-  // Start the server (handles transport selection internally)
-  await serverInstance.start();
-
-  // Try to initialize Komodo client from environment variables
-  // This is called after server start to support Docker runtime credential loading
-  await initializeKomodoClientFromEnv();
-}
-
-// Start the server
-main().catch((error) => {
-  logger.error('Fatal error running server:', error);
+start().catch((error: unknown) => {
+  logger.error("Failed to start Komodo MCP Server: %s", error instanceof Error ? error.message : String(error));
   process.exit(1);
 });

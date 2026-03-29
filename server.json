@@ -6,15 +6,16 @@
   "websiteUrl": "https://github.com/MP-Tool/komodo-mcp-server",
   "repository": {
     "url": "https://github.com/MP-Tool/komodo-mcp-server",
-    "source": "github"
+    "source": "github",
+    "id": "1082088566"
   },
-  "version": "1.2.2",
+  "version": "1.3.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "komodo-mcp-server",
-      "version": "1.2.2",
+      "version": "1.3.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -22,47 +23,88 @@
       "environmentVariables": [
         {
           "name": "KOMODO_URL",
-          "description": "Komodo Core server URL (e.g., http://host.docker.internal:9120)",
+          "description": "Komodo Core API URL",
+          "placeholder": "https://komodo.example.com",
           "isRequired": true,
           "isSecret": false
         },
         {
+          "name": "KOMODO_API_KEY",
+          "description": "API key for key-based authentication (recommended)",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_API_SECRET",
+          "description": "API secret for key-based authentication (recommended)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "KOMODO_USERNAME",
-          "description": "Komodo username for authentication",
-          "isRequired": true,
+          "description": "Username for login authentication (alternative to API key)",
+          "isRequired": false,
           "isSecret": false
         },
         {
           "name": "KOMODO_PASSWORD",
-          "description": "Komodo password for authentication",
-          "isRequired": true,
+          "description": "Password for login authentication (alternative to API key)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KOMODO_JWT_TOKEN",
+          "description": "Pre-existing JWT token from browser OAuth login (alternative to API key)",
+          "isRequired": false,
           "isSecret": true
         }
       ]
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.2.2",
+      "registryBaseUrl": "https://ghcr.io",
+      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.3.0",
+      "version": "1.3.0",
+      "runtimeHint": "docker",
       "transport": {
         "type": "stdio"
       },
       "environmentVariables": [
         {
           "name": "KOMODO_URL",
-          "description": "Komodo Core server URL (e.g., http://host.docker.internal:9120)",
+          "description": "Komodo Core API URL",
+          "placeholder": "https://komodo.example.com",
           "isRequired": true,
           "isSecret": false
         },
         {
+          "name": "KOMODO_API_KEY",
+          "description": "API key for key-based authentication (recommended)",
+          "isRequired": false,
+          "isSecret": false
+        },
+        {
+          "name": "KOMODO_API_SECRET",
+          "description": "API secret for key-based authentication (recommended)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
           "name": "KOMODO_USERNAME",
-          "description": "Komodo username for authentication",
-          "isRequired": true,
+          "description": "Username for login authentication (alternative to API key)",
+          "isRequired": false,
           "isSecret": false
         },
         {
           "name": "KOMODO_PASSWORD",
-          "description": "Komodo password for authentication",
-          "isRequired": true,
+          "description": "Password for login authentication (alternative to API key)",
+          "isRequired": false,
+          "isSecret": true
+        },
+        {
+          "name": "KOMODO_JWT_TOKEN",
+          "description": "Pre-existing JWT token from browser OAuth login (alternative to API key)",
+          "isRequired": false,
           "isSecret": true
         }
       ]

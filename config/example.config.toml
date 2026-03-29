@@ -1,0 +1,388 @@
+#############################################
+# 🦎 KOMODO MCP SERVER — REFERENCE CONFIG 🦎 #
+#############################################
+
+## This is the official reference configuration for the Komodo MCP Server.
+## It documents every available config file field with its environment variable,
+## default value, and description.
+##
+## All fields are optional. If omitted, the default value is used.
+##
+## Priority (highest wins):
+##   process.env → Config File → .env file → Defaults
+##
+## Supported formats: TOML, YAML, JSON
+## Auto-discovery filenames: config.toml, config.yaml, config.yml, config.json
+## Explicit path: MCP_CONFIG_FILE_PATH=/path/to/config.toml
+##
+## For environment variable reference, see config/.env.example
+##
+## You can convert this file to other formats here:
+##   - YAML: https://it-tools.tech/toml-to-yaml
+##   - JSON: https://it-tools.tech/toml-to-json
+##
+## Note: Secrets (API keys, passwords) should be set via environment variables
+## or .env file, not in the config file. The [komodo] section supports
+## non-secret connection settings; credentials belong in the environment.
+
+
+############
+## KOMODO ##
+############
+
+## Komodo Core connection settings.
+## These can also be set via KOMODO_* environment variables.
+## Env vars take priority over config file values.
+
+[komodo]
+
+## Komodo Core server URL.
+## Examples:
+##   - Local:  "https://localhost:9120" or "https://127.0.0.1:9120"
+##   - Remote: "https://komodo.example.com:9120"
+##   - Docker: "https://host.docker.internal:9120"
+## Env: KOMODO_URL
+## Required for API connectivity.
+url = "https://komodo.example.com:9120"
+
+## API Key for key-based authentication (recommended over username/password).
+## Obtain from your Komodo server configuration.
+## Env: KOMODO_API_KEY
+## Optional, no default.
+api_key = "api-key"
+
+## API Secret for key-based authentication.
+## Env: KOMODO_API_SECRET
+## Optional, no default.
+api_secret = "api-secret"
+
+## Pre-existing JWT token (e.g. from OIDC/OAuth browser login).
+## Extract from browser: JSON.parse(localStorage.getItem("komodo-auth-tokens-v1")).tokens[0].jwt
+## Note: JWTs expire (default 1 day). For persistent auth, prefer API key.
+## Env: KOMODO_JWT_TOKEN
+## Optional, no default.
+jwt_token = "jwt-token"
+
+## Username for login authentication.
+## Recommended: Use a dedicated user with limited permissions.
+## Env: KOMODO_USERNAME
+## Optional, no default.
+username = "mcp-user"
+
+## Password for login authentication.
+## Env: KOMODO_PASSWORD
+## Optional, no default.
+password = "password"
+
+## Note: Docker Secrets (*_FILE pattern) are only supported as env vars:
+##   KOMODO_API_KEY_FILE=/run/secrets/komodo_api_key
+##   KOMODO_API_SECRET_FILE=/run/secrets/komodo_api_secret
+##   KOMODO_JWT_TOKEN_FILE=/run/secrets/komodo_jwt_token
+##   KOMODO_USERNAME_FILE=/run/secrets/komodo_username
+##   KOMODO_PASSWORD_FILE=/run/secrets/komodo_password
+## Priority: env var > secret file > config file value
+
+## API request timeout.
+## Accepts a duration string ("30s", "1m") or milliseconds (number).
+## Env: API_TIMEOUT_MS
+## Default: "30s" (30000ms)
+api_timeout_ms = "30s"
+
+
+###############
+## TRANSPORT ##
+###############
+
+[transport]
+
+## Transport mode for the MCP server.
+## - "stdio"  — Single-client CLI mode (stdin/stdout). For Claude Desktop, VS Code, etc.
+## - "http"   — Multi-client HTTP mode. Standard for network deployments.
+## - "https"  — Multi-client HTTPS mode with TLS termination.
+## Env: MCP_TRANSPORT
+## Default: "http"
+mode = "http"
+
+## Port the HTTP/HTTPS server listens on.
+## Env: MCP_PORT
+## Default: 8000
+port = 8000
+
+## Host/IP to bind the server to.
+## Use "0.0.0.0" to accept connections from all interfaces (containers, remote).
+## Use "127.0.0.1" to only accept local connections.
+## Env: MCP_BIND_HOST
+## Default: "127.0.0.1"
+host = "127.0.0.1"
+
+## Enable the legacy SSE transport (MCP protocol version 2024-11-05).
+## Only needed for backwards compatibility with older MCP clients that
+## don't support Streamable HTTP (protocol 2025-03-26).
+## Env: MCP_LEGACY_SSE_ENABLED
+## Default: false
+sse_enabled = false
+
+## Prefer JSON responses over SSE streams for simple request-response.
+## When enabled, non-streaming responses (tools/list, resources/list) return
+## application/json instead of text/event-stream. Streaming responses always use SSE.
+## The MCP spec recommends JSON for single-response interactions.
+## Env: MCP_JSON_RESPONSE
+## Default: true
+json_response = true
+
+
+## TLS configuration (required when mode = "https").
+## Certificate files are read from the filesystem at server startup.
+[transport.tls]
+
+## Path to the TLS certificate file (PEM format).
+## Env: MCP_TLS_CERT_PATH
+## Required when mode = "https"
+cert_path = "/certs/server.crt"
+
+## Path to the TLS private key file (PEM format).
+## Env: MCP_TLS_KEY_PATH
+## Required when mode = "https"
+key_path = "/certs/server.key"
+
+## Path to the CA certificate file (PEM format).
+## Optional — use for custom CA chains or mutual TLS.
+## Env: MCP_TLS_CA_PATH
+## Optional, no default.
+ca_path = "/certs/ca.crt"
+
+
+##############
+## SECURITY ##
+##############
+
+[security]
+
+## Maximum requests allowed per rate limit window.
+## Applies to the /mcp endpoint only (health/metrics are not rate-limited).
+## Env: MCP_RATE_LIMIT_MAX
+## Default: 1000
+rate_limit_max = 1000
+
+## Rate limit window duration.
+## Accepts human-readable durations (e.g. "15m", "1h") or milliseconds (number).
+## Env: MCP_RATE_LIMIT_WINDOW_MS
+## Default: "15m" (900000ms)
+rate_limit_window = "15m"
+
+## Trust proxy setting for Express.
+## Required when running behind a reverse proxy (nginx, Traefik, cloud load balancer)
+## to correctly resolve client IPs from X-Forwarded-For headers.
+## Values:
+##   - Number (hop count): 1, 2
+##   - Keyword: "loopback", "linklocal", "uniquelocal"
+##   - IP/CIDR: "10.0.0.1", "172.16.0.0/12"
+##   - Comma-separated: "loopback, 10.0.0.1"
+## Env: MCP_TRUST_PROXY
+## Optional, no default (trust proxy disabled).
+trust_proxy = "loopback"
+
+## Maximum request body size for the JSON body parser.
+## Accepts Express size strings (e.g. "500kb", "1mb", "2mb").
+## Env: MCP_BODY_SIZE_LIMIT
+## Default: "1mb"
+body_size_limit = "1mb"
+
+## Allowed hosts for DNS rebinding protection.
+## When set, requests with a Host header not in this list are rejected (403).
+## Important for servers exposed to the network.
+## Env: MCP_ALLOWED_HOSTS (comma-separated)
+## Optional, no default (all hosts allowed).
+# allowed_hosts = ["mcp.example.com", "localhost"]
+
+
+## CORS allowed origins.
+## When set, the CORS middleware is mounted globally and allows requests
+## from the listed origins. When omitted, CORS is completely disabled
+## (no Access-Control-* headers are sent).
+## Use ["*"] to allow all origins (not recommended for production).
+## Env: MCP_CORS_ORIGIN (comma-separated)
+## Optional, no default (CORS disabled).
+cors_origin = ["*"]
+
+## Allow credentials (cookies, Authorization headers) in CORS requests.
+## Only effective when cors_origin is set.
+## Cannot be used together with cors_origin = ["*"].
+## Env: MCP_CORS_CREDENTIALS
+## Default: false
+cors_credentials = false
+
+## Enable HTTP Strict Transport Security (HSTS) header via Helmet.
+## When true, sets Strict-Transport-Security: max-age=15552000; includeSubDomains
+## (180 days). Only enable when the server is exclusively accessed over HTTPS.
+## Env: MCP_HELMET_HSTS
+## Default: false (typically managed by reverse proxy)
+helmet_hsts = false
+
+## Content Security Policy (CSP) configuration via Helmet.
+## - Omit: Helmet's default CSP applies (restrictive, suitable for API servers)
+## - "false": Disable CSP entirely
+## - Custom string: CSP directives separated by semicolons
+##   Example: "default-src 'self'; script-src 'none'; style-src 'self'"
+## Env: MCP_HELMET_CSP
+## Optional, no default (Helmet default CSP).
+helmet_csp = "default-src 'self'"
+
+## X-Frame-Options header value via Helmet.
+## Controls whether the server responses can be embedded in frames/iframes.
+## - "DENY": Never allow framing (most secure, recommended)
+## - "SAMEORIGIN": Allow framing from the same origin
+## - "false": Disable X-Frame-Options header entirely
+## Env: MCP_HELMET_FRAME_OPTIONS
+## Default: "DENY"
+helmet_frame_options = "DENY"
+
+
+##############
+## SESSIONS ##
+##############
+
+[session]
+
+## Maximum total concurrent sessions across all transports.
+## Once reached, new connections are rejected.
+## Env: MCP_MAX_SESSIONS
+## Default: 200
+max_sessions = 200
+
+## Maximum concurrent Streamable HTTP sessions.
+## Must be ≤ max_sessions.
+## Env: MCP_MAX_STREAMABLE_HTTP_SESSIONS
+## Default: 100
+max_streamable_http_sessions = 100
+
+## Maximum concurrent SSE sessions (legacy transport).
+## Must be ≤ max_sessions.
+## Env: MCP_MAX_SSE_SESSIONS
+## Default: 50
+max_sse_sessions = 50
+
+
+#############
+## LOGGING ##
+#############
+
+[logging]
+
+## Log level messages below this level are suppressed.
+## Env: LOG_LEVEL
+## Default: "info"
+## Values:  "error", "warn", "info", "debug", "trace"
+level = "info"
+
+## Log output format.
+## - "text": Human-readable format
+## - "json": Structured JSON (ECS-compatible) for log aggregation
+## Env: LOG_FORMAT
+## Default: "text"
+format = "text"
+
+## Include RFC 3339 timestamps in text log output.
+## Has no effect in JSON mode (timestamps are always included).
+## Env: LOG_TIMESTAMP
+## Default: false
+timestamp = false
+
+## Include component name (e.g. [server-runtime], [session-mgr]) in text log output.
+## Useful for debugging which component generated a log line.
+## Env: LOG_COMPONENT
+## Default: false
+component = false
+
+## Directory for log file output. When set, logs are written to files
+## in addition to console output.
+## Env: LOG_DIR
+## Optional, no default (file logging disabled).
+# dir = "/var/log/komodo-mcp"
+
+## Maximum size of a single log file before rotation.
+## Accepts human-readable sizes ("10mb", "500kb", "1gb") or byte counts.
+## Env: LOG_MAX_FILE_SIZE
+## Default: "10mb"
+max_file_size = "10mb"
+
+## Maximum number of rotated log files to keep.
+## Older rotated files beyond this count are deleted.
+## Env: LOG_MAX_FILES
+## Default: 3
+max_files = 3
+
+## Automatic log file retention in days.
+## Files older than this are deleted during cleanup sweeps.
+## Set to 0 to disable time-based retention.
+## Env: LOG_RETENTION_DAYS
+## Default: 0 (disabled)
+retention_days = 0
+
+
+###############
+## TELEMETRY ##
+###############
+
+## OpenTelemetry distributed tracing and metrics.
+## When enabled, the server collects traces and metrics and exports
+## them via OTLP, Prometheus, or console.
+
+[telemetry]
+
+## Master toggle for all OpenTelemetry features.
+## When false, no OTEL packages are loaded (zero overhead).
+## Env: OTEL_ENABLED
+## Default: false
+enabled = false
+
+## OTEL service name. When not set, defaults to the server name
+## ("komodo-mcp-server"). Override for deployment-specific naming.
+## Env: OTEL_SERVICE_NAME
+## Optional, defaults to server name.
+# service_name = "komodo-mcp-server"
+
+## OTLP exporter endpoint URL.
+## Used by both trace and metric OTLP exporters.
+## Examples:
+##   - Jaeger:                  http://jaeger:4318
+##   - Grafana Tempo:           http://tempo:4318
+##   - OpenTelemetry Collector: http://otel-collector:4318
+## Env: OTEL_EXPORTER_OTLP_ENDPOINT
+## Optional, no default.
+# exporter_endpoint = "http://localhost:4318"
+
+## Trace exporter selection.
+## Values: "otlp", "console", "none"
+## Env: OTEL_TRACES_EXPORTER
+## Default: "none"
+traces_exporter = "none"
+
+## Log exporter selection.
+## The framework has its own logging system, so OTEL log export is
+## disabled by default to prevent unwanted OTLP connections.
+## Values: "otlp", "console", "none"
+## Env: OTEL_LOGS_EXPORTER
+## Default: "none"
+logs_exporter = "none"
+
+## SDK diagnostic log level for debugging OTEL internals.
+## Values: "none", "error", "warn", "info", "debug", "verbose", "all"
+## Env: OTEL_LOG_LEVEL
+## Optional, default: "none"
+log_level = "none"
+
+## Periodic metric export interval in milliseconds.
+## How often PeriodicExportingMetricReader pushes metrics.
+## Env: OTEL_METRIC_EXPORT_INTERVAL
+## Optional, no default (SDK default applies).
+metric_export_interval = 60000
+
+## Metric exporters to activate (comma-separated string).
+## - "otlp":        Push metrics to OTLP endpoint
+## - "prometheus":   Scrape endpoint at /metrics
+## - "console":     Log metrics to console (debugging)
+## - "none":        Disable all metric export
+## Env: OTEL_METRICS_EXPORTER
+## Default: "prometheus"
+metrics_exporter = "prometheus"

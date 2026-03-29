@@ -22,10 +22,8 @@ ARG COMMIT_SHA=unknown
 # Use native platform for builder (avoids QEMU emulation issues with npm)
 FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 
-# Upgrade OS packages and install build dependencies
-# python3, make, g++ are required for native Node.js modules (e.g., on ARM)
-RUN apk upgrade --no-cache && \
-    apk add --no-cache python3 make g++
+# Upgrade OS packages
+RUN apk upgrade --no-cache 
 
 WORKDIR /app
 
@@ -39,16 +37,8 @@ RUN npm ci
 COPY tsconfig*.json ./
 COPY src/ ./src/
 
-# Re-declare ARGs after FROM (they don't persist across stages)
-ARG VERSION
-ARG BUILD_DATE
-ARG COMMIT_SHA
-
-# Build TypeScript and embed build metadata
-RUN npm run build && \
-    echo "${VERSION}" > build/VERSION && \
-    echo "${BUILD_DATE}" > build/BUILD_DATE && \
-    echo "${COMMIT_SHA}" > build/COMMIT_SHA
+# Build TypeScript
+RUN npm run build:prod
 
 # Prune devDependencies - runs on native platform (no QEMU), so npm works fine
 RUN npm prune --omit=dev && npm cache clean --force
@@ -56,38 +46,35 @@ RUN npm prune --omit=dev && npm cache clean --force
 # =============================================================================
 # Development stage (for DevContainer)
 # =============================================================================
+# Used for local development with DevContainers.
+# Source files are NOT copied — the devcontainer mounts the workspace as a volume.
+# Dependencies are pre-installed and preserved in an anonymous volume (/app/node_modules).
 
-# Used for local development with hot-reload and debugging capabilities
 FROM node:22-alpine AS development
 
-# Upgrade OS packages and install development tools
-RUN apk upgrade --no-cache && apk add --no-cache git zsh curl
+# Install development tools and tini for proper signal handling
+RUN apk upgrade --no-cache && \
+    apk add --no-cache git zsh tini && \
+    mkdir -p /app && chown node:node /app
 
 WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-
-# Install all dependencies (including devDependencies)
-RUN npm ci
-
-# Copy source files
-COPY . .
-
-# Use node user for security
 USER node
 
-# Build arguments
-ARG VERSION
+# Pre-install dependencies (preserved in anonymous volume by devcontainer).
+# Runs as node user so node_modules has correct ownership for postCreateCommand.
+COPY --chown=node:node package*.json ./
+RUN npm ci
 
 # Environment variables for development
 ENV NODE_ENV=development
-ENV VERSION=${VERSION}
 ENV MCP_BIND_HOST=0.0.0.0
-ENV MCP_PORT=3000
+ENV MCP_PORT=8000
 ENV MCP_TRANSPORT=http
 
-# Development command with live rebuild
+EXPOSE 8000
+
+# Use tini for proper signal handling (consistent with production)
+ENTRYPOINT ["/sbin/tini", "--"]
 CMD ["npm", "run", "dev"]
 
 # =============================================================================
@@ -111,6 +98,7 @@ WORKDIR /app
 # Runtime user (node) cannot modify these files
 COPY --from=builder --chown=root:root /app/node_modules ./node_modules
 COPY --from=builder --chown=root:root /app/build ./build
+COPY --from=builder --chown=root:root /app/package.json ./package.json
 
 # Harden the built-in node user:
 # - Change shell to nologin (no interactive login possible)
@@ -122,21 +110,24 @@ USER node
 
 # Environment variables
 ENV NODE_ENV=production
-ENV MCP_BIND_HOST=0.0.0.0
-ENV MCP_PORT=3000
 ENV MCP_TRANSPORT=http
+ENV MCP_BIND_HOST=0.0.0.0
+ENV MCP_PORT=8000
 
 # Expose MCP port
 EXPOSE ${MCP_PORT}
 
-# Health check - verifies MCP server is ready to accept traffic
+# Health check - verifies MCP server is ready to accept traffic (HTTP/HTTPS mode only)
+# In stdio mode, health check is skipped (always healthy)
 # Uses /ready endpoint for comprehensive status:
 # - 200: Server ready (process running, Komodo connected if configured)
 # - 503: Komodo configured but not connected
 # - 429: Session limits reached
-# wget --spider: HEAD request only, -q: quiet mode
+# Uses Node.js built-in fetch() — no extra tools (wget/curl) needed
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-  CMD wget --spider -q http://localhost:${MCP_PORT}/ready || exit 1
+  CMD if [ "$MCP_TRANSPORT" = "http" ] || [ "$MCP_TRANSPORT" = "https" ]; then \
+    node -e "fetch('http://localhost:'+(process.env.MCP_PORT||8000)+'/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"; \
+  else exit 0; fi
 
 # Container metadata labels (OCI standard)
 LABEL org.opencontainers.image.version="${VERSION}" \

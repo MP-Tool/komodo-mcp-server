@@ -7,6 +7,65 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [1.3.0]
+
+### Added
+
+- **Live progress reporting**: Long-running operations (deploy, start, stop, restart, etc.) now report progress updates to the AI client in real time — no more silent waiting
+- **Cancellation support**: All lifecycle operations can be cancelled mid-flight — the AI client can abort running deployments, stack operations, or container actions at any time
+- **Richer operation results**: Completed operations now include success/failure status, version info, and relevant log output directly in the response — faster diagnosis without separate log queries
+- **Stack file dependencies**: Full support for Komodo v2 stack file dependencies with service mappings and cross-stack requires
+- **Environment file tracking**: Stack environment files now support the `track` flag for change detection
+- **Compose wrapper includes**: New `compose_cmd_wrapper_include` field for selective compose command wrapping
+
+- **Remote command execution**: Run shell commands directly on servers, inside containers, deployments, and stack services — diagnose issues, run maintenance tasks, or check application state without leaving the AI conversation
+- **Live output with progress**: Terminal output streams back in real time with progress updates — long-running commands show what's happening instead of going silent
+- **API key management**: List, create, and delete API keys for the currently authenticated user — manage access credentials directly through the AI assistant
+
+- **Three authentication methods**: Support for API Key, JWT Token, and Username/Password authentication — choose the method that fits your setup
+- **JWT Token support**: Use pre-existing JWT tokens from browser-based logins (OIDC, GitHub, Google OAuth) to authenticate without storing credentials
+- **Automatic connection on startup**: When credentials are configured via environment variables or config file, the server connects to Komodo automatically at launch — no manual `komodo_configure` call needed
+- **Connection monitoring with auto-reconnect**: Periodic health checks detect connection loss and automatically re-establish the connection with exponential backoff
+- **Login method discovery**: The `komodo_configure` tool queries available login methods (local, GitHub, Google, OIDC) from the Komodo server and displays them for informational purposes
+- **Auth rejection detection**: Authentication failures (invalid credentials, expired tokens, unknown users) are clearly distinguished from network errors and reported with actionable messages
+- **Error extraction utilities**: Komodo API errors are parsed and formatted into human-readable messages with proper error classification
+
+- **Complete configuration reference**: New `config/` directory with a central reference guide and ready-to-use example configs (TOML, YAML, .env) — every setting documented in one place so you can get started without guessing environment variable names
+- **Copy-and-customize config templates**: Just copy `example.config.toml` (or YAML/.env) into your project, adjust the values, and you're done — no more searching through docs for the right variable names
+- **Streamlined Docker deployment**: New `docker/` directory with a step-by-step guide, ready-to-use `compose.yaml`, and preconfigured `.env` template — get a production-ready container running in minutes with just `docker compose up -d`
+- **Node.js / npx setup guide**: New `examples/node/` guide for running the server natively without Docker — covers npx, global install, and platform-specific instructions for Linux, macOS, and Windows
+- **Improved client integration guides**: Overhauled setup guides for Claude Desktop and VS Code / GitHub Copilot with clearer steps and updated example configs
+- **Refreshed README**: Cleaner feature overview, streamlined quick start, and better navigation to all documentation and integration guides
+
+- **Modernized DevContainer**: Faster container startup with lighter `postCreateCommand`, correct port forwarding (8000), Prettier and TypeScript SDK preconfigured — just open in VS Code and start coding
+- **Improved MCP Registry metadata**: Richer server.json with repository verification, Docker runtime hints, and input placeholders — MCP clients can display better setup guidance and verify package integrity
+
+### Changed
+
+- **komodo_client v2.0.0 Auth API**: Migrated authentication calls to namespaced API (`auth.login()`, `auth.manage()`) — supports `JwtOrTwoFactor` discriminated union response with explicit 2FA rejection
+- **Login options**: `getLoginOptions()` now includes `registration_disabled` field from Komodo v2
+- **Connection architecture**: Unified connection management — a single `KomodoConnection` class handles client lifecycle, authentication, health monitoring, and reconnect logic
+- **Configure tool**: Richer feedback on connection status including Komodo version, health check results, and available login methods
+- **Health check tool**: Reports detailed connection state including server version, MCP server version, and clear status indicators
+- **Credential configuration**: Support for Docker secrets (`*_FILE` env vars), config file (`[komodo]` section), and direct environment variables with clear priority chain
+- **Environment variable naming**: `KOMODO_JWT_TOKEN` (was `KOMODO_JWT_SECRET`) — clearly identifies the value as a token, not a signing key
+- **Validation error handling**: Invalid tool inputs (e.g. multiple auth methods) return clean MCP error responses with server-side warning logs instead of unhandled exceptions
+
+### Fixed
+
+- **localStorage crash on startup**: Added temporary polyfill for `localStorage` in Node.js — `mogh_auth_client` (transitive dependency of `komodo_client` v2) calls `localStorage.getItem()` at module load, which crashes in Node.js 22+ where `localStorage` exists but has no methods without `--localstorage-file`
+
+### Removed
+
+- Framework's `ConnectionStateManager` dependency — connection management is now fully self-contained
+
+### Dependencies
+
+- Updated `komodo_client` to v2.0.0
+- Updated `mcp-server-framework` to v1.0.3
+
+--------------------------------------------------------------
+
 ## [1.2.2] - Docker Security & Build Optimization
 
 ### 🔐 Security

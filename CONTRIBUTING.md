@@ -1,393 +1,137 @@
 # Contributing to Komodo MCP Server
 
-Thank you for your interest in contributing to Komodo MCP Server! 🎉
+Contributions are welcome — bug reports, feature ideas, documentation improvements, and code. Be respectful, inclusive, and constructive.
 
-## 📋 Table of Contents
-
-- [Code of Conduct](#code-of-conduct)
-- [Getting Started](#getting-started)
-- [Project Structure](#project-structure)
-- [Development Workflow](#development-workflow)
-- [Pull Request Guidelines](#pull-request-guidelines)
-- [Coding Standards](#coding-standards)
-- [Testing](#testing)
-
-## 🤝 Code of Conduct
-
-Be respectful, inclusive, and constructive. We're all here to build great software together!
-
-## 🚀 Getting Started
-
-### Prerequisites
-
-- Node.js 22+
-- Docker (for testing containers)
-- Komodo Server instance (for testing MCP tools)
-- Git
-
-### Fork and Clone
+## Getting Started
 
 ```bash
-# Fork the repository on GitHub, then:
-git clone https://github.com/YOUR_USERNAME/komodo-mcp-server.git
+git clone https://github.com/MP-Tool/komodo-mcp-server.git
 cd komodo-mcp-server
-
-# Add upstream remote
-git remote add upstream https://github.com/MP-Tool/komodo-mcp-server.git
-```
-
-### Install Dependencies
-
-```bash
 npm install
-```
-
-### Build
-
-```bash
 npm run build
 ```
 
-### Run Locally
+**Prerequisites**: Node.js 22+, Docker (for container testing), a Komodo v2 instance for testing tools.
 
-```bash
-npm run dev
+## Project Structure
+
+```
+src/
+├── index.ts              # Server entry point (createServer + tool imports)
+├── client.ts             # Komodo API client (connection management)
+├── config/               # Configuration & environment validation (Zod)
+│   ├── env.ts            # Environment variable schema
+│   ├── tools.config.ts   # Tool parameter defaults
+│   └── descriptions.ts   # Shared parameter descriptions
+├── tools/                # MCP tool definitions (via defineTool())
+│   └── schemas/          # Shared Zod schemas for tool inputs
+├── errors/               # Application-specific error classes & factory
+└── utils/                # Helpers (API wrappers, polling, response formatting)
 ```
 
-## 📂 Project Structure
-
-The project follows a modular architecture:
-
-- `src/api/` - Komodo API client and type definitions
-- `src/config/` - Configuration and environment validation (Zod)
-- `src/transport/` - MCP Transport Layer (Stdio & HTTP/SSE)
-  - `config/` - Transport configuration
-  - `middleware/` - Express middleware (Auth, Rate Limit)
-  - `routes/` - HTTP/SSE and Message routes
-- `src/tools/` - MCP tool definitions (Controllers)
-  - `base.ts` - Tool interface and registry
-  - `container/` - Container management tools
-  - `stack/` - Stack management tools
-  - `server/` - Server management tools
-- `src/index.ts` - Server entry point and setup
-
-## 💻 Development Workflow
-
-### 1. Create Feature Branch
-
-```bash
-git checkout main
-git pull upstream main
-git checkout -b feature/your-feature-name
-```
-
-### 2. Make Changes
-
-- Follow [Coding Standards](#coding-standards)
-- Write clean, documented code
-- Test your changes
-
-### 3. Test Locally
-
-```bash
-# TypeScript compilation
-npm run build
-
-# Docker build test
-npm run docker:build
-
-# Manual testing
-npm run dev
-```
-
-### 4. Commit Changes
-
-- Use conventional commits (e.g., `feat: add new tool`, `fix: resolve connection issue`).
-- Keep commits atomic and focused.
-
-### 5. Open Pull Request
-
-- Push your branch to your fork.
-- Open a PR against the `dev` branch.
-- Fill out the PR template.
-
-## CI/CD Checks
-
-When you open a Pull Request, the following automated checks will run:
-
-- **Build & Test**: Compiles the code and runs tests.
-- **CodeQL Analysis**: Scans for security vulnerabilities (SAST).
-- **Dependency Review**: Checks for vulnerable dependencies.
-- **Docker Build**: Verifies the container build process.
-
-We use **Renovate** for automated dependency updates.
+Built on [mcp-server-framework](https://github.com/MP-Tool/mcp-server-framework).
 
 ## Coding Standards
 
-- **TypeScript**: Strict mode enabled.
-- **Linting**: ESLint with standard config.
-- **Formatting**: Prettier.
-
-
-Use conventional commit messages:
-
-```bash
-git commit -m "feat: add new MCP tool for stack deployment"
-git commit -m "fix: resolve container restart timeout"
-git commit -m "docs: improve installation guide"
-```
-
-**Commit Types:**
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation
-- `refactor`: Code refactoring
-- `test`: Testing
-- `chore`: Maintenance
-- `style`: Formatting
-
-### 5. Push and Create PR
-
-```bash
-git push origin feature/your-feature-name
-```
-
-Then create a Pull Request on GitHub.
-
-## 🔍 Pull Request Guidelines
-
-### Before Creating PR
-
-- [ ] Code builds successfully (`npm run build`)
-- [ ] Docker image builds (`npm run docker:build`)
-- [ ] Changes tested locally
-- [ ] Documentation updated (if needed)
-- [ ] Commit messages follow convention
-- [ ] Branch up to date with main
-
-### PR Title Format
-
-```
-type(scope): brief description
-
-Examples:
-- feat(tools): add deployment monitoring tool
-- fix(client): resolve authentication timeout
-- docs(readme): update Docker installation steps
-```
-
-### PR Description
-
-Include:
-- **What**: Brief description of changes
-- **Why**: Reason for the change
-- **How**: Technical approach (if complex)
-- **Testing**: How you tested the changes
-- **Screenshots**: If UI/output changes
-
-### PR Checks
-
-Our CI will automatically:
-- ✅ Build TypeScript
-- ✅ Build Docker image
-- ✅ Validate version format
-- ✅ Show version comparison
-- ✅ Preview release (if version changed)
-
-### Review Process
-
-1. Automated checks must pass
-2. Maintainer review required
-3. Address feedback
-4. Approved → Ready to merge
-
-## 🎨 Coding Standards
-
 ### TypeScript
 
-- Use **TypeScript** for all code
-- Enable strict mode
-- Define types for all functions
-- Use interfaces for complex objects
-- Avoid `any` type
+- **Strict mode** enabled — no `any` types (use `unknown` + type guards)
+- **Zod** for all runtime validation (tool inputs, env vars, config)
+- **ES Modules** with `.js` extensions in imports
+- Barrel files (`index.ts`) for clean module exports
 
-### Code Style
+### Naming Conventions
 
-```typescript
-// ✅ Good
-interface KomodoContainer {
-  name: string;
-  state: string;
-  image?: string;
-}
-
-// Tools receive the client as context
-const handler = async (args: { server: string }, { client }: ToolContext) => {
-  if (!client) throw new Error('Client not initialized');
-  await client.startContainer(args.server);
-}
-
-// ❌ Bad
-function start(s: any, c: any) {
-  const client = getGlobalClient(); // Avoid global state
-  client.start(s, c);
-}
-```
-
-### MCP Tools
-
-We use the `Tool` interface and **Zod** for schema validation. Follow this structure:
-
-```typescript
-import { z } from 'zod';
-import { Tool } from '../base.js';
-
-export const myTool: Tool = {
-  name: 'komodo_tool_name',
-  description: 'Clear, concise description of what the tool does',
-  schema: z.object({
-    server: z.string().describe('Server ID or name'),
-    count: z.number().optional().describe('Number of items')
-  }),
-  handler: async (args, { client }) => {
-    if (!client) throw new Error('Komodo client not initialized');
-    
-    // Your implementation here
-    return {
-      content: [{ type: 'text', text: 'Result' }]
-    };
-  }
-};
-```
+| Element | Convention | Example |
+|---------|-----------|---------|
+| Files | `kebab-case.ts` | `container-start.ts` |
+| Classes | `PascalCase` | `ConnectionStateManager` |
+| Interfaces | `IPascalCase` | `IApiClient` |
+| Functions / Variables | `camelCase` | `requireClient` |
+| Constants | `SCREAMING_SNAKE_CASE` | `PARAM_DESCRIPTIONS` |
+| Private Members | `_camelCase` | `_connection` |
+| MCP Tools | `komodo_<domain>_<action>` | `komodo_container_start` |
 
 ### Error Handling
 
+Use `AppErrorFactory` for application errors, `wrapApiCall()` for Komodo API calls:
+
 ```typescript
-// ✅ Use McpError for MCP tools
-throw new McpError(
-  ErrorCode.InvalidRequest,
-  'Server not found: ' + server
+import { AppErrorFactory } from '../errors/index.js';
+
+throw AppErrorFactory.notFound.server('my-server');
+throw AppErrorFactory.api.requestFailed('timeout exceeded');
+
+// API calls — handles errors, metrics, and tracing automatically
+const result = await wrapApiCall(
+  'listContainers',
+  () => komodo.read('ListContainers', { server }),
+  abortSignal,
 );
-
-// ✅ Wrap API errors with context
-catch (error) {
-  throw new McpError(
-    ErrorCode.InternalError,
-    `Failed to start container: ${error.message}`
-  );
-}
 ```
 
-### Documentation
+### Adding a Tool
+
+Each tool is a separate file in `src/tools/<category>/`. Use `defineTool()` with Zod schemas and shared `PARAM_DESCRIPTIONS`:
 
 ```typescript
-/**
- * Start a Docker container on specified server.
- * 
- * @param server - Server ID or name
- * @param container - Container name
- * @throws McpError if server/container not found
- */
-async function startContainer(server: string, container: string): Promise<void>
+import { defineTool, text, z } from 'mcp-server-framework';
+import { PARAM_DESCRIPTIONS } from '../../config/index.js';
+import { requireClient, wrapApiCall } from '../../utils/index.js';
+
+export const myTool = defineTool({
+  name: 'komodo_category_action',
+  description: 'Clear description of what the tool does',
+  input: z.object({
+    server: z.string().describe(PARAM_DESCRIPTIONS.SERVER_ID),
+  }),
+  annotations: { readOnlyHint: true },
+  handler: async ({ input: args }, { abortSignal }) => {
+    const komodo = requireClient();
+    const result = await wrapApiCall(
+      'getServer',
+      () => komodo.read('GetServer', { server: args.server }),
+      abortSignal,
+    );
+    return text(JSON.stringify(result));
+  },
+});
 ```
 
-## 🧪 Testing
+Import the tool file in `src/index.ts` — it auto-registers via the global registry.
 
-### Manual Testing
+## Commits & Pull Requests
 
-1. **Build and Run**
-   ```bash
-   npm run dev
-   ```
+### Conventional Commits
 
-2. **Test with Claude Desktop**
-   - Configure MCP connection
-   - Try each tool
-   - Verify responses
-
-3. **Test with Docker**
-   ```bash
-   docker build -t komodo-mcp-server:test .
-   docker run -i -e KOMODO_URL=$URL -e KOMODO_USERNAME=$USER -e KOMODO_PASSWORD=$PASS komodo-mcp-server:test
-   ```
-
-### Test Checklist
-
-- [ ] All MCP tools work
-- [ ] Error handling works
-- [ ] Docker image builds
-- [ ] Multi-platform support (if touching Dockerfile)
-
-## 📚 Documentation
-
-### When to Update Docs
-
-- Configuration changes → Update examples
-- Breaking changes → Update RELEASE.md
-- New features → Update feature list
-
-### Documentation Files
-
-- `README.md` - Main documentation
-- `SECURITY.md` - Security policy
-- `examples/*/README.md` - Integration guides
-
-## 🐛 Bug Reports
-
-### Found a Bug?
-
-1. Check [existing issues](https://github.com/MP-Tool/komodo-mcp-server/issues)
-2. Create new issue with:
-   - Clear title
-   - Steps to reproduce
-   - Expected behavior
-   - Actual behavior
-   - Environment (OS, Node version, Docker version)
-   - Logs/screenshots
-
-### Example
-
-```markdown
-**Title**: Container start fails with timeout error
-
-**Description**: When starting a container through komodo_start_container, 
-the operation times out after 30 seconds.
-
-**Steps to Reproduce**:
-1. Configure MCP with komodo_configure
-2. Run komodo_start_container with server="prod" container="web"
-3. Wait 30 seconds
-
-**Expected**: Container starts successfully
-**Actual**: Timeout error
-
-**Environment**:
-- OS: macOS 14
-- Node: 22.0.0
-- Docker: 24.0.0
-- Komodo: v1.19.5
+```
+feat: add deployment monitoring tool
+fix: resolve container restart timeout
+docs: update Docker installation guide
+refactor: extract polling logic into utility
+chore: update dependencies
 ```
 
-## 💡 Feature Requests
+### Pull Request Checklist
 
-Have an idea? Open an issue with:
-- **Feature**: What you have in mind?
-- **Problem**: What problem does this solve?
-- **Solution**: How should it work?
-- **Alternatives**: Other approaches considered?
-- **Use Case**: Real-world scenario
+- [ ] Code builds (`npm run build`)
+- [ ] Docker image builds (`npm run docker:build`)
+- [ ] Changes fully tested locally
+- [ ] Documentation updated if needed
+- [ ] Commit messages follow convention
 
-## 🆘 Need Help?
+PRs go against the upcoming release branch, or `main` if no release branch exists. Automated CI runs build, CodeQL, dependency review, and Docker build checks.
 
-- 📖 Read the [README](README.md)
-- 🐛 Report bugs in [Issues](https://github.com/MP-Tool/komodo-mcp-server/issues)
-- 💬 Ask in [Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions)
+Keep PRs focused and small for easier review. For larger features, consider opening an issue/feature request first to discuss the design before implementation.
 
-## 🌟 Recognition
+## Reporting Issues
 
-Contributors are recognized in:
-- GitHub contributors page
-- Release notes (for significant contributions)
-- Project acknowledgments
+- **Bugs**: [Open an issue](https://github.com/MP-Tool/komodo-mcp-server/issues) with steps to reproduce, expected vs actual behavior, and your environment (OS, Node, Docker, Komodo version).
+- **Features**: Describe the problem, your proposed solution, and a real-world use case.
+- **Security**: See [SECURITY.md](SECURITY.md) for responsible disclosure.
 
-Thank you for contributing! 🙏
+## Need Help?
+
+- [README](README.md) — Project overview and quick start
+- [Configuration Guide](config/README.md) — All env vars, config files, Docker secrets
+- [Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions) — Questions and ideas

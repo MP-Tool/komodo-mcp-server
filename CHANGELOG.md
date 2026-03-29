@@ -18,6 +18,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Environment file tracking**: Stack environment files now support the `track` flag for change detection
 - **Compose wrapper includes**: New `compose_cmd_wrapper_include` field for selective compose command wrapping
 
+- **Remote command execution**: Run shell commands directly on servers, inside containers, deployments, and stack services — diagnose issues, run maintenance tasks, or check application state without leaving the AI conversation
+- **Live output with progress**: Terminal output streams back in real time with progress updates — long-running commands show what's happening instead of going silent
+- **API key management**: List, create, and delete API keys for the currently authenticated user — manage access credentials directly through the AI assistant
+
 - **Three authentication methods**: Support for API Key, JWT Token, and Username/Password authentication — choose the method that fits your setup
 - **JWT Token support**: Use pre-existing JWT tokens from browser-based logins (OIDC, GitHub, Google OAuth) to authenticate without storing credentials
 - **Automatic connection on startup**: When credentials are configured via environment variables or config file, the server connects to Komodo automatically at launch — no manual `komodo_configure` call needed

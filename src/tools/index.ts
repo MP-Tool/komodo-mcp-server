@@ -10,3 +10,5 @@ import "./container.js";
 import "./server.js";
 import "./stack.js";
 import "./deployment.js";
+import "./terminal.js";
+import "./user.js";

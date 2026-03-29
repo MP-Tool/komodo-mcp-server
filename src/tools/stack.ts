@@ -88,6 +88,7 @@ FILE SOURCES (choose one):
 1. file_contents: Define compose YAML directly in the config
 2. repo + branch: Clone from git repository
 3. files_on_host: Use existing files on the server`,
+  annotations: { idempotentHint: false },
   input: z.object({
     name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.STACK_NAME),
     server_id: serverIdSchema.optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_COMPOSE),

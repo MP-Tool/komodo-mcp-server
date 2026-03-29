@@ -93,6 +93,7 @@ export const createServerTool = defineTool({
   name: "komodo_create_server",
   description:
     "Register a new server in Komodo. The server must have Periphery agent running. Provide the address for Core -> Periphery connections.",
+  annotations: { idempotentHint: false },
   input: z.object({
     name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.SERVER_NAME),
     config: serverConfigSchema.partial().optional().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_CREATE),

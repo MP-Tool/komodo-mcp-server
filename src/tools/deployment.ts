@@ -93,6 +93,7 @@ IMAGE FORMATS:
 - Simple string: "nginx:latest", "ghcr.io/owner/repo:v1.0"
 - Object format: { type: "Image", params: { image: "nginx:latest" } }
 - Komodo Build: { type: "Build", params: { build_id: "..." } }`,
+  annotations: { idempotentHint: false },
   input: z.object({
     name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_NAME),
     server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),

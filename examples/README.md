@@ -1,225 +1,92 @@
-# Integration Examples
+# Client Integrations
 
-Ready-to-use configurations for integrating the Komodo MCP Server with various platforms and tools.
+Ready-to-use configurations for connecting the Komodo MCP Server to AI assistants and development tools.
 
-## 🚀 Quick Start Guide
-
-Choose your preferred integration method below. Each example includes complete setup instructions and configuration files.
-
----
+> **Looking for server deployment?** See the [Docker Compose Guide](../docker/README.md) for running the MCP server as a standalone service.
 
 ## Available Integrations
 
-### 1. [Claude Desktop](./claude/) 
-**Best for:** AI-assisted container management through conversations
+### [Claude Desktop](./claude/)
 
 Direct MCP integration with Claude Desktop. Manage your Komodo infrastructure through natural language conversations.
 
-**Difficulty:** Easy
+- Runs the server as a Docker container via stdio transport
+- Zero network configuration needed
+- **Best for:** AI-assisted container management
 
-**Quick start:**
-```bash
-# Copy config, update credentials, restart Claude
-```
-
-**Use cases:**
-- Interactive container management
-- AI-guided troubleshooting
-- Natural language queries
-- Learning Komodo operations
-
----
-
-### 2. [VS Code](./vscode/)
-**Best for:** Developer workflows and IDE integration
+### [VS Code / GitHub Copilot](./vscode/)
 
 GitHub Copilot Chat integration for VS Code. Access Komodo tools directly from your development environment.
 
-**Difficulty:** Easy
+- Supports both stdio (Docker) and HTTP transport
+- Works with workspace or global MCP settings
+- **Best for:** Developer workflows and IDE integration
 
-**Quick start:**
-```bash
-# Copy mcp.json to ~/.vscode/mcp/ or .vscode/
-```
+### [Node.js / npx](./node/)
 
-**Use cases:**
-- Development workflows
-- Quick container checks
-- Deployment from IDE
-- Context-aware assistance
+Run directly with Node.js — no Docker required. Works on Windows, macOS, and Linux.
 
----
+- Instant setup via `npx komodo-mcp-server`
+- Also works as a globally installed package
+- **Best for:** Quick testing, native installation, CI/CD pipelines
 
-### 3. [Docker Compose](./compose/)
-**Best for:** Production deployments and self-hosted setups
+## Comparison
 
-Standalone deployment using Docker Compose with health checks, resource limits, and environment management.
+| Feature | Claude Desktop | VS Code | Node.js / npx |
+|---------|---------------|---------|----------------|
+| **Setup** | Copy JSON config | Copy JSON config | One command |
+| **Transport** | stdio (Docker) | stdio or HTTP | stdio or HTTP |
+| **Docker Required** | Optional | Optional | No |
+| **Integration** | Native | Copilot Chat | Via MCP client |
+| **Multi-Client** | No | No (stdio) / Yes (HTTP) | No (stdio) / Yes (HTTP) |
+| **Production Use** | Yes | Yes | Yes |
 
-**Difficulty:** Easy
+> **For production multi-client deployments**, use the [Docker Compose setup](../docker/README.md) with HTTPS transport and connect any of the clients above via HTTP.
 
-**Quick start:**
-```bash
-cd compose/
-cp .env.example .env
-# Edit .env with credentials
-docker compose up -d
-```
+## Which Should I Choose?
 
-**Use cases:**
-- Production deployments
-- Self-hosted MCP servers
-- Custom automation scripts
-- Integration testing
+**I want to chat with an AI about my containers →** [Claude Desktop](./claude/)
 
----
+**I want Komodo tools in my IDE →** [VS Code](./vscode/)
 
-### 4. [Docker Desktop](./docker-desktop/)
-**Best for:** Docker Desktop AI assistant users
+**I want to run without Docker →** [Node.js / npx](./node/)
 
-Native MCP integration for Docker Desktop 4.34+ beta. Use Komodo tools directly in Docker Desktop's AI assistant.
+**I want a persistent server for multiple clients →** [Docker Compose](../docker/README.md)
 
-**Difficulty:** Medium (Beta feature)
-
-**Quick start:**
-```bash
-# Copy catalog, configure registry, restart Docker Desktop
-```
-
-**Use cases:**
-- Unified Docker + Komodo UI
-- Docker-centric workflows
-- Testing beta features
-- Local development
-
----
-
-## 📊 Feature Comparison
-
-| Feature | Claude | VS Code | Compose | Docker Desktop |
-|---------|--------|---------|---------|----------------|
-| **Ease of Setup** | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐⭐ | ⭐⭐⭐⭐ | ⭐⭐⭐ |
-| **AI Integration** | ✅ Native | ✅ Copilot | ❌ | ✅ Native |
-| **IDE Integration** | ❌ | ✅ | ❌ | ❌ |
-| **Production Ready** | ✅ | ✅ | ✅✅ | ⚠️ Beta |
-| **Self-Hosted** | ❌ | ❌ | ✅ | ❌ |
-| **Update Method** | Docker Pull | Docker Pull | Compose Pull | Docker Pull |
-
----
-
-## 🎯 Which Integration Should I Choose?
-
-### I want AI assistance...
-- **For conversations:** → [Claude Desktop](./claude/)
-- **In my IDE:** → [VS Code](./vscode/)
-- **In Docker Desktop:** → [Docker Desktop](./docker-desktop/)
-
-### I want to deploy...
-- **For production:** → [Docker Compose](./compose/)
-- **For development:** → [VS Code](./vscode/) or [Claude Desktop](./claude/)
-- **For testing:** → Any of them!
-
-### I want to integrate with...
-- **Claude Desktop:** → [Claude Desktop](./claude/)
-- **GitHub Copilot:** → [VS Code](./vscode/)
-- **Custom tools:** → [Docker Compose](./compose/)
-- **Docker Desktop:** → [Docker Desktop](./docker-desktop/)
-
----
-
-## 🔧 Common Setup
+## Prerequisites
 
 All integrations require:
 
-1. **Komodo Server** running and accessible
-2. **Credentials** (URL, username, password)
-3. **Network Access** from your machine to Komodo
+1. **Komodo** v2.0.0+ running and accessible
+2. **Credentials** — one of:
+   - API Key + Secret (recommended)
+   - Username + Password
+   - JWT Token (from browser SSO)
+3. **Network access** from your machine to the Komodo Core server
 
-### Komodo Connection Details
+For the full configuration reference (all environment variables, config file options, Docker secrets), see the [Configuration Guide](../config/README.md).
 
-You'll need:
-```
-KOMODO_URL=https://your-komodo-server.com:9120
-KOMODO_USERNAME=your-username
-KOMODO_PASSWORD=your-password
-```
+## Troubleshooting
 
-Get these from your Komodo administrator or server setup.
+### Cannot connect to Komodo
 
----
+- Verify the server URL includes the protocol (`https://` or `http://`)
+- Check network/firewall access
+- Test connectivity: `curl -k $KOMODO_URL/health`
 
-## 🛠️ Troubleshooting
+### Authentication fails
 
-### General Issues
-
-**Cannot connect to Komodo:**
-- Verify server URL is correct (include protocol: `https://` or `http://`)
-- Check firewall/network access
-- Test connection: `curl -k $KOMODO_URL/health`
-
-**Authentication fails:**
-- Ensure Komodo v1.19.5+ for username/password auth
 - Verify credentials are correct
-- Check user has proper permissions
+- Ensure the user has proper permissions in Komodo
+- For API keys, check they haven't expired
 
-**Docker image issues:**
-- Pull latest: `docker pull ghcr.io/mp-tool/komodo-mcp-server:latest`
-- Verify: `docker images | grep komodo-mcp-server`
+### Docker container issues
 
-### Integration-Specific
+- Ensure Docker is running: `docker info`
+- Pull the latest image: `docker pull ghcr.io/mp-tool/komodo-mcp-server:latest`
 
-Each integration folder has detailed troubleshooting in its README:
-- [Claude Troubleshooting](./claude/README.md#troubleshooting)
-- [VS Code Troubleshooting](./vscode/README.md#troubleshooting)
-- [Compose Troubleshooting](./compose/README.md#troubleshooting)
-- [Docker Desktop Troubleshooting](./docker-desktop/README.md#troubleshooting)
+## More Info
 
----
-
-## 🧪 Testing Your Setup
-
-After setup, verify it works:
-
-**1. List servers:**
-```
-Ask: "List all Komodo servers"
-Expected: List of your configured servers
-```
-
-**2. List containers:**
-```
-Ask: "Show containers on [server-name]"
-Expected: List of containers on that server
-```
-
-**3. Get server stats:**
-```
-Ask: "Get stats for [server-name]"
-Expected: CPU, memory, disk usage
-```
-
----
-
-## 📚 Additional Resources
-
-### Documentation
-- [Main README](../README.md) - Project documentation
-- [Contributing Guide](../CONTRIBUTING.md) - How to contribute
-- [Release Process](../RELEASE.md) - Version management
-
-### External Links
-- [Komodo Container Manager](https://komo.do) - Official Komodo site
-- [MCP Specification](https://modelcontextprotocol.io) - Protocol details
-- [GitHub Repository](https://github.com/MP-Tool/komodo-mcp-server) - Source code
-
----
-
-## 🤝 Need Help?
-
-- 📖 Read integration-specific READMEs
-- 🐛 [Report Issues](https://github.com/MP-Tool/komodo-mcp-server/issues)
-- 💬 [Join Discussions](https://github.com/MP-Tool/komodo-mcp-server/discussions)
-- 📧 Check Komodo documentation at [komo.do](https://komo.do)
-
----
-
-**Ready to get started? Pick an integration above and follow its README!** 🚀
+- [Main Documentation](../README.md)
+- [Configuration Reference](../config/README.md)
+- [Docker Deployment](../docker/README.md)

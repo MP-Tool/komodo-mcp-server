@@ -1,8 +1,19 @@
 {
   "servers": {
-    "Komodo MCP Server": {
+    "Komodo MCP Server (Docker stdio)": {
+      "type": "stdio",
+      "command": "docker",
+      "args": [
+        "run", "-i", "--rm",
+        "-e", "KOMODO_URL=https://your-komodo-server.com:9120",
+        "-e", "KOMODO_API_KEY=api-key",
+        "-e", "KOMODO_API_SECRET=api-secret",
+        "ghcr.io/mp-tool/komodo-mcp-server:latest"
+      ]
+    },
+    "Komodo MCP Server (HTTP)": {
       "type": "http",
-      "url": "http://localhost:3000/mcp"
+      "url": "http://localhost:8000/mcp"
     }
   }
 }

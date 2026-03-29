@@ -8,7 +8,7 @@
  */
 
 import { readFileSync } from "node:fs";
-import { z, registerConfigSection, getAppConfig } from "mcp-server-framework";
+import { z, registerConfigSection, getAppConfig, durationSchema } from "mcp-server-framework";
 
 // ============================================================================
 // Schema
@@ -48,8 +48,8 @@ export const appEnvSchema = z.object({
   /** Path to file containing the JWT token (Docker secrets) */
   KOMODO_JWT_TOKEN_FILE: z.string().optional(),
 
-  /** API request timeout in milliseconds */
-  API_TIMEOUT_MS: z.coerce.number().int().positive().default(30_000),
+  /** API request timeout. Accepts human-readable durations ('30s', '1m') or plain milliseconds. Default: '30s' */
+  API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
 });
 
 export type AppEnvConfig = z.infer<typeof appEnvSchema>;
@@ -140,8 +140,8 @@ const komodoConfigFileSchema = z.object({
   jwt_token: z.string().optional(),
   /** Path to file containing the JWT token (Docker secrets) */
   jwt_token_file: z.string().optional(),
-  /** API request timeout in milliseconds */
-  api_timeout_ms: z.number().int().positive().optional(),
+  /** API request timeout as duration ('30s', '1m') or milliseconds (number) */
+  api_timeout_ms: z.union([z.number().int().positive(), z.string()]).optional(),
 });
 
 export type KomodoFileConfig = z.infer<typeof komodoConfigFileSchema>;

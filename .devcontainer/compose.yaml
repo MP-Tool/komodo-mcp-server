@@ -1,0 +1,14 @@
+services:
+  devcontainer:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+      target: development
+    ports:
+      - 8000:8000  # Forward MCP server port for HTTP/SSE
+    # network_mode: "host" # Uncomment if you are on Linux and want to use localhost
+    env_file:
+      - ../.env
+    volumes:
+      - ..:/app:cached
+      - /app/node_modules

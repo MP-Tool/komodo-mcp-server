@@ -1,24 +1,35 @@
 {
-  "name": "Komodo MCP Server DevContainer",
-  "dockerComposeFile": "docker-compose.yml",
+  "name": "Komodo MCP Server",
+  "dockerComposeFile": "compose.yaml",
   "service": "devcontainer",
   "workspaceFolder": "/app",
+
   "customizations": {
     "vscode": {
       "extensions": [
         "dbaeumer.vscode-eslint",
         "esbenp.prettier-vscode",
         "ms-vscode.vscode-typescript-next",
-        "editorconfig.editorconfig",
-        "github.copilot"
+        "editorconfig.editorconfig"
       ],
       "settings": {
         "terminal.integrated.defaultProfile.linux": "zsh",
-        "editor.formatOnSave": true
+        "editor.formatOnSave": true,
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "typescript.tsdk.path": "node_modules/typescript/lib"
       }
     }
   },
-  "forwardPorts": [3000],
-  "postCreateCommand": "npm install && npm run build",
+
+  "forwardPorts": [8000],
+  "portsAttributes": {
+    "8000": {
+      "label": "MCP Server",
+      "onAutoForward": "notify"
+    }
+  },
+
+  // Sync dependencies with host package.json (anonymous volume may be stale)
+  "postCreateCommand": "npm install",
   "remoteUser": "node"
 }

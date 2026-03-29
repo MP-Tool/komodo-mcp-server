@@ -53,7 +53,7 @@
     "build/**/*.d.ts",
     "build/VERSION",
     "README.md",
-    "LICENSE",
+    "LICENSE.txt",
     "CHANGELOG.md"
   ],
   "dependencies": {

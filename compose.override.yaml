@@ -1,15 +1,15 @@
 services:
   komodo-mcp-server:
-    image: ghcr.io/mp-tool/komodo-mcp-server:${KOMODO_MCP_IMAGE_TAG:-latest}
+    image: ${KOMODO_MCP_IMAGE:-ghcr.io/mp-tool/komodo-mcp-server}:${KOMODO_MCP_IMAGE_TAG:-latest}
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     
     ports:
-      - 3000:${MCP_PORT:-3000}
+      - ${KOMODO_MCP_PORT:-8000}:8000
 
     env_file:
       - .env
-    # Override environment variables from .env file or shell
-    environment:
-      - KOMODO_URL=${KOMODO_URL:-http://host.docker.internal:9120}
-      - KOMODO_USERNAME=${KOMODO_USERNAME:-username}
-      - KOMODO_PASSWORD=${KOMODO_PASSWORD:-password}
-
+    
+    volumes:
+      - ./.dev/test.config.toml:/app/config.toml

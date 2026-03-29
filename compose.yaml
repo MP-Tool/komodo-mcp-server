@@ -7,9 +7,12 @@ services:
       dockerfile: Dockerfile
       target: production
     image: komodo-mcp-server:latest
-
     restart: "no"
-    deploy:         # Resource limits
+    
+    ports:
+      - 8000:8000
+
+    deploy:
       resources:
         limits:
           memory: 256M
@@ -18,17 +21,10 @@ services:
           memory: 128M
           cpus: '0.1'
 
-    ports:
-      - 3000:3000
-
-    environment:
-      - KOMODO_URL=https://komodo.example.com:9120
-      - KOMODO_USERNAME=username
-      - KOMODO_PASSWORD=password
-
-    healthcheck:
-      test: ["CMD", "wget", "--spider", "-q", "http://localhost:3000/ready"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
+    # Optional: BuildIn with docker image
+    # healthcheck:
+    #   test: ["CMD-SHELL", "node -e \"fetch('http://localhost:8000/ready').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))\""]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
+    #   start_period: 10s

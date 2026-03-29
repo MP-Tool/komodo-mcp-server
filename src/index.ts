@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 /**
  * Komodo MCP Server — Entry Point
  *

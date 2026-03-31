@@ -9,6 +9,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **Pin all GitHub Actions by SHA hash**: All workflow dependencies across 7 workflow files now reference exact commit SHAs instead of mutable version tags, preventing supply chain attacks via tag manipulation (OpenSSF Scorecard "Pinned-Dependencies")
+- **Remove `dorny/paths-filter` third-party action**: Replaced with native `git diff` in `pr-check.yml` to reduce third-party dependency surface
+- **Pin npm CLI version**: `publish-npm.yml` now installs `npm@11.12.1` instead of `npm@latest` for reproducible builds
+
 ### Changed
 
 - **`MCP_JSON_RESPONSE` default changed to `false`**: Updated all config examples and documentation to reflect the new framework default. SSE streaming preserves progress and log notifications during tool execution.

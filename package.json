@@ -58,7 +58,7 @@
   ],
   "dependencies": {
     "komodo_client": "^2.0.0",
-    "mcp-server-framework": "^1.0.3"
+    "mcp-server-framework": "^1.0.5"
   },
   "overrides": {
     "zod": "$zod"

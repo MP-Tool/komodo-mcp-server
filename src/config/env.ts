@@ -80,6 +80,7 @@ export interface KomodoCredentials {
 function readSecretFile(filePath: string | undefined): string | undefined {
   if (!filePath) return undefined;
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- Docker secrets: path from trusted env var
     return readFileSync(filePath, "utf-8").trim();
   } catch {
     return undefined;

@@ -1,6 +1,7 @@
 // @ts-check
 import eslint from "@eslint/js";
 import tseslint from "typescript-eslint";
+import pluginSecurity from "eslint-plugin-security";
 import eslintConfigPrettier from "eslint-config-prettier";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 
@@ -16,6 +17,9 @@ export default [
 
   // TypeScript strict rules with type-aware linting
   ...tseslint.configs.strictTypeChecked,
+
+  // Node.js security rules (OWASP patterns: eval, child_process, unsafe regex, etc.)
+  pluginSecurity.configs.recommended,
 
   // Parser options for type-aware rules (scoped to TS files only)
   {
@@ -88,6 +92,16 @@ export default [
 
       // Extension-point interfaces intentionally declare no members yet
       "@typescript-eslint/no-empty-object-type": "warn",
+
+      // --- Security Plugin Overrides ---
+      // False positives on typed obj[key] access — TypeScript's type system handles this
+      "security/detect-object-injection": "off",
+
+      // ESM project — no require() usage
+      "security/detect-non-literal-require": "off",
+
+      // Not all string comparisons are security-sensitive
+      "security/detect-possible-timing-attacks": "warn",
     },
   },
 

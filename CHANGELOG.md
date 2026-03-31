@@ -9,18 +9,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+--------------------------------------------------------------
+
+## [1.3.1] - Improved Progress Reporting & Connection Stability
+
+### Improved
+
+- **Real-time operation stages**: Deploy, start, stop and other long-running operations now show exactly what Komodo is doing (e.g. "Pulling Image", "Starting Container") instead of a generic timer — you always know what's happening
+- **Better progress bars in terminal tools**: Remote command execution now shows proper progress indicators compatible with all MCP clients
+- **Live log streaming to AI client**: During tool execution, server logs are automatically forwarded to the AI assistant — the AI sees what's going on behind the scenes for better troubleshooting
+- **SSE streaming enabled by default**: Progress updates, log messages, and operation status are now reliably delivered during tool execution (previously could be silently dropped in JSON response mode)
+- **Stable connections behind proxies**: Long-running connections are kept alive with periodic heartbeats — no more random disconnects when using reverse proxies, load balancers, or cloud deployments
+
+### Fixed
+
+- **Docker startup with missing config file**: The server no longer crashes if `MCP_CONFIG_FILE_PATH` points to a file that doesn't exist yet (e.g. Docker volume not mounted). It now starts gracefully with a warning and uses environment variables only
+- **Noisy AI client notifications**: Removed unnecessary debug-level notifications that were being forwarded to the AI client, reducing clutter in the conversation
+
 ### Security
 
-- **Pin all GitHub Actions by SHA hash**: All workflow dependencies across 7 workflow files now reference exact commit SHAs instead of mutable version tags, preventing supply chain attacks via tag manipulation (OpenSSF Scorecard "Pinned-Dependencies")
-- **Remove `dorny/paths-filter` third-party action**: Replaced with native `git diff` in `pr-check.yml` to reduce third-party dependency surface
-- **Pin npm CLI version**: `publish-npm.yml` now installs `npm@11.12.1` instead of `npm@latest` for reproducible builds
-- **`eslint-plugin-security` integration**: Added Node.js security linting rules (OWASP patterns: eval injection, child_process, unsafe regex, non-literal require, object injection). Custom overrides for project-specific patterns (ESM-only, typed object access).
+- Hardened CI/CD pipeline against supply-chain attacks (pinned dependencies, reproducible builds)
+- Added automated code scanning for common security patterns (OWASP)
+- Improved rate limiting, clickjacking protection, and regex safety in the underlying framework
 
-### Changed
+### Dependencies
 
-- **`MCP_JSON_RESPONSE` default changed to `false`**: Updated all config examples and documentation to reflect the new framework default. SSE streaming preserves progress and log notifications during tool execution.
-- **Stage-based progress reporting**: Polling now tracks real Komodo operation stages from `update.logs[]` instead of elapsed-time-based fake progress. New stages (e.g. "Deploy Container", "Clone Repo") are reported immediately; heartbeats sent between stages. Completion reports actual duration.
-- **Spec-compliant progress in terminal tools**: Terminal output progress now reports `total` alongside `progress` for determinate progress display per MCP spec.
+- Updated `mcp-server-framework` to v1.0.5
 
 --------------------------------------------------------------
 

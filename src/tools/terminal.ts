@@ -33,6 +33,9 @@ const TERMINAL_TIMEOUT_MS = 300_000;
 /** Report progress every N lines of output */
 const PROGRESS_INTERVAL = 50;
 
+/** Estimated total lines based on max output capacity (for progress reporting) */
+const ESTIMATED_TOTAL_LINES = Math.ceil(MAX_OUTPUT_LENGTH / 80);
+
 /** Sentinel prefix emitted by Komodo to signal exit code */
 const EXIT_CODE_PREFIX = "__KOMODO_EXIT_CODE__:";
 
@@ -116,7 +119,11 @@ class OutputBuffer {
   /** Report progress to the MCP client if the line threshold is reached. */
   async reportProgress(reporter?: ProgressReporter): Promise<void> {
     if (reporter && this.lineCount % PROGRESS_INTERVAL === 0) {
-      await reporter({ progress: this.lineCount, message: `Received ${this.lineCount} lines...` });
+      await reporter({
+        progress: Math.min(this.lineCount, ESTIMATED_TOTAL_LINES),
+        total: ESTIMATED_TOTAL_LINES,
+        message: `Received ${this.lineCount} lines...`,
+      });
     }
   }
 

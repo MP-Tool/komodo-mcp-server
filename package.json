@@ -58,21 +58,22 @@
   ],
   "dependencies": {
     "komodo_client": "^2.0.0",
-    "mcp-server-framework": "^1.0.3"
+    "mcp-server-framework": "^1.0.5"
   },
   "overrides": {
     "zod": "$zod"
   },
   "devDependencies": {
-    "zod": "^3.25.0",
     "@eslint/js": "^10.0.1",
     "@modelcontextprotocol/sdk": "^1.27.1",
     "@types/node": "^25.0.9",
     "eslint": "^10.0.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-security": "^4.0.0",
     "prettier": "^3.7.4",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.57.1"
+    "typescript-eslint": "^8.57.1",
+    "zod": "^3.25.0"
   }
 }

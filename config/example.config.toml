@@ -124,11 +124,11 @@ sse_enabled = false
 
 ## Prefer JSON responses over SSE streams for simple request-response.
 ## When enabled, non-streaming responses (tools/list, resources/list) return
-## application/json instead of text/event-stream. Streaming responses always use SSE.
-## The MCP spec recommends JSON for single-response interactions.
+## application/json instead of text/event-stream.
+## Warning: JSON mode silently drops progress and logging notifications.
 ## Env: MCP_JSON_RESPONSE
-## Default: true
-json_response = true
+## Default: false
+json_response = false
 
 
 ## TLS configuration (required when mode = "https").

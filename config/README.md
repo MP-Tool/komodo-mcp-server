@@ -164,7 +164,7 @@ Controls how the MCP server communicates with clients.
 | `MCP_PORT` | `transport.port` | `8000` | HTTP/HTTPS listen port |
 | `MCP_BIND_HOST` | `transport.host` | `127.0.0.1` | Bind address (`0.0.0.0` for all interfaces) |
 | `MCP_LEGACY_SSE_ENABLED` | `transport.sse_enabled` | `false` | Enable legacy SSE transport (protocol 2024-11-05) |
-| `MCP_JSON_RESPONSE` | `transport.json_response` | `true` | Prefer JSON over SSE for non-streaming responses |
+| `MCP_JSON_RESPONSE` | `transport.json_response` | `false` | Prefer JSON over SSE for non-streaming responses |
 
 ### Transport Modes
 

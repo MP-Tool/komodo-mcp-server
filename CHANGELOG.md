@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [Unreleased]
+
+--------------------------------------------------------------
+
+## [1.3.1] - Improved Progress Reporting & Connection Stability
+
+### Improved
+
+- **Real-time operation stages**: Deploy, start, stop and other long-running operations now show exactly what Komodo is doing (e.g. "Pulling Image", "Starting Container") instead of a generic timer — you always know what's happening
+- **Better progress bars in terminal tools**: Remote command execution now shows proper progress indicators compatible with all MCP clients
+- **Live log streaming to AI client**: During tool execution, server logs are automatically forwarded to the AI assistant — the AI sees what's going on behind the scenes for better troubleshooting
+- **SSE streaming enabled by default**: Progress updates, log messages, and operation status are now reliably delivered during tool execution (previously could be silently dropped in JSON response mode)
+- **Stable connections behind proxies**: Long-running connections are kept alive with periodic heartbeats — no more random disconnects when using reverse proxies, load balancers, or cloud deployments
+
+### Fixed
+
+- **Docker startup with missing config file**: The server no longer crashes if `MCP_CONFIG_FILE_PATH` points to a file that doesn't exist yet (e.g. Docker volume not mounted). It now starts gracefully with a warning and uses environment variables only
+- **Noisy AI client notifications**: Removed unnecessary debug-level notifications that were being forwarded to the AI client, reducing clutter in the conversation
+
+### Security
+
+- Hardened CI/CD pipeline against supply-chain attacks (pinned dependencies, reproducible builds)
+- Added automated code scanning for common security patterns (OWASP)
+- Improved rate limiting, clickjacking protection, and regex safety in the underlying framework
+
+### Dependencies
+
+- Updated `mcp-server-framework` to v1.0.5
+
+--------------------------------------------------------------
+
 ## [1.3.0]
 
 ### Added

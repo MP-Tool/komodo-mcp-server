@@ -31,7 +31,7 @@ jobs:
       is_prerelease: ${{ steps.version_check.outputs.is_prerelease }}
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           fetch-depth: 2
 
@@ -98,16 +98,16 @@ jobs:
       attestations: write  # Required for generating artifact attestations
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
+        uses: docker/setup-qemu-action@ce360397dd3f832beb865e1373c09c0e9f86d70a # v4
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v4
+        uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v4
+        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -115,7 +115,7 @@ jobs:
 
       - name: Extract metadata
         id: meta
-        uses: docker/metadata-action@v6
+        uses: docker/metadata-action@030e881283bb7a6894de51c315a6bfe6a94e05cf # v6
         env:
           # CRITICAL: Set annotations on both manifest AND index level for GHCR
           # GHCR reads description from manifest-index for multi-arch images
@@ -149,7 +149,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@v7
+        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
         with:
           context: .
           # Multi-architecture support:
@@ -184,7 +184,7 @@ jobs:
       # (docker/build-push-action already creates attestations with provenance: true) 
       # TODO: Think of removing it next version
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@v4
+        uses: actions/attest-build-provenance@b3e506e8c389afc651c5bacf2b8f2a1ea0557215 # v4
         id: attestation
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -262,7 +262,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
         with:
           tag_name: ${{ needs.check-version.outputs.current_version }}
           name: ${{ needs.check-version.outputs.current_version }}

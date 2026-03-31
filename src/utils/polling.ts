@@ -49,14 +49,20 @@ export function extractUpdateId(update: { _id?: { $oid?: string } }): string {
 /**
  * Polls a Komodo update until its status reaches `Complete`.
  *
- * Unlike `komodo_client.execute_and_poll()` this implementation:
- * - Checks `abortSignal` every iteration for immediate cancellation
- * - Reports progress to the MCP client every {@link POLL_PROGRESS_INTERVAL_MS}
- * - Enforces a maximum timeout of {@link POLL_MAX_DURATION_MS}
+ * Komodo updates follow the lifecycle `Queued → InProgress → Complete`.
+ * During `InProgress`, the backend appends log entries to `update.logs[]`
+ * via `update_update()` — each entry represents a completed stage
+ * (e.g. "Deploy Container", "Clone Repo", "Diff compose files").
+ *
+ * Progress is reported based on these **real operation stages**:
+ * - New stages are reported immediately when detected
+ * - Between stages, a heartbeat is sent every {@link POLL_PROGRESS_INTERVAL_MS}
+ * - Progress is **indeterminate** (no `total`) because stage count varies
+ *   per operation (typically 1–8) and is not known upfront
  *
  * @param client     - Komodo API client
  * @param updateId   - The `_id.$oid` of the Update returned by `execute()`
- * @param operation  - Human-readable operation name (for error messages)
+ * @param operation  - Human-readable operation name (for progress messages)
  * @param signal     - AbortSignal for cancellation
  * @param reportProgress - MCP progress reporter (optional)
  * @returns The final Update with `status === "Complete"`
@@ -70,6 +76,7 @@ async function pollUntilComplete(
 ): Promise<Update> {
   const startTime = Date.now();
   let lastProgressTime = 0;
+  let lastStageCount = 0;
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional polling loop, exits via return or throw
   while (true) {
@@ -89,13 +96,6 @@ async function pollUntilComplete(
       );
     }
 
-    // Report progress at intervals
-    if (reportProgress && elapsed - lastProgressTime >= POLL_PROGRESS_INTERVAL_MS) {
-      lastProgressTime = elapsed;
-      const elapsedSec = Math.round(elapsed / 1000);
-      await reportProgress({ progress: elapsedSec, message: `${operation}: polling... (${elapsedSec}s)` });
-    }
-
     // Poll status
     const update = await wrapApiCall(
       `${operation} (poll)`,
@@ -103,11 +103,36 @@ async function pollUntilComplete(
       signal,
     );
 
+    const logs = update.logs;
+    const stageCount = logs.length;
+    const elapsedSec = Math.round(elapsed / 1000);
+
+    if (reportProgress) {
+      if (stageCount > lastStageCount) {
+        lastStageCount = stageCount;
+        lastProgressTime = elapsed;
+        const latestStage = logs[stageCount - 1]?.stage ?? "processing";
+        await reportProgress({
+          progress: stageCount,
+          message: `${operation}: ${latestStage} (${elapsedSec}s)`,
+        });
+      } else if (elapsed - lastProgressTime >= POLL_PROGRESS_INTERVAL_MS) {
+        lastProgressTime = elapsed;
+        await reportProgress({
+          progress: stageCount,
+          message: `${operation}: in progress (${elapsedSec}s)`,
+        });
+      }
+    }
+
     if (update.status === Types.UpdateStatus.Complete) {
-      // Final progress report
       if (reportProgress) {
         const totalSec = Math.round((Date.now() - startTime) / 1000);
-        await reportProgress({ progress: totalSec, message: `${operation}: complete (${totalSec}s)` });
+        await reportProgress({
+          progress: stageCount,
+          total: stageCount || 1,
+          message: `${operation}: complete (${totalSec}s)`,
+        });
       }
       return update;
     }

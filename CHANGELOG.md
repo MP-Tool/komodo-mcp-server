@@ -12,6 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **`MCP_JSON_RESPONSE` default changed to `false`**: Updated all config examples and documentation to reflect the new framework default. SSE streaming preserves progress and log notifications during tool execution.
+- **Stage-based progress reporting**: Polling now tracks real Komodo operation stages from `update.logs[]` instead of elapsed-time-based fake progress. New stages (e.g. "Deploy Container", "Clone Repo") are reported immediately; heartbeats sent between stages. Completion reports actual duration.
+- **Spec-compliant progress in terminal tools**: Terminal output progress now reports `total` alongside `progress` for determinate progress display per MCP spec.
 
 --------------------------------------------------------------
 

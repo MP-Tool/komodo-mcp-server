@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [Unreleased]
+
+### Changed
+
+- **`MCP_JSON_RESPONSE` default changed to `false`**: Updated all config examples and documentation to reflect the new framework default. SSE streaming preserves progress and log notifications during tool execution.
+
+--------------------------------------------------------------
+
 ## [1.3.0]
 
 ### Added

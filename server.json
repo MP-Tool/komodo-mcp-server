@@ -32,7 +32,7 @@
           "name": "KOMODO_API_KEY",
           "description": "API key for key-based authentication (recommended)",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": true
         },
         {
           "name": "KOMODO_API_SECRET",
@@ -44,7 +44,7 @@
           "name": "KOMODO_USERNAME",
           "description": "Username for login authentication (alternative to API key)",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": true
         },
         {
           "name": "KOMODO_PASSWORD",
@@ -63,8 +63,8 @@
     {
       "registryType": "oci",
       "registryBaseUrl": "https://ghcr.io",
-      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.3.0",
-      "version": "1.3.0",
+      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.4.0",
+      "version": "1.4.0",
       "runtimeHint": "docker",
       "transport": {
         "type": "stdio"
@@ -81,7 +81,7 @@
           "name": "KOMODO_API_KEY",
           "description": "API key for key-based authentication (recommended)",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": true
         },
         {
           "name": "KOMODO_API_SECRET",
@@ -93,7 +93,7 @@
           "name": "KOMODO_USERNAME",
           "description": "Username for login authentication (alternative to API key)",
           "isRequired": false,
-          "isSecret": false
+          "isSecret": true
         },
         {
           "name": "KOMODO_PASSWORD",

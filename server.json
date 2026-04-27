@@ -9,13 +9,13 @@
     "source": "github",
     "id": "1082088566"
   },
-  "version": "1.3.0",
+  "version": "1.4.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "komodo-mcp-server",
-      "version": "1.3.0",
+      "version": "1.4.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"

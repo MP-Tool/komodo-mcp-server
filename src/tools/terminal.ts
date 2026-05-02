@@ -191,8 +191,13 @@ function collectCallbackOutput(
       buf.markTimeout();
       resolve(buf.getResult());
     }, TERMINAL_TIMEOUT_MS);
-    // Clean up timer when exec finishes first to avoid leaking
-    void execPromise.then(() => clearTimeout(timer));
+    // Clean up timer when exec finishes first to avoid leaking.
+    // Handle rejection here too so the cleanup promise cannot become an
+    // unhandled rejection while the original execPromise is handled by race().
+    void execPromise.then(
+      () => clearTimeout(timer),
+      () => clearTimeout(timer),
+    );
   });
 
   return Promise.race([execPromise, timeoutPromise]);

@@ -19,6 +19,13 @@ name: Publish to npm
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (test without publishing)'
+        required: false
+        type: boolean
+        default: false
   workflow_dispatch:
     inputs:
       dry_run:

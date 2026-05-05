@@ -282,7 +282,7 @@ jobs:
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
     permissions:
-      actions: write       # Required for triggering workflows
+      contents: read
     steps:
       - name: Summary
         env:
@@ -302,15 +302,17 @@ jobs:
           [View Release](https://github.com/${{ github.repository }}/releases/tag/${VERSION}) · [Docker Image](https://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})
           EOF
 
-      # Trigger publish workflows after successful release
-      # Note: The 'release: [published]' event may not fire when release is created
-      # by the same workflow, so we trigger publish-npm.yml explicitly
-      - name: Trigger npm publish workflow
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          echo "🚀 Triggering npm publish workflow..."
-          gh workflow run publish-npm.yml \
-            --repo ${{ github.repository }} \
-            --ref main
-          echo "✅ npm publish workflow triggered"
+  # Trigger publish workflows after successful release.
+  # Note: The 'release: [published]' event may not fire when a release is created
+  # by the same workflow run, so we invoke publish-npm.yml as a reusable workflow.
+  # This avoids requiring `actions: write` (which `gh workflow run` would need).
+  publish-npm:
+    name: Publish to npm
+    needs: [check-version, build-and-push]
+    if: needs.check-version.outputs.should_build == 'true'
+    permissions:
+      id-token: write   # Required for OIDC / Trusted Publishing
+      contents: read    # Required for checkout
+    uses: ./.github/workflows/publish-npm.yml
+    with:
+      dry_run: false

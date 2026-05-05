@@ -96,10 +96,30 @@ jobs:
           echo "   Version: $(jq -r '.version' server.json)"
 
       - name: Install mcp-publisher
+        env:
+          # Pinned to a specific release for reproducibility (Scorecard: Pinned-Dependencies).
+          # When upgrading, also update MCP_PUBLISHER_SHA256 below.
+          # Compute new checksum:
+          #   curl -sL "https://github.com/modelcontextprotocol/registry/releases/download/<TAG>/mcp-publisher_linux_amd64.tar.gz" | sha256sum
+          MCP_PUBLISHER_VERSION: v1.7.8
+          MCP_PUBLISHER_SHA256: 48230dbec85bd88a0d42977ef533cddda23235f0db4331b9263ce53b432cb75c
         run: |
-          curl -L "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          set -euo pipefail
+          ARCHIVE="mcp-publisher_linux_amd64.tar.gz"
+          URL="https://github.com/modelcontextprotocol/registry/releases/download/${MCP_PUBLISHER_VERSION}/${ARCHIVE}"
+
+          echo "⬇️  Downloading mcp-publisher ${MCP_PUBLISHER_VERSION}..."
+          curl --fail --location --silent --show-error --output "${ARCHIVE}" "${URL}"
+
+          echo "🔎 Verifying checksum..."
+          echo "${MCP_PUBLISHER_SHA256}  ${ARCHIVE}" | sha256sum --check --status
+
+          echo "📦 Extracting..."
+          tar -xzf "${ARCHIVE}" mcp-publisher
+          rm -f "${ARCHIVE}"
           chmod +x mcp-publisher
-          echo "✅ mcp-publisher installed"
+
+          echo "✅ mcp-publisher ${MCP_PUBLISHER_VERSION} installed"
           ./mcp-publisher --help
 
       - name: Authenticate to MCP Registry

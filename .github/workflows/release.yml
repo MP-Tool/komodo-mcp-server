@@ -107,7 +107,7 @@ jobs:
         uses: docker/setup-buildx-action@4d04d5d9486b7bd6fa91e7baf45bbb4f8b9deedd # v4
 
       - name: Log in to GitHub Container Registry
-        uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4
+        uses: docker/login-action@4907a6ddec9925e35a0a9e82d7399ccc52663121 # v4
         with:
           registry: ${{ env.REGISTRY }}
           username: ${{ github.actor }}
@@ -149,7 +149,7 @@ jobs:
 
       - name: Build and push Docker image
         id: build
-        uses: docker/build-push-action@d08e5c354a6adb9ed34480a06d141179aa583294 # v7
+        uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7
         with:
           context: .
           # Multi-architecture support:
@@ -184,7 +184,7 @@ jobs:
       # (docker/build-push-action already creates attestations with provenance: true) 
       # TODO: Think of removing it next version
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@b3e506e8c389afc651c5bacf2b8f2a1ea0557215 # v4
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4
         id: attestation
         with:
           subject-name: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
@@ -262,7 +262,7 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@153bb8e04406b158c6c84fc1615b65b24149a1fe # v2
+        uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3
         with:
           tag_name: ${{ needs.check-version.outputs.current_version }}
           name: ${{ needs.check-version.outputs.current_version }}
@@ -282,7 +282,7 @@ jobs:
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
     permissions:
-      actions: write       # Required for triggering workflows
+      actions: write       # Required for triggering publish-npm.yml via `gh workflow run`
     steps:
       - name: Summary
         env:
@@ -302,9 +302,20 @@ jobs:
           [View Release](https://github.com/${{ github.repository }}/releases/tag/${VERSION}) · [Docker Image](https://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})
           EOF
 
-      # Trigger publish workflows after successful release
-      # Note: The 'release: [published]' event may not fire when release is created
-      # by the same workflow, so we trigger publish-npm.yml explicitly
+      # Trigger the npm publish workflow as a fresh top-level run.
+      #
+      # Why a separate dispatch instead of a reusable workflow (`uses:`)?
+      # npm Trusted Publishing matches the OIDC `workflow_ref` claim against the
+      # registered workflow filename. With a reusable workflow, `workflow_ref`
+      # points to the *caller* (release.yml), and npm only allows a single
+      # Trusted Publisher per package, which must point at publish-npm.yml.
+      # `gh workflow run publish-npm.yml` starts a top-level run whose
+      # workflow_ref matches the registered TP, allowing `npm publish` to
+      # authenticate via OIDC.
+      #
+      # Why not rely on the `release: [published]` trigger?
+      # When a release is created by the same workflow run, GitHub does not
+      # always re-fire the `release` event reliably, so we trigger explicitly.
       - name: Trigger npm publish workflow
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

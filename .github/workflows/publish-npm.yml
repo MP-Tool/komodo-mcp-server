@@ -53,12 +53,16 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
           cache: 'npm'
 
-      - name: Upgrade npm for Trusted Publishing support
+      - name: Verify runner npm version
         run: |
-          echo "Current npm version: $(npm --version)"
-          # Trusted Publishing requires npm 11.5.1+
-          npm install -g npm@11.12.1
-          echo "Upgraded npm version: $(npm --version)"
+          echo "Runner npm version: $(npm --version)"
+          # Trusted Publishing for `npm publish` requires npm 11.5.1+.
+          # Instead of `npm install -g npm@<version>` (which corrupts the runner's
+          # npm self-installation mid-update on npm <= 10.9.7 — see the
+          # promise-retry MODULE_NOT_FOUND bug), we invoke a pinned npm version
+          # on demand via `npx` only for the publish step.
+          # Pinned for reproducibility (Scorecard: Pinned-Dependencies).
+          echo "Publish step will use: npm@11.12.1 via npx"
 
       - name: Install dependencies
         run: npm ci
@@ -117,7 +121,8 @@ jobs:
           # - No NPM_TOKEN or NODE_AUTH_TOKEN needed
           # - Provenance is automatically generated
           # - Requires npm 11.5.1+ and Trusted Publisher configured on npmjs.com
-          npm publish --access public
+          # We invoke a pinned npm via npx to avoid the runner npm self-update bug.
+          npx -y npm@11.12.1 publish --access public
 
       - name: Dry run (skip publish)
         if: github.event.inputs.dry_run == 'true'

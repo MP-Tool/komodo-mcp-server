@@ -11,6 +11,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
+## [1.3.2] - Quality & Maintenance
+
+### Dependencies
+
+- Updated `komodo_client` to 2.1.1 with latest API improvements
+- Updated all other dependencies to their latest versions for security and stability
+
+--------------------------------------------------------------
+
 ## [1.3.1] - Improved Progress Reporting & Connection Stability
 
 ### Improved

@@ -282,7 +282,7 @@ jobs:
     needs: [check-version, build-and-push]
     if: needs.check-version.outputs.should_build == 'true'
     permissions:
-      contents: read
+      actions: write       # Required for triggering publish-npm.yml via `gh workflow run`
     steps:
       - name: Summary
         env:
@@ -302,17 +302,26 @@ jobs:
           [View Release](https://github.com/${{ github.repository }}/releases/tag/${VERSION}) · [Docker Image](https://${{ env.REGISTRY }}/${{ env.IMAGE_NAME }})
           EOF
 
-  # Trigger publish workflows after successful release.
-  # Note: The 'release: [published]' event may not fire when a release is created
-  # by the same workflow run, so we invoke publish-npm.yml as a reusable workflow.
-  # This avoids requiring `actions: write` (which `gh workflow run` would need).
-  publish-npm:
-    name: Publish to npm
-    needs: [check-version, build-and-push]
-    if: needs.check-version.outputs.should_build == 'true'
-    permissions:
-      id-token: write   # Required for OIDC / Trusted Publishing
-      contents: read    # Required for checkout
-    uses: ./.github/workflows/publish-npm.yml
-    with:
-      dry_run: false
+      # Trigger the npm publish workflow as a fresh top-level run.
+      #
+      # Why a separate dispatch instead of a reusable workflow (`uses:`)?
+      # npm Trusted Publishing matches the OIDC `workflow_ref` claim against the
+      # registered workflow filename. With a reusable workflow, `workflow_ref`
+      # points to the *caller* (release.yml), and npm only allows a single
+      # Trusted Publisher per package, which must point at publish-npm.yml.
+      # `gh workflow run publish-npm.yml` starts a top-level run whose
+      # workflow_ref matches the registered TP, allowing `npm publish` to
+      # authenticate via OIDC.
+      #
+      # Why not rely on the `release: [published]` trigger?
+      # When a release is created by the same workflow run, GitHub does not
+      # always re-fire the `release` event reliably, so we trigger explicitly.
+      - name: Trigger npm publish workflow
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🚀 Triggering npm publish workflow..."
+          gh workflow run publish-npm.yml \
+            --repo ${{ github.repository }} \
+            --ref main
+          echo "✅ npm publish workflow triggered"

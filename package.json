@@ -6,7 +6,7 @@
   "type": "module",
   "main": "build/index.js",
   "bin": {
-    "komodo-mcp-server": "./build/index.js"
+    "komodo-mcp-server": "build/index.js"
   },
   "types": "build/index.d.ts",
   "scripts": {

@@ -51,18 +51,11 @@
           "description": "Password for login authentication (alternative to API key)",
           "isRequired": false,
           "isSecret": true
-        },
-        {
-          "name": "KOMODO_JWT_TOKEN",
-          "description": "Pre-existing JWT token from browser OAuth login (alternative to API key)",
-          "isRequired": false,
-          "isSecret": true
         }
       ]
     },
     {
       "registryType": "oci",
-      "registryBaseUrl": "https://ghcr.io",
       "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.4.0",
       "version": "1.4.0",
       "runtimeHint": "docker",
@@ -98,12 +91,6 @@
         {
           "name": "KOMODO_PASSWORD",
           "description": "Password for login authentication (alternative to API key)",
-          "isRequired": false,
-          "isSecret": true
-        },
-        {
-          "name": "KOMODO_JWT_TOKEN",
-          "description": "Pre-existing JWT token from browser OAuth login (alternative to API key)",
           "isRequired": false,
           "isSecret": true
         }

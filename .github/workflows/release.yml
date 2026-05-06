@@ -138,6 +138,7 @@ jobs:
             org.opencontainers.image.licenses=GPL-3.0
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}#readme
+            io.modelcontextprotocol.server.name=io.github.MP-Tool/komodo-mcp-server
           annotations: |
             org.opencontainers.image.title=Komodo MCP Server
             org.opencontainers.image.description=Model Context Protocol server for Komodo Container Manager
@@ -146,6 +147,7 @@ jobs:
             org.opencontainers.image.licenses=GPL-3.0
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.documentation=https://github.com/${{ github.repository }}#readme
+            io.modelcontextprotocol.server.name=io.github.MP-Tool/komodo-mcp-server
 
       - name: Build and push Docker image
         id: build

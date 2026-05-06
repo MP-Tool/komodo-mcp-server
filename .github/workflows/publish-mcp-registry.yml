@@ -28,9 +28,10 @@ permissions:
   id-token: write
 
 env:
-  MCP_REGISTRY_API: https://registry.modelcontextprotocol.io
   NAMESPACE: io.github.mp-tool
   PACKAGE_NAME: komodo-mcp-server
+  # Canonical OCI reference (without tag). Tag is appended per-version.
+  OCI_IMAGE: ghcr.io/mp-tool/komodo-mcp-server
 
 jobs:
   publish:
@@ -44,56 +45,179 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # When triggered by workflow_run, check out the exact SHA that the
+          # upstream publish ran against — main may have advanced since.
+          # For workflow_dispatch this falls back to github.sha (the default).
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
-      - name: Get version from package.json
+      - name: Resolve target version
         id: version
         run: |
+          set -euo pipefail
           if [ -n "${{ github.event.inputs.version }}" ]; then
             VERSION="${{ github.event.inputs.version }}"
+            echo "🛠  Using manually dispatched version: $VERSION"
           else
-            # Get version from package.json when triggered by workflow_run
             VERSION=$(node -p "require('./package.json').version")
+            echo "📦 Using package.json version: $VERSION"
           fi
-          echo "version=$VERSION" >> $GITHUB_OUTPUT
-          echo "📦 Publishing version: $VERSION"
+          # Strict semver-ish guard (registry rejects ranges like ^1.2.3, latest, etc.)
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "❌ Invalid version: '$VERSION'"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Verify version consistency (package.json / CHANGELOG)
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          set -euo pipefail
+          PACKAGE_VERSION=$(node -p "require('./package.json').version")
+          if [ "$PACKAGE_VERSION" != "$VERSION" ]; then
+            echo "❌ Version mismatch: target=$VERSION but package.json=$PACKAGE_VERSION"
+            echo "   Refusing to publish — main may be ahead of the released version."
+            exit 1
+          fi
+          echo "✅ package.json version matches: $VERSION"
+
+          if ! grep -q "^## \[${VERSION}\]" CHANGELOG.md; then
+            echo "⚠️  No CHANGELOG entry for ${VERSION} — continuing, but please update CHANGELOG.md"
+          else
+            echo "✅ CHANGELOG entry present for ${VERSION}"
+          fi
 
       - name: Update server.json with current version
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OCI_IMAGE: ${{ env.OCI_IMAGE }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          
-          # Update all version fields in server.json
-          jq --arg v "$VERSION" '
+          set -euo pipefail
+          # Sync version into all package entries based on registryType.
+          # Iterating by registryType (instead of fixed array indices) keeps the
+          # workflow stable if package order in server.json changes.
+          jq --arg v "$VERSION" --arg img "$OCI_IMAGE" '
             .version = $v |
-            .packages[0].version = $v |
-            .packages[1].identifier = "ghcr.io/mp-tool/komodo-mcp-server:\($v)" |
-            .packages[1].version = $v
+            .packages |= map(
+              if .registryType == "oci" then
+                .identifier = "\($img):\($v)"
+                | .version = $v
+              else
+                .version = $v
+              end
+            )
           ' server.json > server.tmp && mv server.tmp server.json
-          
+
           echo "✅ Updated server.json to version $VERSION"
           echo "📋 server.json contents:"
           cat server.json
 
       - name: Validate server.json
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OCI_IMAGE: ${{ env.OCI_IMAGE }}
         run: |
+          set -euo pipefail
           if [ ! -f "server.json" ]; then
             echo "❌ server.json not found"
             exit 1
           fi
-          
-          # Validate mcpName matches in package.json and server.json
+
+          # mcpName must match between package.json and server.json.
           PACKAGE_MCP_NAME=$(node -p "require('./package.json').mcpName")
           SERVER_NAME=$(jq -r '.name' server.json)
-          
           if [ "$PACKAGE_MCP_NAME" != "$SERVER_NAME" ]; then
             echo "❌ mcpName mismatch!"
             echo "   package.json mcpName: $PACKAGE_MCP_NAME"
             echo "   server.json name:     $SERVER_NAME"
             exit 1
           fi
-          
-          echo "✅ server.json validated"
-          echo "   Name: $SERVER_NAME"
-          echo "   Version: $(jq -r '.version' server.json)"
+
+          # Top-level + every package version must equal the target version.
+          SERVER_VERSION=$(jq -r '.version' server.json)
+          if [ "$SERVER_VERSION" != "$VERSION" ]; then
+            echo "❌ server.json top-level version=$SERVER_VERSION (expected $VERSION)"
+            exit 1
+          fi
+          MISMATCH=$(jq -r --arg v "$VERSION" '[.packages[] | select(.version != $v)] | length')
+          if [ "$MISMATCH" != "0" ]; then
+            echo "❌ One or more package versions in server.json do not match $VERSION"
+            jq '.packages[] | {registryType, version, identifier}' server.json
+            exit 1
+          fi
+
+          # OCI identifier must point at the exact tagged image we just verified.
+          EXPECTED_OCI="${OCI_IMAGE}:${VERSION}"
+          ACTUAL_OCI=$(jq -r '.packages[] | select(.registryType == "oci") | .identifier' server.json)
+          if [ "$ACTUAL_OCI" != "$EXPECTED_OCI" ]; then
+            echo "❌ OCI identifier mismatch: expected '$EXPECTED_OCI', got '$ACTUAL_OCI'"
+            exit 1
+          fi
+
+          echo "✅ server.json validated (name=$SERVER_NAME, version=$VERSION, oci=$ACTUAL_OCI)"
+
+      - name: Wait for npm package availability
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+        run: |
+          set -euo pipefail
+          # The npm registry index can lag a few seconds behind a successful
+          # `npm publish`. Poll the version-pinned metadata endpoint before
+          # publishing to MCP Registry, so the registry's downstream checks
+          # don't fail with a transient 404.
+          URL="https://registry.npmjs.org/${PACKAGE_NAME}/${VERSION}"
+          for attempt in $(seq 1 10); do
+            HTTP_CODE=$(curl --silent --output /dev/null --write-out '%{http_code}' "$URL")
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ npm package ${PACKAGE_NAME}@${VERSION} is available"
+              exit 0
+            fi
+            echo "⏳ Attempt $attempt/10: npm returned HTTP $HTTP_CODE — retrying in 10s..."
+            sleep 10
+          done
+          echo "❌ Timed out waiting for ${PACKAGE_NAME}@${VERSION} on npm"
+          exit 1
+
+      - name: Verify GHCR image availability
+        id: ghcr
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          OCI_IMAGE: ${{ env.OCI_IMAGE }}
+        run: |
+          set -euo pipefail
+          # Confirm the matching OCI image exists before declaring it in the
+          # MCP Registry. Uses the GHCR token endpoint + manifest HEAD to avoid
+          # pulling layers. The token endpoint is anonymous for public packages.
+          REPOSITORY="${OCI_IMAGE#ghcr.io/}"
+          TOKEN=$(curl --silent --fail \
+            "https://ghcr.io/token?scope=repository:${REPOSITORY}:pull" | jq -r '.token')
+
+          MANIFEST_URL="https://ghcr.io/v2/${REPOSITORY}/manifests/${VERSION}"
+          RESPONSE_HEADERS=$(mktemp)
+          HTTP_CODE=$(curl --silent --output /dev/null --write-out '%{http_code}' \
+            --dump-header "$RESPONSE_HEADERS" \
+            -H "Authorization: Bearer ${TOKEN}" \
+            -H "Accept: application/vnd.oci.image.index.v1+json" \
+            -H "Accept: application/vnd.docker.distribution.manifest.list.v2+json" \
+            "$MANIFEST_URL")
+
+          if [ "$HTTP_CODE" != "200" ]; then
+            echo "❌ GHCR image ${OCI_IMAGE}:${VERSION} not found (HTTP $HTTP_CODE)"
+            rm -f "$RESPONSE_HEADERS"
+            exit 1
+          fi
+
+          DIGEST=$(grep -i '^docker-content-digest:' "$RESPONSE_HEADERS" \
+            | awk '{print $2}' | tr -d '\r\n' || true)
+          rm -f "$RESPONSE_HEADERS"
+
+          echo "✅ GHCR image ${OCI_IMAGE}:${VERSION} verified"
+          if [ -n "$DIGEST" ]; then
+            echo "   Digest: $DIGEST"
+            echo "digest=$DIGEST" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install mcp-publisher
         env:
@@ -123,27 +247,37 @@ jobs:
           ./mcp-publisher --help
 
       - name: Authenticate to MCP Registry
-        run: ./mcp-publisher login github-oidc
+        run: |
+          set -euo pipefail
+          ./mcp-publisher login github-oidc
 
       - name: Publish to MCP Registry
-        run: ./mcp-publisher publish
+        run: |
+          set -euo pipefail
+          ./mcp-publisher publish
 
       - name: Summary
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          DIGEST: ${{ steps.ghcr.outputs.digest }}
         run: |
-          VERSION="${{ steps.version.outputs.version }}"
-          cat >> $GITHUB_STEP_SUMMARY << EOF
-          ## ✅ Published to MCP Registry
-          
-          **Server:** \`${{ env.NAMESPACE }}/${{ env.PACKAGE_NAME }}@${VERSION}\`
-          
-          **Packages:**
-          - npm: \`komodo-mcp-server@${VERSION}\`
-          - OCI: \`ghcr.io/mp-tool/komodo-mcp-server:${VERSION}\`
-          
-          **Verify publication:**
-          \`\`\`bash
-          curl "https://registry.modelcontextprotocol.io/v0.1/servers?search=${{ env.NAMESPACE }}/${{ env.PACKAGE_NAME }}"
-          \`\`\`
-          
-          [View in Registry](https://registry.modelcontextprotocol.io)
-          EOF
+          set -euo pipefail
+          {
+            echo "## ✅ Published to MCP Registry"
+            echo ""
+            echo "**Server:** \`${NAMESPACE}/${PACKAGE_NAME}@${VERSION}\`"
+            echo ""
+            echo "**Packages:**"
+            echo "- npm: \`${PACKAGE_NAME}@${VERSION}\`"
+            echo "- OCI: \`${OCI_IMAGE}:${VERSION}\`"
+            if [ -n "${DIGEST:-}" ]; then
+              echo "- OCI digest: \`${DIGEST}\`"
+            fi
+            echo ""
+            echo "**Verify publication:**"
+            echo '```bash'
+            echo "curl \"https://registry.modelcontextprotocol.io/v0.1/servers?search=${NAMESPACE}/${PACKAGE_NAME}\""
+            echo '```'
+            echo ""
+            echo "[View in Registry](https://registry.modelcontextprotocol.io)"
+          } >> "$GITHUB_STEP_SUMMARY"

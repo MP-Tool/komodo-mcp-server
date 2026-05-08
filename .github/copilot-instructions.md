@@ -137,17 +137,21 @@ import { requireClient } from "../utils/api-helpers.js";
 | Constants | `SCREAMING_SNAKE_CASE` | `PARAM_DESCRIPTIONS`, `RESPONSE_ICONS` |
 | MCP Tools | `komodo_<domain>_<action>` | `komodo_container_start` |
 
-## 51 MCP Tools
+## 30 MCP Tools
 
-| Category | Count | Domain |
-|----------|-------|--------|
+Namenskonvention: `komodo_<domain>_<action>`. Lifecycle-Operationen mit ≥4 Verben sind als `*_action`-Tools mit Discriminator konsolidiert.
+
+| Category | Count | Tools |
+|----------|-------|-------|
 | Config | 2 | `komodo_configure`, `komodo_health_check` |
-| Container | 10 | list, inspect, start, stop, restart, pause, unpause, logs, prune |
-| Server | 6 | list, info, stats, create, update, delete |
-| Stack | 13 | list, info, deploy, start, stop, restart, pause, unpause, destroy, pull, create, update, delete |
-| Deployment | 13 | list, info, deploy, start, stop, restart, pause, unpause, destroy, pull image, create, update, delete |
-| Terminal | 4 | exec on server, container, deployment, stack |
-| User | 3 | user metadata, health check |
+| Container | 5 | `*_list`, `*_inspect`, `*_logs`, `*_search_logs`, `*_action` (start/stop/restart/pause/unpause) |
+| Server | 7 | `*_list`, `*_info`, `*_stats`, `*_create`, `*_update`, `*_delete`, `*_prune` |
+| Stack | 6 | `*_list`, `*_info`, `*_create`, `*_update`, `*_delete`, `*_action` (deploy/pull/start/restart/pause/unpause/stop/destroy) |
+| Deployment | 6 | `*_list`, `*_info`, `*_create`, `*_update`, `*_delete`, `*_action` (deploy/pull/start/restart/pause/unpause/stop/destroy) |
+| Terminal | 1 | `komodo_exec` (discriminated union: server / container / deployment / stack_service) |
+| User | 3 | `*_list_api_keys`, `*_create_api_key`, `*_delete_api_key` |
+
+Jedes Tool trägt `_meta.category` (siehe `config/categories.ts`) und `requiredScopes` (siehe `config/scopes.ts`, Drei-Tier-RBAC: `komodo:read` / `komodo:operate` / `komodo:admin`). Die Scopes sind heute passiv (Komodo ohne OIDC); sobald Tokens Scopes tragen, greift der Framework-Filter automatisch.
 
 ## Security
 

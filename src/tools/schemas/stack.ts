@@ -10,6 +10,7 @@
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
+import { stackIdSchema } from "./validators.js";
 
 /** System command configuration for pre/post deploy hooks */
 const systemCommandSchema = z
@@ -105,4 +106,17 @@ export const stackConfigSchema = z
 /** Stack creation config — extends base with create-specific overrides */
 export const createStackConfigSchema = stackConfigSchema.extend({
   server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
+});
+
+/** Stack lifecycle actions for the consolidated `komodo_stack_action` tool */
+export const stackActionEnum = z
+  .enum(["deploy", "pull", "start", "restart", "pause", "unpause", "stop", "destroy"])
+  .describe(
+    "Lifecycle action: deploy (compose up / re-deploy), pull (pull latest images), start (compose start), restart (stop+start), pause/unpause (freeze/resume processes), stop (compose stop), destroy (compose down — removes containers).",
+  );
+
+/** Input schema for the consolidated `komodo_stack_action` tool */
+export const stackActionInputSchema = z.object({
+  action: stackActionEnum,
+  stack: stackIdSchema.describe("Stack ID or name"),
 });

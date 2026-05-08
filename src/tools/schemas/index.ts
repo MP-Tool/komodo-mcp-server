@@ -11,3 +11,4 @@ export * from "./container.js";
 export * from "./server.js";
 export * from "./deployment.js";
 export * from "./stack.js";
+export * from "./terminal.js";

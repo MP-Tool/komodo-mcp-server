@@ -9,6 +9,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Tool Surface (Breaking)
+
+- **Consistent naming**: All tools renamed to `komodo_<domain>_<action>` (e.g. `komodo_list_containers` → `komodo_container_list`, `komodo_get_server_info` → `komodo_server_info`, `komodo_create_api_key` → `komodo_user_create_api_key`).
+- **Lifecycle consolidation**: 5 container, 8 stack and 8 deployment lifecycle tools collapsed into single `komodo_container_action` / `komodo_stack_action` / `komodo_deployment_action` tools with an `action` discriminator. Reduces `tools/list` size and avoids action-explosion in pickers.
+- **Terminal consolidation**: `komodo_server_exec`, `komodo_container_exec`, `komodo_deployment_exec`, `komodo_stack_service_exec` merged into one `komodo_exec` tool with a `target` discriminated union.
+- **Prune relocation**: `komodo_prune` is now `komodo_server_prune` (the underlying Komodo APIs target a server, not a container).
+- **Tool count**: 51 → **30** tools.
+
+### Added
+
+- **`_meta.category`** on every tool — forward-compatible category metadata via new `ToolCategories` constants in `config/categories.ts`.
+- **`requiredScopes`** on every tool — three-tier RBAC scopes (`komodo:read` / `komodo:operate` / `komodo:admin`) via new `ToolScopes` constants in `config/scopes.ts`. Passive today (Komodo has no OIDC yet); the framework filter activates automatically once tokens carry scopes.
+
+### Changed
+
+- **Schemas**: per-domain action enums and discriminated input schemas added to `tools/schemas/{container,deployment,stack}.ts`; new `tools/schemas/terminal.ts` with the `komodo_exec` discriminated union.
+
+### Migration
+
+Tool names changed across the board. Update any client prompts, scripts or chat instructions that hard-code the old `komodo_list_*` / `komodo_get_*` / `komodo_*_container` names.
+
 --------------------------------------------------------------
 
 ## [1.3.2] - Quality & Maintenance

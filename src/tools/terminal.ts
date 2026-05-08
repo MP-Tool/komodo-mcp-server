@@ -1,10 +1,10 @@
 /**
- * Terminal Execution Tools
+ * Terminal Execution Tool
  *
- * Tools for executing commands on Komodo servers, containers,
- * and stack services via the `komodo_client` terminal API.
+ * Consolidated `komodo_exec` tool for executing commands on Komodo servers,
+ * containers, deployments, and stack services via the `komodo_client` terminal API.
  *
- * Two execution models:
+ * Two execution models share a common output collector:
  * - **Stream-based**: `execute_terminal_stream()` for server terminals (AsyncIterable)
  * - **Callback-based**: `execute_*_exec()` for container/deployment/stack exec (onLine/onFinish)
  *
@@ -14,10 +14,10 @@
  * @module tools/terminal
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, text } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
-import { PARAM_DESCRIPTIONS, VALIDATION_LIMITS } from "../config/index.js";
-import { serverIdSchema, containerNameSchema, stackIdSchema, deploymentIdSchema } from "./schemas/index.js";
+import { ToolCategories, ToolScopes } from "../config/index.js";
+import { execInputSchema } from "./schemas/index.js";
 import { requireClient, wrapApiCall } from "../utils/index.js";
 
 // ============================================================================
@@ -38,28 +38,6 @@ const ESTIMATED_TOTAL_LINES = Math.ceil(MAX_OUTPUT_LENGTH / 80);
 
 /** Sentinel prefix emitted by Komodo to signal exit code */
 const EXIT_CODE_PREFIX = "__KOMODO_EXIT_CODE__:";
-
-// ============================================================================
-// Schemas
-// ============================================================================
-
-const commandSchema = z.string().min(1, "Command cannot be empty").max(4096, "Command is too long");
-
-const shellSchema = z
-  .string()
-  .min(1, "Shell cannot be empty")
-  .max(50, "Shell path is too long")
-  .regex(/^[a-zA-Z0-9/_.-]+$/, "Shell contains invalid characters")
-  .default("sh")
-  .describe("The shell to use for execution (e.g. 'sh', 'bash', '/bin/zsh'). Default: sh");
-
-const terminalNameSchema = z
-  .string()
-  .min(1, "Terminal name cannot be empty")
-  .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, "Terminal name is too long")
-  .regex(/^[a-zA-Z0-9_.-]+$/, "Terminal name contains invalid characters")
-  .default("mcp")
-  .describe("Terminal session name on the server. If it doesn't exist, it will be created. Default: mcp");
 
 // ============================================================================
 // Output Collection
@@ -219,181 +197,111 @@ function formatTerminalResponse(target: string, command: string, result: Termina
 }
 
 // ============================================================================
-// Server Terminal Execution
+// Consolidated `komodo_exec` Tool
 // ============================================================================
 
-export const serverExecTool = defineTool({
-  name: "komodo_server_exec",
+export const execTool = defineTool({
+  name: "komodo_exec",
   description:
-    "Execute a shell command on a Komodo server via Periphery terminal. " +
-    "The command runs on the host machine where the Periphery agent is installed. " +
-    "Returns stdout/stderr output and exit code. Use for server diagnostics, file operations, or system commands.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
-    command: commandSchema.describe("The shell command to execute on the server"),
-    terminal: terminalNameSchema,
-  }),
+    "Execute a shell command on a Komodo target. Use the `target` discriminator to choose the execution context:\n" +
+    "- `server` — host shell via Periphery terminal (requires `server`, optional `terminal`)\n" +
+    "- `container` — inside a running Docker container (requires `server` + `container`, optional `shell`)\n" +
+    "- `deployment` — inside the container of a Komodo deployment (requires `deployment`, optional `shell`)\n" +
+    "- `stack_service` — inside a service container of a Compose stack (requires `stack` + `service`, optional `shell`)\n\n" +
+    "Returns stdout/stderr output and exit code. Output is truncated at 50KB; commands time out after 5 minutes.",
+  input: execInputSchema,
   annotations: {
     readOnlyHint: false,
     destructiveHint: true,
   },
+  _meta: { category: ToolCategories.TERMINAL },
+  requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
 
-    const stream = await wrapApiCall(
-      "executeServerTerminal",
-      () =>
-        komodo.client.execute_terminal_stream({
-          target: { type: "Server", params: { server: args.server } },
-          terminal: args.terminal,
-          command: args.command,
-        }),
-      abortSignal,
-    );
+    switch (args.target) {
+      case "server": {
+        const stream = await wrapApiCall(
+          "executeServerTerminal",
+          () =>
+            komodo.client.execute_terminal_stream({
+              target: { type: "Server", params: { server: args.server } },
+              terminal: args.terminal,
+              command: args.command,
+            }),
+          abortSignal,
+        );
+        const result = await collectStreamOutput(stream, abortSignal, reportProgress);
+        return text(formatTerminalResponse(`server "${args.server}"`, args.command, result));
+      }
 
-    const result = await collectStreamOutput(stream, abortSignal, reportProgress);
-    return text(formatTerminalResponse(`server "${args.server}"`, args.command, result));
-  },
-});
-
-// ============================================================================
-// Container Exec
-// ============================================================================
-
-export const containerExecTool = defineTool({
-  name: "komodo_container_exec",
-  description:
-    "Execute a command inside a running Docker container on a server. " +
-    "Similar to 'docker exec'. Returns stdout/stderr output and exit code. " +
-    "Use for container debugging, running maintenance commands, or checking application state.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
-    container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_ACTION),
-    command: commandSchema.describe("The command to execute inside the container"),
-    shell: shellSchema,
-  }),
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-  },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-
-    const result = await wrapApiCall(
-      "executeContainerExec",
-      () =>
-        collectCallbackOutput(
-          (callbacks) =>
-            komodo.client.execute_container_exec(
-              {
-                server: args.server,
-                container: args.container,
-                shell: args.shell,
-                command: args.command,
-              },
-              callbacks,
+      case "container": {
+        const result = await wrapApiCall(
+          "executeContainerExec",
+          () =>
+            collectCallbackOutput(
+              (callbacks) =>
+                komodo.client.execute_container_exec(
+                  {
+                    server: args.server,
+                    container: args.container,
+                    shell: args.shell,
+                    command: args.command,
+                  },
+                  callbacks,
+                ),
+              abortSignal,
+              reportProgress,
             ),
           abortSignal,
-          reportProgress,
-        ),
-      abortSignal,
-    );
+        );
+        return text(formatTerminalResponse(`container "${args.container}" on "${args.server}"`, args.command, result));
+      }
 
-    return text(formatTerminalResponse(`container "${args.container}" on "${args.server}"`, args.command, result));
-  },
-});
-
-// ============================================================================
-// Deployment Exec
-// ============================================================================
-
-export const deploymentExecTool = defineTool({
-  name: "komodo_deployment_exec",
-  description:
-    "Execute a command inside the container of a Komodo deployment. " +
-    "Uses the deployment's associated container. Returns stdout/stderr output and exit code.",
-  input: z.object({
-    deployment: deploymentIdSchema.describe("Deployment ID or name to execute the command in"),
-    command: commandSchema.describe("The command to execute inside the deployment container"),
-    shell: shellSchema,
-  }),
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-  },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-
-    const result = await wrapApiCall(
-      "executeDeploymentExec",
-      () =>
-        collectCallbackOutput(
-          (callbacks) =>
-            komodo.client.execute_deployment_exec(
-              {
-                deployment: args.deployment,
-                shell: args.shell,
-                command: args.command,
-              },
-              callbacks,
+      case "deployment": {
+        const result = await wrapApiCall(
+          "executeDeploymentExec",
+          () =>
+            collectCallbackOutput(
+              (callbacks) =>
+                komodo.client.execute_deployment_exec(
+                  {
+                    deployment: args.deployment,
+                    shell: args.shell,
+                    command: args.command,
+                  },
+                  callbacks,
+                ),
+              abortSignal,
+              reportProgress,
             ),
           abortSignal,
-          reportProgress,
-        ),
-      abortSignal,
-    );
+        );
+        return text(formatTerminalResponse(`deployment "${args.deployment}"`, args.command, result));
+      }
 
-    return text(formatTerminalResponse(`deployment "${args.deployment}"`, args.command, result));
-  },
-});
-
-// ============================================================================
-// Stack Service Exec
-// ============================================================================
-
-export const stackServiceExecTool = defineTool({
-  name: "komodo_stack_service_exec",
-  description:
-    "Execute a command inside a specific service container of a Komodo stack. " +
-    "Targets a single service within a Docker Compose stack. Returns stdout/stderr output and exit code.",
-  input: z.object({
-    stack: stackIdSchema.describe("Stack ID or name"),
-    service: z
-      .string()
-      .min(1, "Service name cannot be empty")
-      .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, "Service name is too long")
-      .regex(/^[a-zA-Z0-9_.-]+$/, "Service name contains invalid characters")
-      .describe("The service name within the stack to execute the command in"),
-    command: commandSchema.describe("The command to execute inside the service container"),
-    shell: shellSchema,
-  }),
-  annotations: {
-    readOnlyHint: false,
-    destructiveHint: true,
-  },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-
-    const result = await wrapApiCall(
-      "executeStackServiceExec",
-      () =>
-        collectCallbackOutput(
-          (callbacks) =>
-            komodo.client.execute_stack_exec(
-              {
-                stack: args.stack,
-                service: args.service,
-                shell: args.shell,
-                command: args.command,
-              },
-              callbacks,
+      case "stack_service": {
+        const result = await wrapApiCall(
+          "executeStackServiceExec",
+          () =>
+            collectCallbackOutput(
+              (callbacks) =>
+                komodo.client.execute_stack_exec(
+                  {
+                    stack: args.stack,
+                    service: args.service,
+                    shell: args.shell,
+                    command: args.command,
+                  },
+                  callbacks,
+                ),
+              abortSignal,
+              reportProgress,
             ),
           abortSignal,
-          reportProgress,
-        ),
-      abortSignal,
-    );
-
-    return text(formatTerminalResponse(`service "${args.service}" in stack "${args.stack}"`, args.command, result));
+        );
+        return text(formatTerminalResponse(`service "${args.service}" in stack "${args.stack}"`, args.command, result));
+      }
+    }
   },
 });

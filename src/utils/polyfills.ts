@@ -39,6 +39,7 @@
 // and merely *reading* globalThis.localStorage in Node 22+ triggers
 // "Warning: `--localstorage-file` was provided without a valid path".
 const store = new Map<string, string>();
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-assertion -- Storage index signature [name: string]: any is not representable as an object literal; cast is required
 globalThis.localStorage = {
   getItem: (key: string) => store.get(key) ?? null,
   setItem: (key: string, value: string) => store.set(key, value),

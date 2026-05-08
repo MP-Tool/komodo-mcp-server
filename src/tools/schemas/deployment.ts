@@ -10,6 +10,7 @@
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS } from "../../config/index.js";
+import { deploymentIdSchema } from "./validators.js";
 
 /** Container restart policy */
 const restartModeSchema = z
@@ -91,4 +92,17 @@ export const deploymentConfigSchema = z
 /** Deployment creation config — extends base with create-specific overrides */
 export const createDeploymentConfigSchema = deploymentConfigSchema.extend({
   server_id: z.string().optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
+});
+
+/** Deployment lifecycle actions for the consolidated `komodo_deployment_action` tool */
+export const deploymentActionEnum = z
+  .enum(["deploy", "pull", "start", "restart", "pause", "unpause", "stop", "destroy"])
+  .describe(
+    "Lifecycle action: deploy (create or re-deploy the container), pull (pull image without recreating), start (start a stopped container), restart (stop+start), pause/unpause (freeze/resume processes), stop (stop the container), destroy (remove the container).",
+  );
+
+/** Input schema for the consolidated `komodo_deployment_action` tool */
+export const deploymentActionInputSchema = z.object({
+  action: deploymentActionEnum,
+  deployment: deploymentIdSchema.describe("Deployment ID or name"),
 });

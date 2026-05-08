@@ -32,7 +32,7 @@ tools/
 
 Convention: `komodo_<domain>_<action>`
 
-Examples: `komodo_container_start`, `komodo_list_containers`, `komodo_stack_deploy`, `komodo_configure`
+Examples: `komodo_container_action`, `komodo_container_list`, `komodo_stack_action`, `komodo_exec`, `komodo_configure`
 
 ## Complete Tool Example
 

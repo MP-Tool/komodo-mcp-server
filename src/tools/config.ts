@@ -9,7 +9,7 @@
 
 import { defineTool, error, text, z } from "mcp-server-framework";
 import { logger as baseLogger } from "mcp-server-framework";
-import { SERVER_VERSION, RESPONSE_ICONS } from "../config/index.js";
+import { SERVER_VERSION, RESPONSE_ICONS, ToolCategories, ToolScopes } from "../config/index.js";
 import { KomodoClient, komodoConnection, resolveAuth } from "../client.js";
 import { AuthenticationError } from "../errors/index.js";
 
@@ -78,6 +78,8 @@ export const configureTool = defineTool({
     "Supports three auth methods: username+password (local login), apiKey+apiSecret, or jwtToken.",
   input: configureInput,
   annotations: { idempotentHint: true },
+  _meta: { category: ToolCategories.CONFIG },
+  // No requiredScopes — bootstrap tool that establishes the connection itself.
   handler: async (args) => {
     // Validate auth method selection (was .refine(), moved here so zodToJsonSchema sees the fields)
     const methods = [!!(args.username || args.password), !!(args.apiKey || args.apiSecret), !!args.jwtToken].filter(
@@ -144,6 +146,8 @@ export const healthCheckTool = defineTool({
     "Works without an active connection (reports unconfigured state).",
   input: z.object({}),
   annotations: { readOnlyHint: true },
+  _meta: { category: ToolCategories.CONFIG },
+  requiredScopes: [ToolScopes.READ],
   handler: async () => {
     const client = komodoConnection.getClient();
 

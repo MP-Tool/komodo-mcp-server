@@ -28,3 +28,17 @@ export const containerActionSchema = z
     container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_ACTION),
   })
   .describe("Identifies a container for lifecycle operations (start, stop, restart, pause, unpause)");
+
+/** Container lifecycle actions for the consolidated `komodo_container_action` tool */
+export const containerActionEnum = z
+  .enum(["start", "stop", "restart", "pause", "unpause"])
+  .describe(
+    "Lifecycle action: start (run a stopped/paused container), stop (stop a running container), restart (stop+start), pause (freeze processes), unpause (resume).",
+  );
+
+/** Input schema for the consolidated `komodo_container_action` tool */
+export const containerActionInputSchema = z.object({
+  action: containerActionEnum,
+  server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+  container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_ACTION),
+});

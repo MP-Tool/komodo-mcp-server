@@ -47,17 +47,17 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 *Built on [mcp-server-framework](https://github.com/MP-Tool/mcp-server-framework) — a production-ready TypeScript MCP server framework with structured logging, OpenTelemetry, and session management.*
 
 
-## Available Tools (52)
+## Available Tools (30)
 
 | Category | Tools |
 |----------|-------|
 | **Configuration** | `komodo_configure`, `komodo_health_check` |
-| **Containers** | `komodo_list_containers`, `komodo_inspect_container`, `komodo_get_container_logs`, `komodo_search_logs`, `komodo_prune`, `komodo_start_container`, `komodo_stop_container`, `komodo_restart_container`, `komodo_pause_container`, `komodo_unpause_container` |
-| **Servers** | `komodo_list_servers`, `komodo_get_server_info`, `komodo_get_server_stats`, `komodo_create_server`, `komodo_update_server`, `komodo_delete_server` |
-| **Stacks** | `komodo_list_stacks`, `komodo_get_stack_info`, `komodo_create_stack`, `komodo_update_stack`, `komodo_delete_stack`, `komodo_deploy_stack`, `komodo_pull_stack`, `komodo_start_stack`, `komodo_restart_stack`, `komodo_pause_stack`, `komodo_unpause_stack`, `komodo_stop_stack`, `komodo_destroy_stack` |
-| **Deployments** | `komodo_list_deployments`, `komodo_get_deployment_info`, `komodo_create_deployment`, `komodo_update_deployment`, `komodo_delete_deployment`, `komodo_deploy_container`, `komodo_pull_deployment_image`, `komodo_start_deployment`, `komodo_restart_deployment`, `komodo_pause_deployment`, `komodo_unpause_deployment`, `komodo_stop_deployment`, `komodo_destroy_deployment` |
-| **Terminal** | `komodo_server_exec`, `komodo_container_exec`, `komodo_deployment_exec`, `komodo_stack_service_exec` |
-| **API Keys** | `komodo_list_api_keys`, `komodo_create_api_key`, `komodo_delete_api_key` |
+| **Containers** | `komodo_container_list`, `komodo_container_inspect`, `komodo_container_logs`, `komodo_container_search_logs`, `komodo_container_action` *(start/stop/restart/pause/unpause)* |
+| **Servers** | `komodo_server_list`, `komodo_server_info`, `komodo_server_stats`, `komodo_server_create`, `komodo_server_update`, `komodo_server_delete`, `komodo_server_prune` |
+| **Stacks** | `komodo_stack_list`, `komodo_stack_info`, `komodo_stack_create`, `komodo_stack_update`, `komodo_stack_delete`, `komodo_stack_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
+| **Deployments** | `komodo_deployment_list`, `komodo_deployment_info`, `komodo_deployment_create`, `komodo_deployment_update`, `komodo_deployment_delete`, `komodo_deployment_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
+| **Terminal** | `komodo_exec` *(target: server / container / deployment / stack_service)* |
+| **API Keys** | `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_user_delete_api_key` |
 
 > **Tip:** Use `komodo_configure` to set credentials at runtime, and `komodo_health_check` to verify connectivity before running other tools.
 

@@ -17,6 +17,10 @@ export { registerKomodoConfigSection, type KomodoFileConfig } from "./env.js";
 // Tool defaults
 export { VALIDATION_LIMITS, CONTAINER_LOGS_DEFAULTS, LOG_SEARCH_DEFAULTS } from "./tools.config.js";
 
+// Tool metadata (categories + scopes)
+export { ToolCategories, type ToolCategory } from "./categories.js";
+export { ToolScopes, type ToolScope } from "./scopes.js";
+
 // Descriptions
 export {
   RESPONSE_ICONS,

@@ -3,12 +3,20 @@
  *
  * Tools for listing, managing, and controlling Docker Compose stacks in Komodo.
  *
+ * Tools (6):
+ * - `komodo_stack_list`     — list stacks
+ * - `komodo_stack_info`     — detailed stack information
+ * - `komodo_stack_create`   — create a new stack
+ * - `komodo_stack_update`   — patch stack configuration
+ * - `komodo_stack_delete`   — remove stack from Komodo
+ * - `komodo_stack_action`   — consolidated lifecycle (deploy/pull/start/restart/pause/unpause/stop/destroy)
+ *
  * @module tools/stack
  */
 
 import { defineTool, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
 import {
   formatActionResponse,
   formatInfoResponse,
@@ -20,6 +28,7 @@ import {
 import {
   stackConfigSchema,
   createStackConfigSchema,
+  stackActionInputSchema,
   stackIdSchema,
   resourceNameSchema,
   serverIdSchema,
@@ -32,10 +41,12 @@ type StackListItem = Types.StackListItem;
 // ============================================================================
 
 export const listStacksTool = defineTool({
-  name: "komodo_list_stacks",
+  name: "komodo_stack_list",
   description: "List all Komodo-managed Compose stacks. Shows stack name, ID, and current state.",
   input: z.object({}),
   annotations: { readOnlyHint: true },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.READ],
   handler: async (_args, { abortSignal }) => {
     const komodo = requireClient();
     const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", {}), abortSignal);
@@ -53,13 +64,15 @@ export const listStacksTool = defineTool({
 // ============================================================================
 
 export const getStackInfoTool = defineTool({
-  name: "komodo_get_stack_info",
+  name: "komodo_stack_info",
   description:
     "Get detailed information about a Compose stack including configuration, current state, compose file contents, services, and environment variables.",
   input: z.object({
     stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
   }),
   annotations: { readOnlyHint: true },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
@@ -74,7 +87,7 @@ export const getStackInfoTool = defineTool({
 });
 
 export const createStackTool = defineTool({
-  name: "komodo_create_stack",
+  name: "komodo_stack_create",
   description: `Create a new Docker Compose stack in Komodo.
 
 REQUIRED: name
@@ -89,6 +102,8 @@ FILE SOURCES (choose one):
 2. repo + branch: Clone from git repository
 3. files_on_host: Use existing files on the server`,
   annotations: { idempotentHint: false },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.ADMIN],
   input: z.object({
     name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.STACK_NAME),
     server_id: serverIdSchema.optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_COMPOSE),
@@ -110,7 +125,7 @@ FILE SOURCES (choose one):
 });
 
 export const updateStackTool = defineTool({
-  name: "komodo_update_stack",
+  name: "komodo_stack_update",
   description: `Update an existing Docker Compose stack configuration.
 
 PATCH-STYLE UPDATE: Only specify fields you want to change.
@@ -125,6 +140,8 @@ COMMON UPDATE SCENARIOS:
     config: stackConfigSchema.describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_PARTIAL),
   }),
   annotations: { idempotentHint: true },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
@@ -139,13 +156,15 @@ COMMON UPDATE SCENARIOS:
 });
 
 export const deleteStackTool = defineTool({
-  name: "komodo_delete_stack",
+  name: "komodo_stack_delete",
   description:
     "Delete a Compose stack from Komodo. This removes the stack configuration but does not affect running containers.",
   input: z.object({
     stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID),
   }),
   annotations: { destructiveHint: true },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
@@ -159,141 +178,50 @@ export const deleteStackTool = defineTool({
 });
 
 // ============================================================================
-// Actions (deploy, pull, start, restart, pause, unpause, stop, destroy)
+// Lifecycle
 // ============================================================================
 
-export const deployStackTool = defineTool({
-  name: "komodo_deploy_stack",
-  description: "Deploy a Komodo-managed Compose stack. Runs `docker compose up -d`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "deploy stack",
-      () => komodo.client.execute("DeployStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "deploy", "stack", args.stack));
-  },
-});
+/** Maps the action enum to the corresponding Komodo execute API name. */
+const STACK_ACTION_API_MAP = {
+  deploy: "DeployStack",
+  pull: "PullStack",
+  start: "StartStack",
+  restart: "RestartStack",
+  pause: "PauseStack",
+  unpause: "UnpauseStack",
+  stop: "StopStack",
+  destroy: "DestroyStack",
+} as const satisfies Record<
+  z.infer<typeof stackActionInputSchema>["action"],
+  | "DeployStack"
+  | "PullStack"
+  | "StartStack"
+  | "RestartStack"
+  | "PauseStack"
+  | "UnpauseStack"
+  | "StopStack"
+  | "DestroyStack"
+>;
 
-export const pullStackTool = defineTool({
-  name: "komodo_pull_stack",
-  description: "Pull the latest images for a Compose stack without redeploying. Runs `docker compose pull`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
+export const stackActionTool = defineTool({
+  name: "komodo_stack_action",
+  description:
+    "Run a lifecycle action on a Docker Compose stack: deploy (compose up), pull (latest images), " +
+    "start, restart, pause, unpause, stop, or destroy (compose down — removes containers). " +
+    "The `destroy` action is destructive (containers are removed); the stack configuration is preserved.",
+  input: stackActionInputSchema,
+  annotations: { idempotentHint: true, destructiveHint: true },
+  _meta: { category: ToolCategories.STACK },
+  requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    const apiAction = STACK_ACTION_API_MAP[args.action];
     const update = await wrapExecuteAndPoll(
-      "pull stack",
-      () => komodo.client.execute("PullStack", { stack: args.stack }),
+      `${args.action} stack`,
+      () => komodo.client.execute(apiAction, { stack: args.stack }),
       abortSignal,
       reportProgress,
     );
-    return text(formatUpdateResult(update, "pull", "stack", args.stack));
-  },
-});
-
-export const startStackTool = defineTool({
-  name: "komodo_start_stack",
-  description: "Start a stopped Compose stack. Runs `docker compose start`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "start stack",
-      () => komodo.client.execute("StartStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "start", "stack", args.stack));
-  },
-});
-
-export const restartStackTool = defineTool({
-  name: "komodo_restart_stack",
-  description: "Restart a Compose stack. Runs `docker compose restart`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "restart stack",
-      () => komodo.client.execute("RestartStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "restart", "stack", args.stack));
-  },
-});
-
-export const pauseStackTool = defineTool({
-  name: "komodo_pause_stack",
-  description: "Pause a running Compose stack. Runs `docker compose pause`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "pause stack",
-      () => komodo.client.execute("PauseStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "pause", "stack", args.stack));
-  },
-});
-
-export const unpauseStackTool = defineTool({
-  name: "komodo_unpause_stack",
-  description: "Unpause a paused Compose stack. Runs `docker compose unpause`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "unpause stack",
-      () => komodo.client.execute("UnpauseStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "unpause", "stack", args.stack));
-  },
-});
-
-export const stopStackTool = defineTool({
-  name: "komodo_stop_stack",
-  description: "Stop a running Compose stack. Runs `docker compose stop`.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { idempotentHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "stop stack",
-      () => komodo.client.execute("StopStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "stop", "stack", args.stack));
-  },
-});
-
-export const destroyStackTool = defineTool({
-  name: "komodo_destroy_stack",
-  description: "Destroy a Compose stack. Runs `docker compose down` to stop and remove containers.",
-  input: z.object({ stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID) }),
-  annotations: { destructiveHint: true },
-  handler: async (args, { abortSignal, reportProgress }) => {
-    const komodo = requireClient();
-    const update = await wrapExecuteAndPoll(
-      "destroy stack",
-      () => komodo.client.execute("DestroyStack", { stack: args.stack }),
-      abortSignal,
-      reportProgress,
-    );
-    return text(formatUpdateResult(update, "destroy", "stack", args.stack));
+    return text(formatUpdateResult(update, args.action, "stack", args.stack));
   },
 });

@@ -11,14 +11,7 @@ import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
 import { stackIdSchema } from "./validators.js";
-
-/** System command configuration for pre/post deploy hooks */
-const systemCommandSchema = z
-  .object({
-    path: z.string().optional().describe("Working directory for the command"),
-    command: z.string().optional().describe("The shell command to execute"),
-  })
-  .describe("System command configuration");
+import { systemCommandSchema } from "./shared.js";
 
 /** Additional config file dependency for the Stack */
 const stackConfigFileDependencySchema = z

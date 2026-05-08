@@ -7,6 +7,7 @@
  */
 
 export * from "./validators.js";
+export * from "./shared.js";
 export * from "./container.js";
 export * from "./server.js";
 export * from "./deployment.js";

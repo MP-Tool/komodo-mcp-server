@@ -21,6 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`_meta.category`** on every tool — forward-compatible category metadata via new `ToolCategories` constants in `config/categories.ts`.
 - **`requiredScopes`** on every tool — three-tier RBAC scopes (`komodo:read` / `komodo:operate` / `komodo:admin`) via new `ToolScopes` constants in `config/scopes.ts`. Passive today (Komodo has no OIDC yet); the framework filter activates automatically once tokens carry scopes.
+- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`).
 
 ### Changed
 

@@ -11,7 +11,7 @@ import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
 import { stackIdSchema } from "./validators.js";
-import { systemCommandSchema } from "./shared.js";
+import { systemCommandSchema, linkedRepoSchema, webhookSchema } from "./shared.js";
 
 /** Additional config file dependency for the Stack */
 const stackConfigFileDependencySchema = z
@@ -42,18 +42,6 @@ export const stackConfigSchema = z
     auto_update_all_services: z.boolean().optional().describe("Redeploy entire stack on auto-update"),
     destroy_before_deploy: z.boolean().optional().describe('Run "docker compose down" before "up"'),
     skip_secret_interp: z.boolean().optional().describe("Skip secret interpolation into environment variables"),
-    linked_repo: z.string().optional().describe("Komodo Repo resource name/ID to source compose files from"),
-    git_provider: z.string().optional().describe('Git provider domain. Default: "github.com"'),
-    git_https: z.boolean().optional().describe("Use HTTPS for git clone. Default: true"),
-    git_account: z.string().optional().describe("Git account name for private repo access"),
-    repo: z.string().optional().describe("Repository path: {namespace}/{repo_name}"),
-    branch: z.string().optional().describe('Git branch to use. Default: "main"'),
-    commit: z.string().optional().describe("Specific commit hash to checkout"),
-    clone_path: z.string().optional().describe("Custom path for cloning the repository"),
-    reclone: z.boolean().optional().describe("Delete and reclone instead of git pull"),
-    webhook_enabled: z.boolean().optional().describe("Enable incoming webhooks to trigger deployments"),
-    webhook_secret: z.string().optional().describe("Custom webhook secret (empty = use default)"),
-    webhook_force_deploy: z.boolean().optional().describe("Force deploy on webhook"),
     files_on_host: z.boolean().optional().describe("Source compose files from host filesystem"),
     run_directory: z.string().optional().describe("Working directory for docker compose commands"),
     file_paths: z.array(z.string()).optional().describe('Compose file paths. Default: ["compose.yaml"]'),
@@ -94,6 +82,8 @@ export const stackConfigSchema = z
       .optional()
       .describe(`${FIELD_DESCRIPTIONS.ENVIRONMENT} Written to env_file_path before compose up.`),
   })
+  .merge(linkedRepoSchema)
+  .merge(webhookSchema)
   .describe("Stack configuration - only specify fields you want to set or update");
 
 /** Stack creation config — extends base with create-specific overrides */

@@ -21,11 +21,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`_meta.category`** on every tool — forward-compatible category metadata via new `ToolCategories` constants in `config/categories.ts`.
 - **`requiredScopes`** on every tool — three-tier RBAC scopes (`komodo:read` / `komodo:operate` / `komodo:admin`) via new `ToolScopes` constants in `config/scopes.ts`. Passive today (Komodo has no OIDC yet); the framework filter activates automatically once tokens carry scopes.
-- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`).
+- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`, `linkedRepoSchema`, `webhookSchema`).
 
 ### Changed
 
 - **Schemas**: per-domain action enums and discriminated input schemas added to `tools/schemas/{container,deployment,stack}.ts`; new `tools/schemas/terminal.ts` with the `komodo_exec` discriminated union.
+- **Stack config**: `stackConfigSchema` now composes `linkedRepoSchema` and `webhookSchema` from `tools/schemas/shared.ts` via `.merge()` instead of inlining the git/webhook fields.
 
 ### Migration
 

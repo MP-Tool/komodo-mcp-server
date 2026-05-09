@@ -11,8 +11,8 @@
 import { defineTool, structured, text, z } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { requireClient, wrapApiCall, renderApiKeyList, renderApiKeyCreated } from "../utils/index.js";
-import { listApiKeysOutputSchema, createApiKeyOutputSchema } from "./schemas/index.js";
+import { requireClient, wrapApiCall, renderApiKeyList, renderApiKeyCreated, paginate } from "../utils/index.js";
+import { listApiKeysOutputSchema, createApiKeyOutputSchema, paginationInputSchema } from "./schemas/index.js";
 
 type ApiKey = Types.ApiKey;
 
@@ -25,23 +25,24 @@ export const listApiKeysTool = defineTool({
   description:
     "List all API keys for the currently authenticated Komodo user. " +
     "Shows key name, key ID (not secret), creation date, and expiry.",
-  input: z.object({}),
+  input: paginationInputSchema,
   output: listApiKeysOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.USER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (_args, { abortSignal }) => {
+  handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const keys = await wrapApiCall("listApiKeys", () => komodo.client.read("ListApiKeys", {}), abortSignal);
 
-    const items = keys.map((k: ApiKey) => ({
+    const allItems = keys.map((k: ApiKey) => ({
       name: k.name,
       key: k.key,
       created_at: k.created_at,
       expires: k.expires,
     }));
 
-    const payload = { items };
+    const { items, page } = paginate(allItems, args.cursor, args.page_size);
+    const payload = { items: [...items], page };
     return structured(payload, { text: renderApiKeyList(payload) });
   },
 });

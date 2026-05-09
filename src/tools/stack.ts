@@ -21,6 +21,7 @@ import {
   formatActionResponse,
   requireClient,
   wrapApiCall,
+  paginate,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -40,6 +41,7 @@ import {
   stackInfoOutputSchema,
   actionResultSchema,
   inlineFullInputSchema,
+  paginationInputSchema,
 } from "./schemas/index.js";
 
 type StackListItem = Types.StackListItem;
@@ -51,21 +53,22 @@ type StackListItem = Types.StackListItem;
 export const listStacksTool = defineTool({
   name: "komodo_stack_list",
   description: "List all Komodo-managed Compose stacks. Shows stack name, ID, and current state.",
-  input: z.object({}),
+  input: paginationInputSchema,
   output: stackListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.STACK },
   requiredScopes: [ToolScopes.READ],
-  handler: async (_args, { abortSignal }) => {
+  handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", {}), abortSignal);
-    const items = stacks.map((s: StackListItem) => ({
+    const allItems = stacks.map((s: StackListItem) => ({
       id: s.id,
       name: s.name,
       state: s.info.state,
       ...(s.info.server_id ? { server_id: s.info.server_id } : {}),
     }));
-    const payload = { items };
+    const { items, page } = paginate(allItems, args.cursor, args.page_size);
+    const payload = { items: [...items], page };
     return structured(payload, { text: renderStackList(payload) });
   },
 });

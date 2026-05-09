@@ -62,6 +62,21 @@ function jsonBlock(value: unknown): string {
   }
 }
 
+interface PageInfo {
+  readonly next_cursor?: string;
+  readonly total?: number;
+}
+
+/** Append a pagination footer line when more pages are available. */
+function pageFooter(page: PageInfo | undefined, shown: number): string {
+  if (!page) return "";
+  if (page.next_cursor) {
+    const total = page.total !== undefined ? ` of ${page.total}` : "";
+    return `\n\n_Showing ${shown}${total}. More results available — pass \`cursor: "${page.next_cursor}"\` for the next page._`;
+  }
+  return "";
+}
+
 const ACTION_ICONS: Record<ActionType, string> = {
   deploy: RESPONSE_ICONS.DEPLOY,
   pull: RESPONSE_ICONS.PULL,
@@ -100,12 +115,12 @@ interface ContainerListItem {
   readonly image?: string;
 }
 
-export function renderContainerList(payload: { items: readonly ContainerListItem[] }): string {
-  const { items } = payload;
+export function renderContainerList(payload: { items: readonly ContainerListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
   const header = `${RESPONSE_ICONS.CONTAINER} Containers (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo containers found.`;
   const rows = items.map((c) => `• ${c.name} (${stateBadge(c.state)}) — ${c.image ?? "Unknown image"}`).join("\n");
-  return `${header}\n\n${rows}`;
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
 interface ContainerInspectPayload {
@@ -173,8 +188,8 @@ interface ServerListItem {
   readonly region?: string;
 }
 
-export function renderServerList(payload: { items: readonly ServerListItem[] }): string {
-  const { items } = payload;
+export function renderServerList(payload: { items: readonly ServerListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
   const header = `${RESPONSE_ICONS.SERVER} Available servers (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo servers found.`;
   const rows = items
@@ -184,7 +199,7 @@ export function renderServerList(payload: { items: readonly ServerListItem[] }):
       return `• ${s.name} (${s.id}) — Status: ${stateBadge(s.state)} | Version: ${version}${region}`;
     })
     .join("\n");
-  return `${header}\n\n${rows}`;
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
 interface ServerInfoPayload {
@@ -216,8 +231,8 @@ interface DeploymentListItem {
   readonly server_id?: string;
 }
 
-export function renderDeploymentList(payload: { items: readonly DeploymentListItem[] }): string {
-  const { items } = payload;
+export function renderDeploymentList(payload: { items: readonly DeploymentListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
   const header = `${RESPONSE_ICONS.DEPLOYMENT} Deployments (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo deployments found.`;
   const rows = items
@@ -226,7 +241,7 @@ export function renderDeploymentList(payload: { items: readonly DeploymentListIt
       return `• ${d.name} (${d.id}) — State: ${stateBadge(d.state)}${server}`;
     })
     .join("\n");
-  return `${header}\n\n${rows}`;
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
 interface DeploymentInfoPayload {
@@ -254,8 +269,8 @@ interface StackListItem {
   readonly server_id?: string;
 }
 
-export function renderStackList(payload: { items: readonly StackListItem[] }): string {
-  const { items } = payload;
+export function renderStackList(payload: { items: readonly StackListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
   const header = `${RESPONSE_ICONS.STACK} Stacks (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo stacks found.`;
   const rows = items
@@ -264,7 +279,7 @@ export function renderStackList(payload: { items: readonly StackListItem[] }): s
       return `• ${s.name} (${s.id}) — State: ${stateBadge(s.state)}${server}`;
     })
     .join("\n");
-  return `${header}\n\n${rows}`;
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
 interface StackInfoPayload {
@@ -405,8 +420,8 @@ interface ApiKeyListItem {
   readonly expires: number;
 }
 
-export function renderApiKeyList(payload: { items: readonly ApiKeyListItem[] }): string {
-  const { items } = payload;
+export function renderApiKeyList(payload: { items: readonly ApiKeyListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
   const header = `${RESPONSE_ICONS.AUTH} API keys (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo API keys.`;
   const rows = items
@@ -416,7 +431,7 @@ export function renderApiKeyList(payload: { items: readonly ApiKeyListItem[] }):
       return `• ${k.name} — Key: \`${k.key}\` | Created: ${created} | Expires: ${expires}`;
     })
     .join("\n");
-  return `${header}\n\n${rows}`;
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
 export function renderApiKeyCreated(payload: { name: string; key: string; secret: string; expires: number }): string {

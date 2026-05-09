@@ -21,6 +21,7 @@ import {
   formatActionResponse,
   requireClient,
   wrapApiCall,
+  paginate,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -41,6 +42,7 @@ import {
   deploymentInfoOutputSchema,
   actionResultSchema,
   inlineFullInputSchema,
+  paginationInputSchema,
 } from "./schemas/index.js";
 
 type DeploymentListItem = Types.DeploymentListItem;
@@ -54,25 +56,26 @@ export const listDeploymentsTool = defineTool({
   description:
     "List all Komodo-managed deployments. Deployments are single-container applications managed by Komodo. " +
     "Shows deployment name, ID, and current state.",
-  input: z.object({}),
+  input: paginationInputSchema,
   output: deploymentListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.READ],
-  handler: async (_args, { abortSignal }) => {
+  handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const deployments = await wrapApiCall(
       "list deployments",
       () => komodo.client.read("ListDeployments", {}),
       abortSignal,
     );
-    const items = deployments.map((d: DeploymentListItem) => ({
+    const allItems = deployments.map((d: DeploymentListItem) => ({
       id: d.id,
       name: d.name,
       state: d.info.state,
       ...(d.info.server_id ? { server_id: d.info.server_id } : {}),
     }));
-    const payload = { items };
+    const { items, page } = paginate(allItems, args.cursor, args.page_size);
+    const payload = { items: [...items], page };
     return structured(payload, { text: renderDeploymentList(payload) });
   },
 });

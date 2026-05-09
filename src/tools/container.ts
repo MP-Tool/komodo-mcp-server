@@ -31,6 +31,7 @@ import {
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
+  paginate,
   renderContainerList,
   renderContainerInspect,
   renderContainerLogs,
@@ -48,6 +49,7 @@ import {
   containerSearchLogsOutputSchema,
   actionResultSchema,
   inlineFullInputSchema,
+  paginationInputSchema,
 } from "./schemas/index.js";
 
 type ContainerListItem = Types.ContainerListItem;
@@ -61,9 +63,11 @@ export const listContainersTool = defineTool({
   name: "komodo_container_list",
   description:
     "List all containers on a server, including running, stopped, and paused containers. Shows container name, state, and image.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
-  }),
+  input: z
+    .object({
+      server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
+    })
+    .merge(paginationInputSchema),
   output: containerListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -76,13 +80,14 @@ export const listContainersTool = defineTool({
       abortSignal,
     );
 
-    const items = containers.map((c: ContainerListItem) => ({
+    const allItems = containers.map((c: ContainerListItem) => ({
       name: c.name,
       state: c.state,
       ...(c.image ? { image: c.image } : {}),
     }));
 
-    const payload = { items };
+    const { items, page } = paginate(allItems, args.cursor, args.page_size);
+    const payload = { items: [...items], page };
     return structured(payload, { text: renderContainerList(payload) });
   },
 });

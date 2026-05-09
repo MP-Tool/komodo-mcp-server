@@ -23,6 +23,10 @@ export type { ResourceCategory, ResourceLinkContext, RegisterResourceOptions } f
 export { extractUpdateId, wrapExecuteAndPoll, buildActionResult } from "./polling.js";
 export type { ActionResult } from "./polling.js";
 
+// --- Pagination (client-side cursor-based slicing) ---
+export { paginate, encodeCursor, decodeCursor, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./pagination.js";
+export type { PageEnvelope, PaginateResult } from "./pagination.js";
+
 // --- Response Formatting ---
 export {
   formatActionResponse,

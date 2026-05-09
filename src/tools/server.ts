@@ -21,11 +21,13 @@ import {
   serverStatsOutputSchema,
   actionResultSchema,
   inlineFullInputSchema,
+  paginationInputSchema,
 } from "./schemas/index.js";
 import {
   formatActionResponse,
   requireClient,
   wrapApiCall,
+  paginate,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -46,16 +48,16 @@ export const listServersTool = defineTool({
   name: "komodo_server_list",
   description:
     "List all servers registered in Komodo. Shows server name, ID, status (healthy/unhealthy/disabled), Periphery version, and region.",
-  input: z.object({}),
+  input: paginationInputSchema,
   output: serverListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (_args, { abortSignal }) => {
+  handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", {}), abortSignal);
 
-    const items = servers.map((s: ServerListItem) => {
+    const allItems = servers.map((s: ServerListItem) => {
       const version = s.info.version && s.info.version.toLowerCase() !== "unknown" ? s.info.version : undefined;
       return {
         id: s.id,
@@ -66,7 +68,8 @@ export const listServersTool = defineTool({
       };
     });
 
-    const payload = { items };
+    const { items, page } = paginate(allItems, args.cursor, args.page_size);
+    const payload = { items: [...items], page };
     return structured(payload, { text: renderServerList(payload) });
   },
 });

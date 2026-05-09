@@ -14,16 +14,19 @@
  * @module tools/deployment
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
 import {
   formatActionResponse,
-  formatInfoResponse,
   requireClient,
   wrapApiCall,
   wrapExecuteAndPoll,
-  formatUpdateResult,
+  buildActionResult,
+  extractUpdateId,
+  renderDeploymentList,
+  renderDeploymentInfo,
+  renderActionResult,
 } from "../utils/index.js";
 import {
   deploymentConfigSchema,
@@ -33,6 +36,9 @@ import {
   deploymentIdSchema,
   resourceNameSchema,
   serverIdSchema,
+  deploymentListOutputSchema,
+  deploymentInfoOutputSchema,
+  actionResultSchema,
 } from "./schemas/index.js";
 
 type DeploymentListItem = Types.DeploymentListItem;
@@ -47,6 +53,7 @@ export const listDeploymentsTool = defineTool({
     "List all Komodo-managed deployments. Deployments are single-container applications managed by Komodo. " +
     "Shows deployment name, ID, and current state.",
   input: z.object({}),
+  output: deploymentListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.READ],
@@ -57,12 +64,14 @@ export const listDeploymentsTool = defineTool({
       () => komodo.client.read("ListDeployments", {}),
       abortSignal,
     );
-    return text(
-      `📦 Komodo deployments:\n\n${
-        deployments.map((d: DeploymentListItem) => `• ${d.name} (${d.id}) - State: ${d.info.state}`).join("\n") ||
-        "No deployments found."
-      }`,
-    );
+    const items = deployments.map((d: DeploymentListItem) => ({
+      id: d.id,
+      name: d.name,
+      state: d.info.state,
+      ...(d.info.server_id ? { server_id: d.info.server_id } : {}),
+    }));
+    const payload = { items };
+    return structured(payload, { text: renderDeploymentList(payload) });
   },
 });
 
@@ -77,6 +86,7 @@ export const getDeploymentInfoTool = defineTool({
   input: z.object({
     deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
   }),
+  output: deploymentInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.READ],
@@ -87,13 +97,11 @@ export const getDeploymentInfoTool = defineTool({
       () => komodo.client.read("GetDeployment", { deployment: args.deployment }),
       abortSignal,
     );
-    return text(
-      formatInfoResponse({
-        resourceType: "deployment",
-        resourceId: args.deployment,
-        content: JSON.stringify(result, null, 2),
-      }),
-    );
+    const payload = {
+      summary: { id: args.deployment, name: args.deployment },
+      info: result,
+    };
+    return structured(payload, { text: renderDeploymentInfo(payload) });
   },
 });
 
@@ -230,6 +238,7 @@ export const deploymentActionTool = defineTool({
     "without recreating), start, restart, pause, unpause, stop, or destroy (remove the container). " +
     "The `destroy` action is destructive (the container is removed); the deployment configuration is preserved.",
   input: deploymentActionInputSchema,
+  output: actionResultSchema,
   annotations: { idempotentHint: true, destructiveHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.OPERATE],
@@ -242,6 +251,9 @@ export const deploymentActionTool = defineTool({
       abortSignal,
       reportProgress,
     );
-    return text(formatUpdateResult(update, args.action, "deployment", args.deployment));
+    const payload = buildActionResult(update, args.action, "deployment", args.deployment);
+    return structured(payload, {
+      text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
+    });
   },
 });

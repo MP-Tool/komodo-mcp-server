@@ -63,3 +63,45 @@ export const webhookSchema = z.object({
   webhook_secret: z.string().optional().describe("Custom webhook secret (empty = use default)"),
   webhook_force_deploy: z.boolean().optional().describe("Force deploy on webhook"),
 });
+
+/**
+ * MCP `ResourceLink` content envelope.
+ *
+ * Compact reference to a resource exposed by the server, allowing detail
+ * tools to point at large payloads without inlining them.
+ */
+export const resourceLinkSchema = z
+  .object({
+    uri: z.string().describe("Resource URI (e.g. komodo://server/{id})"),
+    name: z.string().describe("Human-readable resource name"),
+    mimeType: z.string().optional().describe("MIME type of the linked resource"),
+    description: z.string().optional().describe("Short description of the linked resource"),
+  })
+  .describe("Reference to a server-exposed resource");
+
+/** Cursor-based page envelope for list responses. */
+export const pageOutputSchema = z
+  .object({
+    next_cursor: z.string().optional().describe("Pagination cursor for the next page. Absent if no further results."),
+    total: z.number().int().optional().describe("Total number of items across all pages, when known."),
+  })
+  .describe("Pagination envelope for list responses");
+
+/**
+ * Common result envelope for lifecycle / action / prune tools.
+ *
+ * Captures the outcome of a Komodo `execute` call after polling completes:
+ * which action ran, against which resource, whether it succeeded, and the
+ * underlying update status string.
+ */
+export const actionResultSchema = z
+  .object({
+    success: z.boolean().describe("Whether the action completed successfully"),
+    status: z.string().describe("Update status reported by Komodo (Complete, InProgress, Queued, ...)"),
+    action: z.string().describe("Action name that was executed (start, stop, deploy, prune, ...)"),
+    resource_type: z.string().describe("Target resource type (container, deployment, stack, server)"),
+    resource_id: z.string().describe("Target resource ID or name"),
+    server: z.string().optional().describe("Target server, when the action runs against a host"),
+    version: z.string().optional().describe("Resulting version string, when the action produces one (e.g. deploy)"),
+  })
+  .describe("Outcome envelope returned by lifecycle / action / prune tools");

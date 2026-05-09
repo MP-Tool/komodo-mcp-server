@@ -13,7 +13,6 @@ import type { ProgressReporter } from "mcp-server-framework";
 import { OperationCancelledError } from "mcp-server-framework";
 import type { KomodoClient } from "../client.js";
 import { ApiError } from "../errors/index.js";
-import { formatCompletedActionResponse, type ActionType, type ResourceType } from "./response-formatter.js";
 import { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
 
 type Update = Types.Update;
@@ -184,33 +183,41 @@ export async function wrapExecuteAndPoll(
 }
 
 // ============================================================================
-// Update Formatting
+// Action Result Payload
 // ============================================================================
 
 /**
- * Format a completed Update into a rich response string.
+ * Typed `actionResultSchema`-shaped payload built from a completed Update.
  */
-export function formatUpdateResult(
+export interface ActionResult {
+  readonly success: boolean;
+  readonly status: string;
+  readonly action: string;
+  readonly resource_type: string;
+  readonly resource_id: string;
+  readonly server?: string;
+  readonly version?: string;
+  readonly [key: string]: unknown;
+}
+
+export function buildActionResult(
   update: Update,
-  action: ActionType,
-  resourceType: ResourceType,
+  action: string,
+  resourceType: string,
   resourceId: string,
   serverName?: string,
-): string {
+): ActionResult {
   const version = update.version
     ? `${update.version.major}.${update.version.minor}.${update.version.patch}`
     : undefined;
 
-  const opts: Parameters<typeof formatCompletedActionResponse>[0] = {
-    action,
-    resourceType,
-    resourceId,
-    updateId: extractUpdateId(update),
+  return {
     success: update.success,
     status: update.status,
-    logs: update.logs,
+    action,
+    resource_type: resourceType,
+    resource_id: resourceId,
+    ...(serverName !== undefined ? { server: serverName } : {}),
+    ...(version !== undefined ? { version } : {}),
   };
-  if (serverName !== undefined) opts.serverName = serverName;
-  if (version !== undefined) opts.version = version;
-  return formatCompletedActionResponse(opts);
 }

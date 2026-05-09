@@ -19,14 +19,36 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Markdown renderers** in `src/utils/markdown.ts` — 16 renderers (`renderContainerList/Inspect/Logs/SearchLogs`, `renderServerList/Info/Stats`, `renderDeploymentList/Info`, `renderStackList/Info`, `renderActionResult`, `renderExecResult`, `renderApiKeyList/Created`, `renderHealthCheck`) producing rich human-readable output: bullet lists with state badges, embedded JSON blocks for inspect/info responses, fenced code blocks for logs and exec output, and multi-line action results with `Result`, `Status`, `Update ID`, `Version` plus log excerpts (last two on success, all failed/stderr stages on failure, each truncated to 1000 chars). Wired into every typed tool via the framework's new `structured(payload, { text: ... })` option.
 - **`_meta.category`** on every tool — forward-compatible category metadata via new `ToolCategories` constants in `config/categories.ts`.
 - **`requiredScopes`** on every tool — three-tier RBAC scopes (`komodo:read` / `komodo:operate` / `komodo:admin`) via new `ToolScopes` constants in `config/scopes.ts`. Passive today (Komodo has no OIDC yet); the framework filter activates automatically once tokens carry scopes.
-- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`, `linkedRepoSchema`, `webhookSchema`).
+- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`, `linkedRepoSchema`, `webhookSchema`, `resourceLinkSchema`, `pageOutputSchema`).
+- **Output schemas for read tools** — typed response envelopes per read-tool family in `tools/schemas/{container,server,deployment,stack}.ts` (`*ListOutputSchema`, `*InfoOutputSchema`, plus `containerInspectOutputSchema`, `containerLogsOutputSchema`, `containerSearchLogsOutputSchema`, `serverStatsOutputSchema`). Wired into `defineTool({ output: ... })` and emitted as `structuredContent` on each read tool's response, so MCP clients receive a typed payload alongside the human-readable text content.
+- **Typed `structuredContent` on 11 read tools** — `komodo_container_list`, `komodo_container_inspect`, `komodo_container_logs`, `komodo_container_search_logs`, `komodo_server_list`, `komodo_server_info`, `komodo_server_stats`, `komodo_deployment_list`, `komodo_deployment_info`, `komodo_stack_list`, `komodo_stack_info` now return both human-readable text and a structured payload validated against the corresponding output schema.
+- **`actionResultSchema` shared envelope** — wired into `komodo_container_action`, `komodo_deployment_action`, `komodo_stack_action`, and `komodo_server_prune`. Clients now receive `{ success, status, action, resource_type, resource_id, server?, version? }` alongside the formatted text response.
+- **`buildActionResult()` utility** in `utils/polling.ts` — converts a Komodo `Update` into the `actionResultSchema` payload (mirroring `formatUpdateResult`'s human-readable output).
+- **`execOutputSchema` on `komodo_exec`** — typed `{ target, command, output, exit_code, truncated, server?, container?, deployment?, stack?, service? }` payload across all four execution targets.
+- **`healthCheckOutputSchema` on `komodo_health_check`** — typed `{ configured, healthy, server?, komodo_version?, mcp_server_version, error? }` payload covering the unconfigured / healthy / unhealthy / error branches.
+- **API-key tool outputs** — `listApiKeysOutputSchema` on `komodo_user_list_api_keys` (returns `{ items: [{ name, key, created_at, expires }] }`) and `createApiKeyOutputSchema` on `komodo_user_create_api_key` (returns `{ name, key, secret, expires }` — secret shown only on creation).
+- **`tools/schemas/{user,config}.ts`** — new schema modules covering API-key and health-check outputs, exposed via the schema barrel.
 
 ### Changed
 
+- **Typed tool responses follow the MCP 2025-06-18 "Structured Content" recommendation**: tools that declare an `output` schema now emit `structuredContent` as the primary payload and a rich Markdown rendering in the `TextContent` block (bullet lists with state badges, embedded JSON for inspect/info, fenced code blocks for logs and exec output, multi-line action results with `Update ID` and log excerpts). Modern clients render the Markdown for the user and consume `structuredContent` for the LLM; legacy clients fall back to the same Markdown instead of a bloated JSON dump. Applies to `komodo_container_list/inspect/logs/search_logs/action`, `komodo_server_list/info/stats/prune`, `komodo_deployment_list/info/action`, `komodo_stack_list/info/action`, `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_health_check`, and `komodo_exec`. State-change tools without an output schema (`komodo_configure`, all `*_create`/`*_update`/`*_delete`, `komodo_user_delete_api_key`) keep their existing human-readable Markdown.
+
+### Removed
+
+- **Dead Markdown formatters** in `utils/response-formatter.ts` (`formatCompletedActionResponse`, `formatListHeader`, `formatInfoResponse`, `formatErrorResponse`, `formatLogsResponse`, `formatSearchResponse`, `formatPruneResponse`) and `utils/polling.ts` (`formatUpdateResult`) — superseded by the framework's `structured()` helper for typed tools. The remaining formatters (`formatActionResponse`, `buildActionResult`) are still used by state-change and lifecycle tools.
+
+### Schemas
+
 - **Schemas**: per-domain action enums and discriminated input schemas added to `tools/schemas/{container,deployment,stack}.ts`; new `tools/schemas/terminal.ts` with the `komodo_exec` discriminated union.
 - **Stack config**: `stackConfigSchema` now composes `linkedRepoSchema` and `webhookSchema` from `tools/schemas/shared.ts` via `.merge()` instead of inlining the git/webhook fields.
+- **Optional `state` on summary schemas** — `containerSummarySchema`, `serverSummarySchema`, `deploymentSummarySchema`, and `stackSummarySchema` now mark `state` as optional. The `state: "unknown"` placeholder previously emitted by `*_inspect` / `*_info` / `*_logs` / `*_search_logs` is dropped — the field is simply omitted when the underlying read API does not return it.
+
+### Dependencies
+
+- Bumped `mcp-server-framework` from `^1.0.5` to `^1.1.0`. `1.1.0` exposes `output: ZodTypeAny` on `defineTool()` (forwarded to the SDK as `outputSchema`), `structuredContent` on the response helpers, the `structured()` helper that emits `structuredContent` as the primary payload plus a `TextContent` fallback per the MCP 2025-06-18 spec, and `StructuredResponseOptions` (with an optional `text` override) so typed tools can render rich Markdown for client UIs while `structuredContent` stays the single source of truth for the LLM.
 
 ### Migration
 

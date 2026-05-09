@@ -10,6 +10,7 @@
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS } from "../../config/index.js";
+import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 /** Scheduled maintenance window for alert suppression */
 const maintenanceWindowSchema = z
@@ -61,3 +62,42 @@ export const serverConfigSchema = z
     maintenance_windows: z.array(maintenanceWindowSchema).optional().describe("Scheduled maintenance windows"),
   })
   .describe("Configuration for a Komodo server");
+
+// ============================================================================
+// Output Schemas
+// ============================================================================
+
+/** Compact summary of a single server as returned in list/info responses. */
+export const serverSummarySchema = z.object({
+  id: z.string().describe("Server ID"),
+  name: z.string().describe("Server name"),
+  state: z.string().optional().describe("Server state (Ok, NotOk, Disabled, ...) when known"),
+  version: z.string().optional().describe("Periphery agent version"),
+  region: z.string().optional().describe("Optional region label"),
+});
+
+/** Output of `komodo_server_list`. */
+export const serverListOutputSchema = z
+  .object({
+    items: z.array(serverSummarySchema).describe("Servers registered in Komodo"),
+    page: pageOutputSchema.optional(),
+  })
+  .describe("List of registered servers");
+
+/** Output of `komodo_server_info`. */
+export const serverInfoOutputSchema = z
+  .object({
+    summary: serverSummarySchema,
+    info: z.unknown().optional().describe("Full server resource payload, when returned inline"),
+    resourceLink: resourceLinkSchema.optional(),
+  })
+  .describe("Detailed information about a server");
+
+/** Output of `komodo_server_stats`. */
+export const serverStatsOutputSchema = z
+  .object({
+    server: z.string().describe("Server ID"),
+    status: z.string().describe("Health status reported by Periphery"),
+    resourceLink: resourceLinkSchema.optional(),
+  })
+  .describe("Server health and status snapshot");

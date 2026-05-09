@@ -8,17 +8,30 @@
  * @module tools/server
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
-import { serverConfigSchema, serverIdSchema, resourceNameSchema, pruneTargetSchema } from "./schemas/index.js";
+import {
+  serverConfigSchema,
+  serverIdSchema,
+  resourceNameSchema,
+  pruneTargetSchema,
+  serverListOutputSchema,
+  serverInfoOutputSchema,
+  serverStatsOutputSchema,
+  actionResultSchema,
+} from "./schemas/index.js";
 import {
   formatActionResponse,
-  formatInfoResponse,
-  formatPruneResponse,
   requireClient,
   wrapApiCall,
   wrapExecuteAndPoll,
+  buildActionResult,
+  extractUpdateId,
+  renderServerList,
+  renderServerInfo,
+  renderServerStats,
+  renderActionResult,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -32,6 +45,7 @@ export const listServersTool = defineTool({
   description:
     "List all servers registered in Komodo. Shows server name, ID, status (healthy/unhealthy/disabled), Periphery version, and region.",
   input: z.object({}),
+  output: serverListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.READ],
@@ -39,17 +53,19 @@ export const listServersTool = defineTool({
     const komodo = requireClient();
     const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", {}), abortSignal);
 
-    const serverList =
-      servers
-        .map((s: ServerListItem) => {
-          const version = s.info.version && s.info.version.toLowerCase() !== "unknown" ? s.info.version : "N/A";
-          const region = s.info.region || "";
-          const regionStr = region ? ` | Region: ${region}` : "";
-          return `• ${s.name} (${s.id}) - Status: ${s.info.state} | Version: ${version}${regionStr}`;
-        })
-        .join("\n") || "No servers found.";
+    const items = servers.map((s: ServerListItem) => {
+      const version = s.info.version && s.info.version.toLowerCase() !== "unknown" ? s.info.version : undefined;
+      return {
+        id: s.id,
+        name: s.name,
+        state: s.info.state,
+        ...(version ? { version } : {}),
+        ...(s.info.region ? { region: s.info.region } : {}),
+      };
+    });
 
-    return text(`🖥️ Available servers:\n\n${serverList}`);
+    const payload = { items };
+    return structured(payload, { text: renderServerList(payload) });
   },
 });
 
@@ -64,6 +80,7 @@ export const getServerStatsTool = defineTool({
   input: z.object({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_STATS),
   }),
+  output: serverStatsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.READ],
@@ -74,7 +91,8 @@ export const getServerStatsTool = defineTool({
       () => komodo.client.read("GetServerState", { server: args.server }),
       abortSignal,
     );
-    return text(`📊 Server "${args.server}" status:\n\n• Status: ${stats.status}`);
+    const payload = { server: args.server, status: stats.status };
+    return structured(payload, { text: renderServerStats(payload) });
   },
 });
 
@@ -88,6 +106,7 @@ export const getServerInfoTool = defineTool({
   input: z.object({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
   }),
+  output: serverInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.READ],
@@ -98,9 +117,11 @@ export const getServerInfoTool = defineTool({
       () => komodo.client.read("GetServer", { server: args.server }),
       abortSignal,
     );
-    return text(
-      formatInfoResponse({ resourceType: "server", resourceId: args.server, content: JSON.stringify(result, null, 2) }),
-    );
+    const payload = {
+      summary: { id: args.server, name: args.server },
+      info: result,
+    };
+    return structured(payload, { text: renderServerInfo(payload) });
   },
 });
 
@@ -198,6 +219,7 @@ export const serverPruneTool = defineTool({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
     pruneTarget: pruneTargetSchema,
   }),
+  output: actionResultSchema,
   annotations: { destructiveHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.ADMIN],
@@ -214,13 +236,15 @@ export const serverPruneTool = defineTool({
           reportProgress,
         );
       }
-      return text(
-        formatPruneResponse({
-          target: args.pruneTarget,
-          serverName: args.server,
-          output: "All resources pruned successfully",
-        }),
-      );
+      const payload = {
+        success: true,
+        status: "Complete",
+        action: "prune",
+        resource_type: "server" as const,
+        resource_id: args.server,
+        server: args.server,
+      };
+      return structured(payload, { text: renderActionResult(payload) });
     }
 
     const action = PRUNE_ACTION_MAP[args.pruneTarget];
@@ -230,12 +254,9 @@ export const serverPruneTool = defineTool({
       abortSignal,
       reportProgress,
     );
-    return text(
-      formatPruneResponse({
-        target: args.pruneTarget,
-        serverName: args.server,
-        output: `Result: ${update.success ? "✅ Success" : "❌ Failed"} | Status: ${update.status}`,
-      }),
-    );
+    const payload = buildActionResult(update, `prune-${args.pruneTarget}`, "server", args.server, args.server);
+    return structured(payload, {
+      text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
+    });
   },
 });

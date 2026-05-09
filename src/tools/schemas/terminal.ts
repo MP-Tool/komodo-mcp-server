@@ -77,3 +77,30 @@ export const execInputSchema = z.discriminatedUnion("target", [
     shell: execShellSchema,
   }),
 ]);
+
+// ============================================================================
+// Output Schema
+// ============================================================================
+
+/**
+ * Output of `komodo_exec`.
+ *
+ * Captures the executed target, the command, the collected stdout/stderr
+ * stream as a single string, the exit code (when emitted by Komodo), and
+ * a `truncated` flag set when output exceeded the buffer size or the
+ * command timed out.
+ */
+export const execOutputSchema = z
+  .object({
+    target: z.enum(["server", "container", "deployment", "stack_service"]).describe("Execution context that ran"),
+    command: z.string().describe("The shell command that was executed"),
+    output: z.string().describe("Combined stdout/stderr stream as captured (may be truncated)"),
+    exit_code: z.string().nullable().describe("Exit code reported by Komodo, or null when unknown"),
+    truncated: z.boolean().describe("True when the output buffer was truncated by size or timeout"),
+    server: z.string().optional().describe("Server context, when the target requires it"),
+    container: z.string().optional().describe("Container, when target = container"),
+    deployment: z.string().optional().describe("Deployment, when target = deployment"),
+    stack: z.string().optional().describe("Stack, when target = stack_service"),
+    service: z.string().optional().describe("Service name within the stack, when target = stack_service"),
+  })
+  .describe("Captured output of a `komodo_exec` invocation");

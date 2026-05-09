@@ -14,7 +14,7 @@
  * @module tools/container
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import {
   PARAM_DESCRIPTIONS,
@@ -25,14 +25,27 @@ import {
   ToolScopes,
 } from "../config/index.js";
 import {
-  formatLogsResponse,
-  formatSearchResponse,
   requireClient,
   wrapApiCall,
   wrapExecuteAndPoll,
-  formatUpdateResult,
+  buildActionResult,
+  extractUpdateId,
+  renderContainerList,
+  renderContainerInspect,
+  renderContainerLogs,
+  renderContainerSearchLogs,
+  renderActionResult,
 } from "../utils/index.js";
-import { containerActionInputSchema, serverIdSchema, containerNameSchema } from "./schemas/index.js";
+import {
+  containerActionInputSchema,
+  serverIdSchema,
+  containerNameSchema,
+  containerListOutputSchema,
+  containerInspectOutputSchema,
+  containerLogsOutputSchema,
+  containerSearchLogsOutputSchema,
+  actionResultSchema,
+} from "./schemas/index.js";
 
 type ContainerListItem = Types.ContainerListItem;
 type Log = Types.Log;
@@ -48,6 +61,7 @@ export const listContainersTool = defineTool({
   input: z.object({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
   }),
+  output: containerListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
@@ -59,11 +73,14 @@ export const listContainersTool = defineTool({
       abortSignal,
     );
 
-    const containerList =
-      containers.map((c: ContainerListItem) => `• ${c.name} (${c.state}) - ${c.image || "Unknown Image"}`).join("\n") ||
-      "No containers found.";
+    const items = containers.map((c: ContainerListItem) => ({
+      name: c.name,
+      state: c.state,
+      ...(c.image ? { image: c.image } : {}),
+    }));
 
-    return text(`📦 Containers on server "${args.server}":\n\n${containerList}`);
+    const payload = { items };
+    return structured(payload, { text: renderContainerList(payload) });
   },
 });
 
@@ -79,6 +96,7 @@ export const inspectContainerTool = defineTool({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
     container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
   }),
+  output: containerInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
@@ -89,7 +107,11 @@ export const inspectContainerTool = defineTool({
       () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),
       abortSignal,
     );
-    return text(JSON.stringify(result, null, 2));
+    const payload = {
+      summary: { name: args.container },
+      inspect: result,
+    };
+    return structured(payload, { text: renderContainerInspect(payload) });
   },
 });
 
@@ -117,6 +139,7 @@ export const getContainerLogsTool = defineTool({
       .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
       .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
   }),
+  output: containerLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
@@ -135,23 +158,12 @@ export const getContainerLogsTool = defineTool({
       abortSignal,
     );
 
-    let logContent = "";
-    if (result.stdout) {
-      logContent += result.stdout;
-    }
-    if (result.stderr) {
-      if (logContent) logContent += "\n\n=== STDERR ===\n";
-      logContent += result.stderr;
-    }
-
-    return text(
-      formatLogsResponse({
-        containerName: args.container,
-        serverName: args.server,
-        logs: logContent,
-        lines: args.tail,
-      }),
-    );
+    const payload = {
+      summary: { name: args.container },
+      ...(result.stdout ? { stdout: result.stdout } : {}),
+      ...(result.stderr ? { stderr: result.stderr } : {}),
+    };
+    return structured(payload, { text: renderContainerLogs(payload) });
   },
 });
 
@@ -180,6 +192,7 @@ export const searchContainerLogsTool = defineTool({
       .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
       .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
   }),
+  output: containerSearchLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
@@ -198,24 +211,24 @@ export const searchContainerLogsTool = defineTool({
       abortSignal,
     );
 
-    const logContent = result.stdout + (result.stderr ? "\n" + result.stderr : "");
-    const lines = logContent.split("\n");
+    const stdoutLines = result.stdout
+      ? result.stdout.split("\n").map((line) => ({ stream: "stdout" as const, line }))
+      : [];
+    const stderrLines = result.stderr
+      ? result.stderr.split("\n").map((line) => ({ stream: "stderr" as const, line }))
+      : [];
+    const allLines = [...stdoutLines, ...stderrLines];
     const query = args.caseSensitive ? args.query : args.query.toLowerCase();
-
-    const filteredLines = lines.filter((line) => {
-      const searchLine = args.caseSensitive ? line : line.toLowerCase();
-      return searchLine.includes(query);
+    const matches = allLines.filter(({ line }) => {
+      const haystack = args.caseSensitive ? line : line.toLowerCase();
+      return haystack.includes(query);
     });
 
-    return text(
-      formatSearchResponse({
-        containerName: args.container,
-        serverName: args.server,
-        query: args.query,
-        matchCount: filteredLines.length,
-        matches: filteredLines.join("\n"),
-      }),
-    );
+    const payload = {
+      summary: { name: args.container },
+      matches,
+    };
+    return structured(payload, { text: renderContainerSearchLogs(payload) });
   },
 });
 
@@ -242,6 +255,7 @@ export const containerActionTool = defineTool({
     "The container must exist on the target server. " +
     "Note: pause/unpause use cgroups freezer; restart is stop+start.",
   input: containerActionInputSchema,
+  output: actionResultSchema,
   annotations: { idempotentHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.OPERATE],
@@ -254,6 +268,9 @@ export const containerActionTool = defineTool({
       abortSignal,
       reportProgress,
     );
-    return text(formatUpdateResult(update, args.action, "container", args.container, args.server));
+    const payload = buildActionResult(update, args.action, "container", args.container, args.server);
+    return structured(payload, {
+      text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
+    });
   },
 });

@@ -14,16 +14,19 @@
  * @module tools/stack
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
 import {
   formatActionResponse,
-  formatInfoResponse,
   requireClient,
   wrapApiCall,
   wrapExecuteAndPoll,
-  formatUpdateResult,
+  buildActionResult,
+  extractUpdateId,
+  renderStackList,
+  renderStackInfo,
+  renderActionResult,
 } from "../utils/index.js";
 import {
   stackConfigSchema,
@@ -32,6 +35,9 @@ import {
   stackIdSchema,
   resourceNameSchema,
   serverIdSchema,
+  stackListOutputSchema,
+  stackInfoOutputSchema,
+  actionResultSchema,
 } from "./schemas/index.js";
 
 type StackListItem = Types.StackListItem;
@@ -44,18 +50,21 @@ export const listStacksTool = defineTool({
   name: "komodo_stack_list",
   description: "List all Komodo-managed Compose stacks. Shows stack name, ID, and current state.",
   input: z.object({}),
+  output: stackListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.STACK },
   requiredScopes: [ToolScopes.READ],
   handler: async (_args, { abortSignal }) => {
     const komodo = requireClient();
     const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", {}), abortSignal);
-    return text(
-      `📚 Docker Compose stacks:\n\n${
-        stacks.map((s: StackListItem) => `• ${s.name} (${s.id}) - State: ${s.info.state}`).join("\n") ||
-        "No stacks found."
-      }`,
-    );
+    const items = stacks.map((s: StackListItem) => ({
+      id: s.id,
+      name: s.name,
+      state: s.info.state,
+      ...(s.info.server_id ? { server_id: s.info.server_id } : {}),
+    }));
+    const payload = { items };
+    return structured(payload, { text: renderStackList(payload) });
   },
 });
 
@@ -70,6 +79,7 @@ export const getStackInfoTool = defineTool({
   input: z.object({
     stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
   }),
+  output: stackInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.STACK },
   requiredScopes: [ToolScopes.READ],
@@ -80,9 +90,11 @@ export const getStackInfoTool = defineTool({
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
-    return text(
-      formatInfoResponse({ resourceType: "stack", resourceId: args.stack, content: JSON.stringify(result, null, 2) }),
-    );
+    const payload = {
+      summary: { id: args.stack, name: args.stack },
+      info: result,
+    };
+    return structured(payload, { text: renderStackInfo(payload) });
   },
 });
 
@@ -210,6 +222,7 @@ export const stackActionTool = defineTool({
     "start, restart, pause, unpause, stop, or destroy (compose down — removes containers). " +
     "The `destroy` action is destructive (containers are removed); the stack configuration is preserved.",
   input: stackActionInputSchema,
+  output: actionResultSchema,
   annotations: { idempotentHint: true, destructiveHint: true },
   _meta: { category: ToolCategories.STACK },
   requiredScopes: [ToolScopes.OPERATE],
@@ -222,6 +235,9 @@ export const stackActionTool = defineTool({
       abortSignal,
       reportProgress,
     );
-    return text(formatUpdateResult(update, args.action, "stack", args.stack));
+    const payload = buildActionResult(update, args.action, "stack", args.stack);
+    return structured(payload, {
+      text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
+    });
   },
 });

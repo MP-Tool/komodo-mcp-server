@@ -11,6 +11,7 @@ import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS } from "../../config/index.js";
 import { deploymentIdSchema } from "./validators.js";
+import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 /** Container restart policy */
 const restartModeSchema = z
@@ -106,3 +107,33 @@ export const deploymentActionInputSchema = z.object({
   action: deploymentActionEnum,
   deployment: deploymentIdSchema.describe("Deployment ID or name"),
 });
+
+// ============================================================================
+// Output Schemas
+// ============================================================================
+
+/** Compact summary of a single deployment as returned in list/info responses. */
+export const deploymentSummarySchema = z.object({
+  id: z.string().describe("Deployment ID"),
+  name: z.string().describe("Deployment name"),
+  state: z.string().optional().describe("Container state (running, exited, paused, ...) when known"),
+  image: z.string().optional().describe("Image reference currently configured"),
+  server_id: z.string().optional().describe("Target server ID"),
+});
+
+/** Output of `komodo_deployment_list`. */
+export const deploymentListOutputSchema = z
+  .object({
+    items: z.array(deploymentSummarySchema).describe("Deployments visible to the caller"),
+    page: pageOutputSchema.optional(),
+  })
+  .describe("List of deployments");
+
+/** Output of `komodo_deployment_info`. */
+export const deploymentInfoOutputSchema = z
+  .object({
+    summary: deploymentSummarySchema,
+    info: z.unknown().optional().describe("Full deployment resource payload, when returned inline"),
+    resourceLink: resourceLinkSchema.optional(),
+  })
+  .describe("Detailed information about a deployment");

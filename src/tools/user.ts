@@ -8,10 +8,11 @@
  * @module tools/user
  */
 
-import { defineTool, text, z } from "mcp-server-framework";
+import { defineTool, structured, text, z } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { requireClient, wrapApiCall } from "../utils/index.js";
+import { requireClient, wrapApiCall, renderApiKeyList, renderApiKeyCreated } from "../utils/index.js";
+import { listApiKeysOutputSchema, createApiKeyOutputSchema } from "./schemas/index.js";
 
 type ApiKey = Types.ApiKey;
 
@@ -25,6 +26,7 @@ export const listApiKeysTool = defineTool({
     "List all API keys for the currently authenticated Komodo user. " +
     "Shows key name, key ID (not secret), creation date, and expiry.",
   input: z.object({}),
+  output: listApiKeysOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.USER },
   requiredScopes: [ToolScopes.READ],
@@ -32,19 +34,15 @@ export const listApiKeysTool = defineTool({
     const komodo = requireClient();
     const keys = await wrapApiCall("listApiKeys", () => komodo.client.read("ListApiKeys", {}), abortSignal);
 
-    if (!keys.length) {
-      return text("🔑 No API keys found for the current user.");
-    }
+    const items = keys.map((k: ApiKey) => ({
+      name: k.name,
+      key: k.key,
+      created_at: k.created_at,
+      expires: k.expires,
+    }));
 
-    const keyList = keys
-      .map((k: ApiKey) => {
-        const created = new Date(k.created_at).toISOString().split("T")[0];
-        const expires = k.expires === 0 ? "never" : new Date(k.expires).toISOString().split("T")[0];
-        return `• **${k.name}** — Key: \`${k.key}\` | Created: ${created} | Expires: ${expires}`;
-      })
-      .join("\n");
-
-    return text(`🔑 API keys (${keys.length}):\n\n${keyList}`);
+    const payload = { items };
+    return structured(payload, { text: renderApiKeyList(payload) });
   },
 });
 
@@ -72,6 +70,7 @@ export const createApiKeyTool = defineTool({
       .default(0)
       .describe("Number of days until the key expires. 0 means no expiry. Default: 0"),
   }),
+  output: createApiKeyOutputSchema,
   annotations: { readOnlyHint: false },
   _meta: { category: ToolCategories.USER },
   requiredScopes: [ToolScopes.ADMIN],
@@ -86,16 +85,13 @@ export const createApiKeyTool = defineTool({
       abortSignal,
     );
 
-    const expiryStr = args.expires_in_days > 0 ? `${args.expires_in_days} days` : "never";
-
-    return text(
-      `✅ API key created successfully!\n\n` +
-        `**Name:** ${args.name}\n` +
-        `**Key:** \`${result.key}\`\n` +
-        `**Secret:** \`${result.secret}\`\n` +
-        `**Expires:** ${expiryStr}\n\n` +
-        `⚠️ **Save the secret now!** It cannot be retrieved later.`,
-    );
+    const payload = {
+      name: args.name,
+      key: result.key,
+      secret: result.secret,
+      expires,
+    };
+    return structured(payload, { text: renderApiKeyCreated(payload) });
   },
 });
 

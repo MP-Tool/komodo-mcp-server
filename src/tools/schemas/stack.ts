@@ -11,7 +11,13 @@ import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
 import { stackIdSchema } from "./validators.js";
-import { systemCommandSchema, linkedRepoSchema, webhookSchema } from "./shared.js";
+import {
+  systemCommandSchema,
+  linkedRepoSchema,
+  webhookSchema,
+  resourceLinkSchema,
+  pageOutputSchema,
+} from "./shared.js";
 
 /** Additional config file dependency for the Stack */
 const stackConfigFileDependencySchema = z
@@ -103,3 +109,32 @@ export const stackActionInputSchema = z.object({
   action: stackActionEnum,
   stack: stackIdSchema.describe("Stack ID or name"),
 });
+
+// ============================================================================
+// Output Schemas
+// ============================================================================
+
+/** Compact summary of a single stack as returned in list/info responses. */
+export const stackSummarySchema = z.object({
+  id: z.string().describe("Stack ID"),
+  name: z.string().describe("Stack name"),
+  state: z.string().optional().describe("Aggregate compose state (running, partial, stopped, ...) when known"),
+  server_id: z.string().optional().describe("Target server ID"),
+});
+
+/** Output of `komodo_stack_list`. */
+export const stackListOutputSchema = z
+  .object({
+    items: z.array(stackSummarySchema).describe("Stacks visible to the caller"),
+    page: pageOutputSchema.optional(),
+  })
+  .describe("List of stacks");
+
+/** Output of `komodo_stack_info`. */
+export const stackInfoOutputSchema = z
+  .object({
+    summary: stackSummarySchema,
+    info: z.unknown().optional().describe("Full stack resource payload, when returned inline"),
+    resourceLink: resourceLinkSchema.optional(),
+  })
+  .describe("Detailed information about a stack");

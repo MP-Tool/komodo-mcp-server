@@ -7,11 +7,13 @@
  * @module tools/config
  */
 
-import { defineTool, error, text, z } from "mcp-server-framework";
+import { defineTool, error, structured, text, z } from "mcp-server-framework";
 import { logger as baseLogger } from "mcp-server-framework";
 import { SERVER_VERSION, RESPONSE_ICONS, ToolCategories, ToolScopes } from "../config/index.js";
 import { KomodoClient, komodoConnection, resolveAuth } from "../client.js";
 import { AuthenticationError } from "../errors/index.js";
+import { healthCheckOutputSchema } from "./schemas/index.js";
+import { renderHealthCheck } from "../utils/index.js";
 
 const logger = baseLogger.child({ component: "config-tools" });
 
@@ -145,6 +147,7 @@ export const healthCheckTool = defineTool({
     "Check the Komodo connection status. Returns health, authentication status, and API version. " +
     "Works without an active connection (reports unconfigured state).",
   input: z.object({}),
+  output: healthCheckOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONFIG },
   requiredScopes: [ToolScopes.READ],
@@ -152,53 +155,51 @@ export const healthCheckTool = defineTool({
     const client = komodoConnection.getClient();
 
     if (!client) {
-      return text(
-        `${RESPONSE_ICONS.WARNING} Komodo client is not configured\n\n` +
-          `Use 'komodo_configure' to establish a connection.\n\n` +
-          `Authentication methods:\n` +
-          `• username + password — Local account login\n` +
-          `• apiKey + apiSecret — API key authentication\n` +
-          `• jwtToken — JWT token authentication`,
-      );
+      const payload = {
+        configured: false,
+        healthy: false,
+        mcp_server_version: SERVER_VERSION,
+      };
+      return structured(payload, { text: renderHealthCheck(payload) });
     }
 
     try {
       const health = await client.healthCheck();
 
       if (health.healthy) {
-        const lines = [
-          `${RESPONSE_ICONS.SUCCESS} Komodo server is healthy`,
-          "",
-          `${RESPONSE_ICONS.NETWORK} Server: ${client.url}`,
-          `${RESPONSE_ICONS.AUTH} Authentication: OK`,
-        ];
-        if (health.version) lines.push(`${RESPONSE_ICONS.KOMODO} Komodo: v${health.version}`);
-        lines.push(`${RESPONSE_ICONS.VERSION} MCP Server: v${SERVER_VERSION}`);
-
-        return text(lines.join("\n"));
+        const payload = {
+          configured: true,
+          healthy: true,
+          server: client.url,
+          ...(health.version ? { komodo_version: health.version } : {}),
+          mcp_server_version: SERVER_VERSION,
+        };
+        return structured(payload, { text: renderHealthCheck(payload) });
       }
 
       logger.warn("Health check failed for %s: %s", client.url, health.error);
-      return text(
-        `${RESPONSE_ICONS.ERROR} Health check failed\n\n` +
-          `${RESPONSE_ICONS.NETWORK} Server: ${client.url}\n` +
-          (health.error ? `${RESPONSE_ICONS.WARNING} ${health.error}\n` : "") +
-          `\nTroubleshooting:\n` +
-          `• Check if the Komodo server is running\n` +
-          `• Verify network connectivity\n` +
-          `• Try reconnecting with 'komodo_configure'`,
-      );
+      const payload = {
+        configured: true,
+        healthy: false,
+        server: client.url,
+        mcp_server_version: SERVER_VERSION,
+        ...(health.error ? { error: health.error } : {}),
+      };
+      return structured(payload, { text: renderHealthCheck(payload) });
     } catch (error) {
       // AuthenticationError (401/403) — propagate with clear message + recovery hint
       if (error instanceof AuthenticationError) throw error;
 
       logger.warn("Health check error for %s: %s", client.url, error instanceof Error ? error.message : String(error));
-      return text(
-        `${RESPONSE_ICONS.ERROR} Health check error\n\n` +
-          `${RESPONSE_ICONS.NETWORK} Server: ${client.url}\n` +
-          `${RESPONSE_ICONS.WARNING} ${error instanceof Error ? error.message : String(error)}\n\n` +
-          `Try reconnecting with 'komodo_configure'.`,
-      );
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const payload = {
+        configured: true,
+        healthy: false,
+        server: client.url,
+        mcp_server_version: SERVER_VERSION,
+        error: errMsg,
+      };
+      return structured(payload, { text: renderHealthCheck(payload) });
     }
   },
 });

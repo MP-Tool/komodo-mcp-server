@@ -14,11 +14,11 @@
  * @module tools/terminal
  */
 
-import { defineTool, text } from "mcp-server-framework";
+import { defineTool, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { execInputSchema } from "./schemas/index.js";
-import { requireClient, wrapApiCall } from "../utils/index.js";
+import { execInputSchema, execOutputSchema } from "./schemas/index.js";
+import { requireClient, wrapApiCall, renderExecResult } from "../utils/index.js";
 
 // ============================================================================
 // Constants
@@ -177,26 +177,6 @@ function collectCallbackOutput(
 }
 
 // ============================================================================
-// Response Formatting
-// ============================================================================
-
-function formatTerminalResponse(target: string, command: string, result: TerminalResult): string {
-  const { output, exitCode, truncated } = result;
-
-  const exitInfo =
-    exitCode !== null
-      ? exitCode === "0"
-        ? "✅ Exit code: 0"
-        : `❌ Exit code: ${exitCode}`
-      : "⚠️ Exit code: unknown (stream ended early)";
-
-  const truncateNote = truncated ? "\n⚠️ Output was truncated due to size." : "";
-  const outputBlock = output.trim() ? `\`\`\`\n${output.trim()}\n\`\`\`` : "_No output_";
-
-  return `🖥️ Command executed on ${target}\n\n**Command:** \`${command}\`\n${exitInfo}${truncateNote}\n\n${outputBlock}`;
-}
-
-// ============================================================================
 // Consolidated `komodo_exec` Tool
 // ============================================================================
 
@@ -210,6 +190,7 @@ export const execTool = defineTool({
     "- `stack_service` — inside a service container of a Compose stack (requires `stack` + `service`, optional `shell`)\n\n" +
     "Returns stdout/stderr output and exit code. Output is truncated at 50KB; commands time out after 5 minutes.",
   input: execInputSchema,
+  output: execOutputSchema,
   annotations: {
     readOnlyHint: false,
     destructiveHint: true,
@@ -232,7 +213,15 @@ export const execTool = defineTool({
           abortSignal,
         );
         const result = await collectStreamOutput(stream, abortSignal, reportProgress);
-        return text(formatTerminalResponse(`server "${args.server}"`, args.command, result));
+        const payload = {
+          target: "server" as const,
+          command: args.command,
+          output: result.output,
+          exit_code: result.exitCode,
+          truncated: result.truncated,
+          server: args.server,
+        };
+        return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "container": {
@@ -255,7 +244,16 @@ export const execTool = defineTool({
             ),
           abortSignal,
         );
-        return text(formatTerminalResponse(`container "${args.container}" on "${args.server}"`, args.command, result));
+        const payload = {
+          target: "container" as const,
+          command: args.command,
+          output: result.output,
+          exit_code: result.exitCode,
+          truncated: result.truncated,
+          server: args.server,
+          container: args.container,
+        };
+        return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "deployment": {
@@ -277,7 +275,15 @@ export const execTool = defineTool({
             ),
           abortSignal,
         );
-        return text(formatTerminalResponse(`deployment "${args.deployment}"`, args.command, result));
+        const payload = {
+          target: "deployment" as const,
+          command: args.command,
+          output: result.output,
+          exit_code: result.exitCode,
+          truncated: result.truncated,
+          deployment: args.deployment,
+        };
+        return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "stack_service": {
@@ -300,7 +306,16 @@ export const execTool = defineTool({
             ),
           abortSignal,
         );
-        return text(formatTerminalResponse(`service "${args.service}" in stack "${args.stack}"`, args.command, result));
+        const payload = {
+          target: "stack_service" as const,
+          command: args.command,
+          output: result.output,
+          exit_code: result.exitCode,
+          truncated: result.truncated,
+          stack: args.stack,
+          service: args.service,
+        };
+        return structured(payload, { text: renderExecResult(payload) });
       }
     }
   },

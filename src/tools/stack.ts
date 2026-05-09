@@ -16,7 +16,7 @@
 
 import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
 import {
   formatActionResponse,
   requireClient,
@@ -27,6 +27,7 @@ import {
   renderStackList,
   renderStackInfo,
   renderActionResult,
+  tryRegisterResource,
 } from "../utils/index.js";
 import {
   stackConfigSchema,
@@ -38,6 +39,7 @@ import {
   stackListOutputSchema,
   stackInfoOutputSchema,
   actionResultSchema,
+  inlineFullInputSchema,
 } from "./schemas/index.js";
 
 type StackListItem = Types.StackListItem;
@@ -76,25 +78,38 @@ export const getStackInfoTool = defineTool({
   name: "komodo_stack_info",
   description:
     "Get detailed information about a Compose stack including configuration, current state, compose file contents, services, and environment variables.",
-  input: z.object({
-    stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
-  }),
+  input: z
+    .object({
+      stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
+    })
+    .merge(inlineFullInputSchema),
   output: stackInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.STACK },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
       "getStackInfo",
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
-    const payload = {
-      summary: { id: args.stack, name: args.stack },
-      info: result,
-    };
-    return structured(payload, { text: renderStackInfo(payload) });
+    const link = tryRegisterResource({
+      ctx: { sessionId },
+      category: "info",
+      name: `${args.stack} (stack info)`,
+      mimeType: "application/json",
+      content: JSON.stringify(result, null, 2),
+      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      inlineFull: args.inline_full,
+      description: `Full stack resource for ${args.stack}`,
+    });
+    const summary = { id: args.stack, name: args.stack };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    return structured(payload, {
+      text: renderStackInfo(payload),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 

@@ -50,6 +50,15 @@ export const appEnvSchema = z.object({
 
   /** API request timeout. Accepts human-readable durations ('30s', '1m') or plain milliseconds. Default: '30s' */
   API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
+
+  /** TTL for ephemeral info/inspect resources. Accepts durations ('15m') or ms. Default: '15m' */
+  KOMODO_RESOURCE_TTL_INFO: durationSchema("15m").pipe(z.number().int().positive()),
+
+  /** TTL for ephemeral log resources. Accepts durations ('2m') or ms. Default: '2m' */
+  KOMODO_RESOURCE_TTL_LOGS: durationSchema("2m").pipe(z.number().int().positive()),
+
+  /** Maximum number of dynamic resource entries kept in memory. Default: 1000 */
+  KOMODO_RESOURCE_MAX_ENTRIES: z.coerce.number().int().positive().default(1000),
 });
 
 export type AppEnvConfig = z.infer<typeof appEnvSchema>;

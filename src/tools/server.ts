@@ -10,7 +10,7 @@
 
 import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
 import {
   serverConfigSchema,
   serverIdSchema,
@@ -20,6 +20,7 @@ import {
   serverInfoOutputSchema,
   serverStatsOutputSchema,
   actionResultSchema,
+  inlineFullInputSchema,
 } from "./schemas/index.js";
 import {
   formatActionResponse,
@@ -32,6 +33,7 @@ import {
   renderServerInfo,
   renderServerStats,
   renderActionResult,
+  tryRegisterResource,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -103,25 +105,38 @@ export const getServerStatsTool = defineTool({
 export const getServerInfoTool = defineTool({
   name: "komodo_server_info",
   description: "Get detailed information about a specific server",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
-  }),
+  input: z
+    .object({
+      server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
+    })
+    .merge(inlineFullInputSchema),
   output: serverInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
       "getServerInfo",
       () => komodo.client.read("GetServer", { server: args.server }),
       abortSignal,
     );
-    const payload = {
-      summary: { id: args.server, name: args.server },
-      info: result,
-    };
-    return structured(payload, { text: renderServerInfo(payload) });
+    const link = tryRegisterResource({
+      ctx: { sessionId },
+      category: "info",
+      name: `${args.server} (server info)`,
+      mimeType: "application/json",
+      content: JSON.stringify(result, null, 2),
+      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      inlineFull: args.inline_full,
+      description: `Full server resource for ${args.server}`,
+    });
+    const summary = { id: args.server, name: args.server };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    return structured(payload, {
+      text: renderServerInfo(payload),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 

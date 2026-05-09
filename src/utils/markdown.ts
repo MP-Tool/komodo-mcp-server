@@ -110,11 +110,15 @@ export function renderContainerList(payload: { items: readonly ContainerListItem
 
 interface ContainerInspectPayload {
   readonly summary: { readonly name: string };
-  readonly inspect: unknown;
+  readonly inspect?: unknown;
+  readonly resourceLink?: { readonly uri: string };
 }
 
 export function renderContainerInspect(payload: ContainerInspectPayload): string {
   const header = `${RESPONSE_ICONS.INFO} Container "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull Docker inspect payload available as resource: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
   return `${header}\n\n${jsonBlock(payload.inspect)}`;
 }
 
@@ -122,10 +126,14 @@ interface LogPayload {
   readonly summary: { readonly name: string };
   readonly stdout?: string;
   readonly stderr?: string;
+  readonly resourceLink?: { readonly uri: string };
 }
 
 export function renderContainerLogs(payload: LogPayload): string {
   const header = `${RESPONSE_ICONS.LIST} Logs for container "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull stdout/stderr available as resource: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
   const stdout = payload.stdout ?? "";
   const stderr = payload.stderr ?? "";
   if (!stdout && !stderr) return `${header}\n\n(No logs available)`;
@@ -181,11 +189,15 @@ export function renderServerList(payload: { items: readonly ServerListItem[] }):
 
 interface ServerInfoPayload {
   readonly summary: { readonly id: string; readonly name: string };
-  readonly info: unknown;
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
 }
 
 export function renderServerInfo(payload: ServerInfoPayload): string {
   const header = `${RESPONSE_ICONS.INFO} Server "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull server resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
   return `${header}\n\n${jsonBlock(payload.info)}`;
 }
 
@@ -219,11 +231,15 @@ export function renderDeploymentList(payload: { items: readonly DeploymentListIt
 
 interface DeploymentInfoPayload {
   readonly summary: { readonly id: string; readonly name: string };
-  readonly info: unknown;
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
 }
 
 export function renderDeploymentInfo(payload: DeploymentInfoPayload): string {
   const header = `${RESPONSE_ICONS.INFO} Deployment "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull deployment resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
   return `${header}\n\n${jsonBlock(payload.info)}`;
 }
 
@@ -253,11 +269,15 @@ export function renderStackList(payload: { items: readonly StackListItem[] }): s
 
 interface StackInfoPayload {
   readonly summary: { readonly id: string; readonly name: string };
-  readonly info: unknown;
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
 }
 
 export function renderStackInfo(payload: StackInfoPayload): string {
   const header = `${RESPONSE_ICONS.INFO} Stack "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull stack resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
   return `${header}\n\n${jsonBlock(payload.info)}`;
 }
 

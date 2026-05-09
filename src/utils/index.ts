@@ -15,6 +15,10 @@
 // --- API Helpers ---
 export { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
 
+// --- Resource Links (ephemeral session-bound payloads) ---
+export { tryRegisterResource } from "./resource-link.js";
+export type { ResourceCategory, ResourceLinkContext, RegisterResourceOptions } from "./resource-link.js";
+
 // --- Polling ---
 export { extractUpdateId, wrapExecuteAndPoll, buildActionResult } from "./polling.js";
 export type { ActionResult } from "./polling.js";

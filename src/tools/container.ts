@@ -23,6 +23,7 @@ import {
   LOG_SEARCH_DEFAULTS,
   ToolCategories,
   ToolScopes,
+  config,
 } from "../config/index.js";
 import {
   requireClient,
@@ -35,6 +36,7 @@ import {
   renderContainerLogs,
   renderContainerSearchLogs,
   renderActionResult,
+  tryRegisterResource,
 } from "../utils/index.js";
 import {
   containerActionInputSchema,
@@ -45,6 +47,7 @@ import {
   containerLogsOutputSchema,
   containerSearchLogsOutputSchema,
   actionResultSchema,
+  inlineFullInputSchema,
 } from "./schemas/index.js";
 
 type ContainerListItem = Types.ContainerListItem;
@@ -92,26 +95,40 @@ export const inspectContainerTool = defineTool({
   name: "komodo_container_inspect",
   description:
     "Get detailed low-level information about a container. Returns Docker inspect data including configuration, state, network settings, mounts, and process info.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
-    container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
-  }),
+  input: z
+    .object({
+      server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+      container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
+    })
+    .merge(inlineFullInputSchema),
   output: containerInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
       "inspectContainer",
       () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),
       abortSignal,
     );
-    const payload = {
-      summary: { name: args.container },
-      inspect: result,
-    };
-    return structured(payload, { text: renderContainerInspect(payload) });
+    const link = tryRegisterResource({
+      ctx: { sessionId },
+      category: "inspect",
+      name: `${args.container} (inspect)`,
+      mimeType: "application/json",
+      content: JSON.stringify(result, null, 2),
+      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      inlineFull: args.inline_full,
+      description: `Docker inspect data for container ${args.container} on ${args.server}`,
+    });
+    const payload = link
+      ? { summary: { name: args.container }, resourceLink: link }
+      : { summary: { name: args.container }, inspect: result };
+    return structured(payload, {
+      text: renderContainerInspect(payload),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 
@@ -123,27 +140,29 @@ export const getContainerLogsTool = defineTool({
   name: "komodo_container_logs",
   description:
     "Get stdout and stderr logs from a container. Useful for debugging, monitoring application output, and troubleshooting issues.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
-    container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_LOGS),
-    tail: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .default(CONTAINER_LOGS_DEFAULTS.TAIL)
-      .describe(LOG_DESCRIPTIONS.TAIL_LINES(CONTAINER_LOGS_DEFAULTS.TAIL)),
-    timestamps: z
-      .boolean()
-      .optional()
-      .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
-      .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
-  }),
+  input: z
+    .object({
+      server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+      container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_LOGS),
+      tail: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .default(CONTAINER_LOGS_DEFAULTS.TAIL)
+        .describe(LOG_DESCRIPTIONS.TAIL_LINES(CONTAINER_LOGS_DEFAULTS.TAIL)),
+      timestamps: z
+        .boolean()
+        .optional()
+        .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
+        .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
+    })
+    .merge(inlineFullInputSchema),
   output: containerLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
 
     const result: Log = await wrapApiCall(
@@ -158,12 +177,36 @@ export const getContainerLogsTool = defineTool({
       abortSignal,
     );
 
-    const payload = {
-      summary: { name: args.container },
-      ...(result.stdout ? { stdout: result.stdout } : {}),
-      ...(result.stderr ? { stderr: result.stderr } : {}),
-    };
-    return structured(payload, { text: renderContainerLogs(payload) });
+    const stdout = result.stdout;
+    const stderr = result.stderr;
+    const fullLogs =
+      stdout || stderr
+        ? [stdout && `=== stdout ===\n${stdout}`, stderr && `=== stderr ===\n${stderr}`].filter(Boolean).join("\n\n")
+        : "";
+    const link = fullLogs
+      ? tryRegisterResource({
+          ctx: { sessionId },
+          category: "logs",
+          name: `${args.container} (logs)`,
+          mimeType: "text/plain",
+          content: fullLogs,
+          ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+          inlineFull: args.inline_full,
+          description: `Container logs for ${args.container} on ${args.server}`,
+        })
+      : null;
+
+    const payload = link
+      ? { summary: { name: args.container }, resourceLink: link }
+      : {
+          summary: { name: args.container },
+          ...(stdout ? { stdout } : {}),
+          ...(stderr ? { stderr } : {}),
+        };
+    return structured(payload, {
+      text: renderContainerLogs(payload),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 

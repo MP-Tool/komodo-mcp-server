@@ -16,7 +16,7 @@
 
 import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
 import {
   formatActionResponse,
   requireClient,
@@ -27,6 +27,7 @@ import {
   renderDeploymentList,
   renderDeploymentInfo,
   renderActionResult,
+  tryRegisterResource,
 } from "../utils/index.js";
 import {
   deploymentConfigSchema,
@@ -39,6 +40,7 @@ import {
   deploymentListOutputSchema,
   deploymentInfoOutputSchema,
   actionResultSchema,
+  inlineFullInputSchema,
 } from "./schemas/index.js";
 
 type DeploymentListItem = Types.DeploymentListItem;
@@ -83,25 +85,38 @@ export const getDeploymentInfoTool = defineTool({
   name: "komodo_deployment_info",
   description:
     "Get detailed information about a Komodo-managed deployment, including its configuration, current state, and assigned server.",
-  input: z.object({
-    deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
-  }),
+  input: z
+    .object({
+      deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
+    })
+    .merge(inlineFullInputSchema),
   output: deploymentInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     const result = await wrapApiCall(
       "getDeployment",
       () => komodo.client.read("GetDeployment", { deployment: args.deployment }),
       abortSignal,
     );
-    const payload = {
-      summary: { id: args.deployment, name: args.deployment },
-      info: result,
-    };
-    return structured(payload, { text: renderDeploymentInfo(payload) });
+    const link = tryRegisterResource({
+      ctx: { sessionId },
+      category: "info",
+      name: `${args.deployment} (deployment info)`,
+      mimeType: "application/json",
+      content: JSON.stringify(result, null, 2),
+      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      inlineFull: args.inline_full,
+      description: `Full deployment resource for ${args.deployment}`,
+    });
+    const summary = { id: args.deployment, name: args.deployment };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    return structured(payload, {
+      text: renderDeploymentInfo(payload),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 

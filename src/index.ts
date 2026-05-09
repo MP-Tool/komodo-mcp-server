@@ -8,8 +8,13 @@
 // Must be first import — polyfills localStorage for mogh_auth_client (Node.js)
 import "./utils/polyfills.js";
 
-import { createServer, logger } from "mcp-server-framework";
-import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection } from "./config/index.js";
+import {
+  createServer,
+  logger,
+  configureDynamicResourceRegistry,
+  defineDynamicResourceTemplate,
+} from "mcp-server-framework";
+import { SERVER_NAME, SERVER_VERSION, registerKomodoConfigSection, config } from "./config/index.js";
 import { initializeKomodoClientFromEnv, komodoConnection } from "./client.js";
 import { getKomodoCredentials } from "./config/index.js";
 
@@ -18,6 +23,13 @@ import "./tools/index.js";
 
 // Register [komodo] config file section before server init
 registerKomodoConfigSection();
+
+// Configure ephemeral resource registry and register the canonical template
+configureDynamicResourceRegistry({
+  uriScheme: "ephemeral",
+  maxEntries: config.KOMODO_RESOURCE_MAX_ENTRIES,
+});
+defineDynamicResourceTemplate();
 
 // ============================================================================
 // Server Instance

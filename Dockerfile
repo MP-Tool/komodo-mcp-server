@@ -20,7 +20,7 @@ ARG BUILD_DATE=unknown
 ARG COMMIT_SHA=unknown
 
 # Use native platform for builder (avoids QEMU emulation issues with npm)
-FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:26-alpine AS builder
 
 # Upgrade OS packages
 RUN apk upgrade --no-cache 
@@ -50,7 +50,7 @@ RUN npm prune --omit=dev && npm cache clean --force
 # Source files are NOT copied — the devcontainer mounts the workspace as a volume.
 # Dependencies are pre-installed and preserved in an anonymous volume (/app/node_modules).
 
-FROM node:22-alpine AS development
+FROM node:26-alpine AS development
 
 # Install development tools and tini for proper signal handling
 RUN apk upgrade --no-cache && \
@@ -81,7 +81,7 @@ CMD ["npm", "run", "dev"]
 # Production stage
 # =============================================================================
 
-FROM node:22-alpine AS production
+FROM node:26-alpine AS production
 
 # Re-declare ARGs for this stage (needed for LABELs)
 ARG VERSION

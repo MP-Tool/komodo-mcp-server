@@ -3,22 +3,21 @@
  *
  * Tools for managing single-container Komodo deployments.
  *
- * Tools (6):
- * - `komodo_deployment_list`     — list deployments
- * - `komodo_deployment_info`     — detailed deployment information
- * - `komodo_deployment_create`   — create a deployment
- * - `komodo_deployment_update`   — patch deployment configuration
- * - `komodo_deployment_delete`   — remove deployment from Komodo
- * - `komodo_deployment_action`   — consolidated lifecycle (deploy/pull/start/restart/pause/unpause/stop/destroy)
+ * Tools (5):
+ * - `komodo_deployment_list`    — list deployments
+ * - `komodo_deployment_info`    — detailed deployment information
+ * - `komodo_deployment_apply`   — create-or-update (discriminated by `action`)
+ * - `komodo_deployment_delete`  — remove deployment from Komodo
+ * - `komodo_deployment_action`  — consolidated lifecycle (deploy/pull/start/restart/pause/unpause/stop/destroy)
  *
  * @module tools/deployment
  */
 
-import { defineTool, structured, text, z } from "mcp-server-framework";
+import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import { AppErrorFactory } from "../errors/index.js";
 import {
-  formatActionResponse,
   requireClient,
   wrapApiCall,
   paginate,
@@ -29,18 +28,18 @@ import {
   renderDeploymentInfo,
   renderActionResult,
   tryRegisterResource,
+  buildApplyResult,
+  buildDeleteResult,
 } from "../utils/index.js";
 import {
-  deploymentConfigSchema,
-  createDeploymentConfigSchema,
-  DeploymentImageSchema,
+  deploymentApplyInputSchema,
   deploymentActionInputSchema,
   deploymentIdSchema,
-  resourceNameSchema,
-  serverIdSchema,
   deploymentListOutputSchema,
   deploymentInfoOutputSchema,
   actionResultSchema,
+  applyResultSchema,
+  deleteResultSchema,
   inlineFullInputSchema,
   paginationInputSchema,
 } from "./schemas/index.js";
@@ -123,81 +122,52 @@ export const getDeploymentInfoTool = defineTool({
   },
 });
 
-export const createDeploymentTool = defineTool({
-  name: "komodo_deployment_create",
-  description: `Create a new Komodo deployment (Docker container).
-
-REQUIRED: name
-RECOMMENDED: server_id (target server) and image (what to deploy)
-
-IMAGE FORMATS:
-- Simple string: "nginx:latest", "ghcr.io/owner/repo:v1.0"
-- Object format: { type: "Image", params: { image: "nginx:latest" } }
-- Komodo Build: { type: "Build", params: { build_id: "..." } }`,
+export const applyDeploymentTool = defineTool({
+  name: "komodo_deployment_apply",
+  description: [
+    "Create or update a Komodo deployment (Docker container, PATCH-style).",
+    'action="create": new deployment. Required: name. Recommended: server_id, image.',
+    'action="update": existing deployment (`deployment` required). Only fields in `config` change.',
+    'Image accepts a string ("nginx:1.25") or { type: "Image"|"Build", params: {…} }.',
+  ].join("\n"),
+  input: deploymentApplyInputSchema,
+  output: applyResultSchema,
   annotations: { idempotentHint: false },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.ADMIN],
-  input: z.object({
-    name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_NAME),
-    server_id: serverIdSchema.optional().describe(PARAM_DESCRIPTIONS.SERVER_ID_FOR_DEPLOY),
-    image: DeploymentImageSchema.optional().describe("Docker image to deploy"),
-    config: createDeploymentConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_CREATE),
-  }),
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const deploymentConfig: Record<string, unknown> = { ...args.config };
-    if (args.server_id) deploymentConfig.server_id = args.server_id;
-    if (args.image) {
-      deploymentConfig.image =
-        typeof args.image === "string" ? { type: "Image", params: { image: args.image } } : args.image;
+    if (args.action === "create") {
+      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      const name = args.name;
+      const deploymentConfig: Record<string, unknown> = { ...args.config };
+      if (args.server_id) deploymentConfig.server_id = args.server_id;
+      if (args.image) {
+        deploymentConfig.image =
+          typeof args.image === "string" ? { type: "Image", params: { image: args.image } } : args.image;
+      }
+      const result = await wrapApiCall(
+        "createDeployment",
+        () => komodo.client.write("CreateDeployment", { name, config: deploymentConfig }),
+        abortSignal,
+      );
+      const built = buildApplyResult("create", "deployment", name, result);
+      return structured(built.payload, { text: built.text });
     }
-
-    const result = await wrapApiCall(
-      "createDeployment",
-      () =>
-        komodo.client.write("CreateDeployment", {
-          name: args.name,
-          config: deploymentConfig,
-        }),
-      abortSignal,
-    );
-    const header = formatActionResponse({ action: "create", resourceType: "deployment", resourceId: args.name });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
-  },
-});
-
-export const updateDeploymentTool = defineTool({
-  name: "komodo_deployment_update",
-  description: `Update an existing Komodo deployment configuration.
-
-PATCH-STYLE UPDATE: Only specify fields you want to change.
-
-COMMON UPDATE SCENARIOS:
-- Change image: { image: { type: "Image", params: { image: "nginx:1.25" } } }
-- Update env vars: { environment: "NODE_ENV=production\\nPORT=3000" }
-- Change ports: { ports: "8080:80\\n443:443" }
-- Change restart policy: { restart: "always" }`,
-  input: z.object({
-    deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_UPDATE),
-    config: deploymentConfigSchema.describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_PARTIAL),
-  }),
-  annotations: { idempotentHint: true },
-  _meta: { category: ToolCategories.DEPLOYMENT },
-  requiredScopes: [ToolScopes.ADMIN],
-  handler: async (args, { abortSignal }) => {
-    const komodo = requireClient();
+    if (!args.deployment) throw AppErrorFactory.validation.fieldRequired("deployment");
+    const deploymentId = args.deployment;
     const result = await wrapApiCall(
       "updateDeployment",
-      // @type-variance — Zod-Output → komodo_client _PartialDeploymentConfig
+      // @type-variance — Zod-inferred optional fields (`T | undefined`) → SDK `Partial<DeploymentConfig>` (`T`).
       () =>
         komodo.client.write("UpdateDeployment", {
-          id: args.deployment,
+          id: deploymentId,
           config: args.config as Types._PartialDeploymentConfig,
         }),
       abortSignal,
     );
-    const header = formatActionResponse({ action: "update", resourceType: "deployment", resourceId: args.deployment });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
+    const built = buildApplyResult("update", "deployment", deploymentId, result);
+    return structured(built.payload, { text: built.text });
   },
 });
 
@@ -208,6 +178,7 @@ export const deleteDeploymentTool = defineTool({
   input: z.object({
     deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID),
   }),
+  output: deleteResultSchema,
   annotations: { destructiveHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.ADMIN],
@@ -218,8 +189,8 @@ export const deleteDeploymentTool = defineTool({
       () => komodo.client.write("DeleteDeployment", { id: args.deployment }),
       abortSignal,
     );
-    const header = formatActionResponse({ action: "remove", resourceType: "deployment", resourceId: args.deployment });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
+    const built = buildDeleteResult("deployment", args.deployment, result);
+    return structured(built.payload, { text: built.text });
   },
 });
 
@@ -252,12 +223,10 @@ const DEPLOYMENT_ACTION_API_MAP = {
 export const deploymentActionTool = defineTool({
   name: "komodo_deployment_action",
   description:
-    "Run a lifecycle action on a Komodo deployment: deploy (create or recreate the container), pull (latest image " +
-    "without recreating), start, restart, pause, unpause, stop, or destroy (remove the container). " +
-    "The `destroy` action is destructive (the container is removed); the deployment configuration is preserved.",
+    "Lifecycle action on a deployment: deploy (recreate container), pull (image only), start, restart, pause, unpause, stop, destroy (remove container). destroy is destructive; config preserved.",
   input: deploymentActionInputSchema,
   output: actionResultSchema,
-  annotations: { idempotentHint: true, destructiveHint: true },
+  annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {

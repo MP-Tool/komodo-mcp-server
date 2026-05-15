@@ -9,8 +9,13 @@
 
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS, RESTART_MODE_DESCRIPTIONS } from "../../config/index.js";
-import { deploymentIdSchema } from "./validators.js";
+import {
+  PARAM_DESCRIPTIONS,
+  FIELD_DESCRIPTIONS,
+  RESTART_MODE_DESCRIPTIONS,
+  CONFIG_DESCRIPTIONS,
+} from "../../config/index.js";
+import { deploymentIdSchema, serverIdSchema, resourceNameSchema } from "./validators.js";
 import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 /** Container restart policy */
@@ -106,6 +111,33 @@ export const deploymentActionEnum = z
 export const deploymentActionInputSchema = z.object({
   action: deploymentActionEnum,
   deployment: deploymentIdSchema.describe("Deployment ID or name"),
+});
+
+/**
+ * Discriminated input for `komodo_deployment_apply` (create-or-update).
+ *
+ * - `action: "create"` — register a new Deployment (`name` required, `server_id` and `image` recommended)
+ * - `action: "update"` — PATCH-style update of an existing Deployment (`deployment` required)
+ */
+/**
+ * Input for `komodo_deployment_apply` (create-or-update).
+ *
+ * Flat schema so MCP Inspector renders the form. The handler enforces
+ * `name` for create and `deployment` for update at runtime.
+ */
+export const deploymentApplyInputSchema = z.object({
+  action: z
+    .enum(["create", "update"])
+    .describe("'create' to register a new deployment, 'update' to PATCH an existing one"),
+  name: resourceNameSchema.optional().describe("Required when action='create' — unique name for the new deployment"),
+  deployment: deploymentIdSchema.optional().describe("Required when action='update' — existing deployment id or name"),
+  server_id: serverIdSchema
+    .optional()
+    .describe("Convenience field for action='create' — target server (mirrors `config.server_id`)"),
+  image: DeploymentImageSchema.optional().describe(
+    "Convenience field for action='create' — Docker image to deploy (mirrors `config.image`)",
+  ),
+  config: deploymentConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.DEPLOYMENT_CONFIG_PARTIAL),
 });
 
 // ============================================================================

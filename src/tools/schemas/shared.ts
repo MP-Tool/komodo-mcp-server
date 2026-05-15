@@ -105,3 +105,75 @@ export const actionResultSchema = z
     version: z.string().optional().describe("Resulting version string, when the action produces one (e.g. deploy)"),
   })
   .describe("Outcome envelope returned by lifecycle / action / prune tools");
+
+/**
+ * Generic result envelope for `*_apply` tools (create + update).
+ *
+ * Komodo's `Create*` / `Update*` writes return the full resource. We expose a
+ * lightweight envelope so the JSON Schema published to MCP clients is stable
+ * across all domains — domain-specific fields are accessible inline in the
+ * text response.
+ */
+export const applyResultSchema = z
+  .object({
+    action: z.enum(["create", "update"]).describe("Which apply action was performed"),
+    resource_type: z.string().describe("Target resource type"),
+    resource_id: z.string().describe("Resource id or name affected"),
+    resource: z.record(z.unknown()).optional().describe("Full resource returned by Komodo (when available)"),
+  })
+  .describe("Outcome envelope for *_apply tools");
+
+/**
+ * Generic result envelope for `*_delete` tools.
+ *
+ * Captures the deleted resource snapshot (when Komodo returns one) so clients
+ * can confirm the deletion target without parsing free-form text.
+ */
+export const deleteResultSchema = z
+  .object({
+    action: z.literal("remove").describe("Always 'remove' for delete tools"),
+    resource_type: z.string().describe("Target resource type"),
+    resource_id: z.string().describe("Resource id or name that was removed"),
+    resource: z.record(z.unknown()).optional().describe("Snapshot of the deleted resource (when available)"),
+  })
+  .describe("Outcome envelope for *_delete tools");
+
+/** Komodo semantic version (`Types.Version`). */
+export const versionSchema = z
+  .object({
+    major: z.number().int().min(0).describe("Major version component"),
+    minor: z.number().int().min(0).describe("Minor version component"),
+    patch: z.number().int().min(0).describe("Patch version component"),
+  })
+  .describe("Semantic version (major.minor.patch)");
+
+/** Image registry push target (`Types.ImageRegistryConfig`). */
+export const imageRegistryConfigSchema = z
+  .object({
+    domain: z
+      .string()
+      .optional()
+      .describe('Registry provider domain (e.g. "docker.io"). Empty disables push to this entry.'),
+    account: z.string().optional().describe("Registry account used to authenticate the push"),
+    organization: z.string().optional().describe("Optional organization namespace under which to push"),
+  })
+  .describe("Single image registry push target");
+
+/** Scheduled maintenance window (`Types.MaintenanceWindow`). */
+export const maintenanceWindowSchema = z
+  .object({
+    name: z.string().describe("Maintenance window name (required)"),
+    description: z.string().optional().describe("Description of the maintenance performed"),
+    schedule_type: z
+      .enum(["Daily", "Weekly", "OneTime"])
+      .optional()
+      .describe("Schedule type — Daily (default), Weekly, or OneTime"),
+    day_of_week: z.string().optional().describe('For Weekly schedules: weekday name (e.g. "Monday")'),
+    date: z.string().optional().describe("For OneTime windows: ISO 8601 date (YYYY-MM-DD)"),
+    hour: z.number().int().min(0).max(23).optional().describe("Start hour, 24h format (0-23, default 0)"),
+    minute: z.number().int().min(0).max(59).optional().describe("Start minute (0-59, default 0)"),
+    duration_minutes: z.number().int().min(1).describe("Window duration in minutes (required)"),
+    timezone: z.string().optional().describe("TZ identifier; falls back to Core timezone if empty"),
+    enabled: z.boolean().describe("Whether this window is currently active"),
+  })
+  .describe("Scheduled maintenance window during which alerts are suppressed");

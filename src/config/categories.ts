@@ -11,13 +11,23 @@
  */
 
 export const ToolCategories = {
+  CONFIG: "config",
+  SERVER: "server",
+  SWARM: "swarm",
   CONTAINER: "container",
+  TERMINAL: "terminal",
   STACK: "stack",
   DEPLOYMENT: "deployment",
-  SERVER: "server",
-  TERMINAL: "terminal",
+  BUILD: "build",
+  REPO: "repo",
+  PROCEDURE: "procedure",
+  ACTION: "action",
+  ALERTER: "alerter",
   USER: "user",
-  CONFIG: "config",
+  BUILDER: "builder",
+  VARIABLE: "variable",
+  RESOURCE_SYNC: "resource_sync",
+  UPDATE: "update",
 } as const;
 
 export type ToolCategory = (typeof ToolCategories)[keyof typeof ToolCategories];

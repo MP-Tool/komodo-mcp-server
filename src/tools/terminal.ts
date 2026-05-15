@@ -17,6 +17,7 @@
 import { defineTool, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
 import { ToolCategories, ToolScopes } from "../config/index.js";
+import { AppErrorFactory } from "../errors/index.js";
 import { execInputSchema, execOutputSchema } from "./schemas/index.js";
 import { requireClient, wrapApiCall, renderExecResult } from "../utils/index.js";
 
@@ -182,13 +183,11 @@ function collectCallbackOutput(
 
 export const execTool = defineTool({
   name: "komodo_exec",
-  description:
-    "Execute a shell command on a Komodo target. Use the `target` discriminator to choose the execution context:\n" +
-    "- `server` — host shell via Periphery terminal (requires `server`, optional `terminal`)\n" +
-    "- `container` — inside a running Docker container (requires `server` + `container`, optional `shell`)\n" +
-    "- `deployment` — inside the container of a Komodo deployment (requires `deployment`, optional `shell`)\n" +
-    "- `stack_service` — inside a service container of a Compose stack (requires `stack` + `service`, optional `shell`)\n\n" +
-    "Returns stdout/stderr output and exit code. Output is truncated at 50KB; commands time out after 5 minutes.",
+  description: [
+    "Execute a shell command on a Komodo target. `target` selects the context:",
+    "server (server[, terminal]) | container (server, container[, shell]) | deployment (deployment[, shell]) | stack_service (stack, service[, shell]).",
+    "Output ≤50 KB; timeout 5 min.",
+  ].join("\n"),
   input: execInputSchema,
   output: execOutputSchema,
   annotations: {
@@ -202,11 +201,13 @@ export const execTool = defineTool({
 
     switch (args.target) {
       case "server": {
+        if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+        const server = args.server;
         const stream = await wrapApiCall(
           "executeServerTerminal",
           () =>
             komodo.client.execute_terminal_stream({
-              target: { type: "Server", params: { server: args.server } },
+              target: { type: "Server", params: { server } },
               terminal: args.terminal,
               command: args.command,
             }),
@@ -219,12 +220,16 @@ export const execTool = defineTool({
           output: result.output,
           exit_code: result.exitCode,
           truncated: result.truncated,
-          server: args.server,
+          server,
         };
         return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "container": {
+        if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+        if (!args.container) throw AppErrorFactory.validation.fieldRequired("container");
+        const server = args.server;
+        const container = args.container;
         const result = await wrapApiCall(
           "executeContainerExec",
           () =>
@@ -232,8 +237,8 @@ export const execTool = defineTool({
               (callbacks) =>
                 komodo.client.execute_container_exec(
                   {
-                    server: args.server,
-                    container: args.container,
+                    server,
+                    container,
                     shell: args.shell,
                     command: args.command,
                   },
@@ -250,13 +255,15 @@ export const execTool = defineTool({
           output: result.output,
           exit_code: result.exitCode,
           truncated: result.truncated,
-          server: args.server,
-          container: args.container,
+          server,
+          container,
         };
         return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "deployment": {
+        if (!args.deployment) throw AppErrorFactory.validation.fieldRequired("deployment");
+        const deployment = args.deployment;
         const result = await wrapApiCall(
           "executeDeploymentExec",
           () =>
@@ -264,7 +271,7 @@ export const execTool = defineTool({
               (callbacks) =>
                 komodo.client.execute_deployment_exec(
                   {
-                    deployment: args.deployment,
+                    deployment,
                     shell: args.shell,
                     command: args.command,
                   },
@@ -281,12 +288,16 @@ export const execTool = defineTool({
           output: result.output,
           exit_code: result.exitCode,
           truncated: result.truncated,
-          deployment: args.deployment,
+          deployment,
         };
         return structured(payload, { text: renderExecResult(payload) });
       }
 
       case "stack_service": {
+        if (!args.stack) throw AppErrorFactory.validation.fieldRequired("stack");
+        if (!args.service) throw AppErrorFactory.validation.fieldRequired("service");
+        const stack = args.stack;
+        const service = args.service;
         const result = await wrapApiCall(
           "executeStackServiceExec",
           () =>
@@ -294,8 +305,8 @@ export const execTool = defineTool({
               (callbacks) =>
                 komodo.client.execute_stack_exec(
                   {
-                    stack: args.stack,
-                    service: args.service,
+                    stack,
+                    service,
                     shell: args.shell,
                     command: args.command,
                   },
@@ -312,8 +323,8 @@ export const execTool = defineTool({
           output: result.output,
           exit_code: result.exitCode,
           truncated: result.truncated,
-          stack: args.stack,
-          service: args.service,
+          stack,
+          service,
         };
         return structured(payload, { text: renderExecResult(payload) });
       }

@@ -9,8 +9,9 @@
 
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS } from "../../config/index.js";
-import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../../config/index.js";
+import { serverIdSchema, resourceNameSchema } from "./validators.js";
+import { actionResultSchema, resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 /** Scheduled maintenance window for alert suppression */
 const maintenanceWindowSchema = z
@@ -63,6 +64,26 @@ export const serverConfigSchema = z
   })
   .describe("Configuration for a Komodo server");
 
+/**
+ * Discriminated input for `komodo_server_apply` (create-or-update).
+ *
+ * - `action: "create"` — register a new Server (`name` required)
+ * - `action: "update"` — PATCH-style update of an existing Server (`server` required)
+ */
+/**
+ * Input for `komodo_server_apply` (create-or-update).
+ *
+ * Flat schema (instead of `z.discriminatedUnion`) so MCP Inspector and other UI
+ * clients can render the form. The handler validates that `name` is present
+ * when `action='create'` and `server` is present when `action='update'`.
+ */
+export const serverApplyInputSchema = z.object({
+  action: z.enum(["create", "update"]).describe("'create' to register a new server, 'update' to PATCH an existing one"),
+  name: resourceNameSchema.optional().describe("Required when action='create' — unique name for the new server"),
+  server: serverIdSchema.optional().describe("Required when action='update' — existing server id or name"),
+  config: serverConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_PARTIAL),
+});
+
 // ============================================================================
 // Output Schemas
 // ============================================================================
@@ -101,3 +122,54 @@ export const serverStatsOutputSchema = z
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Server health and status snapshot");
+
+// ============================================================================
+// Server Action (host-level operations)
+// ============================================================================
+
+/**
+ * Discriminator for `komodo_server_action`.
+ *
+ * Groups host-level operations on a Komodo server resource:
+ * - Batch container ops: start/restart/pause/unpause/stop *all* containers on the host
+ * - Prune ops: free disk space by removing unused Docker resources
+ * - Delete ops: remove a specific named network/image/volume (requires `name`)
+ */
+export const serverActionEnum = z.enum([
+  "start_all_containers",
+  "restart_all_containers",
+  "pause_all_containers",
+  "unpause_all_containers",
+  "stop_all_containers",
+  "prune_containers",
+  "prune_images",
+  "prune_volumes",
+  "prune_networks",
+  "prune_system",
+  "prune_docker_builders",
+  "prune_buildx",
+  "delete_network",
+  "delete_image",
+  "delete_volume",
+]);
+export type ServerAction = z.infer<typeof serverActionEnum>;
+
+/**
+ * Flat input schema for `komodo_server_action`.
+ *
+ * Uses a flat shape (not `z.discriminatedUnion`) for MCP-Inspector compatibility.
+ * Per-action required fields are validated at runtime in the handler.
+ */
+export const serverActionInputSchema = z.object({
+  action: serverActionEnum.describe(
+    "Action to perform. Batch container ops act on every container on the host. Prune ops free disk space. Delete ops require `name`.",
+  ),
+  server: serverIdSchema.describe("Target server (id or name)"),
+  name: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Required for delete_network/delete_image/delete_volume. Name of the resource to delete."),
+});
+
+export const serverActionOutputSchema = actionResultSchema;

@@ -30,6 +30,18 @@ export const RESPONSE_ICONS = {
   SERVER: "🖥️",
   STACK: "📚",
   DEPLOYMENT: "🚢",
+  BUILD: "🔨",
+  REPO: "📂",
+  PROCEDURE: "🧩",
+  ACTION: "🎬",
+  ALERTER: "🚨",
+  SWARM: "🐝",
+  NODE: "🖥️",
+  SERVICE: "⚙️",
+  BUILDER: "🏗️",
+  VARIABLE: "🔣",
+  SYNC: "🔁",
+  UPDATE_LOG: "🕒",
   INFO: "ℹ️",
   LIST: "📋",
   NETWORK: "🌐",
@@ -81,6 +93,8 @@ export const CONFIG_DESCRIPTIONS = {
   DEPLOYMENT_CONFIG_CREATE: "Full deployment configuration (optional)",
   STACK_CONFIG_PARTIAL: "Stack configuration fields to update (partial update)",
   STACK_CONFIG_CREATE: "Full stack configuration",
+  REPO_CONFIG_PARTIAL: "Repo configuration fields to update (partial update — only specified fields are changed)",
+  REPO_CONFIG_CREATE: "Initial repo configuration (all fields optional — run komodo_repo_action clone afterwards)",
 } as const;
 
 // ============================================================================
@@ -126,15 +140,6 @@ export const RESTART_MODE_DESCRIPTIONS = {
   ON_FAILURE: "Restart only if the container exits with a non-zero exit code",
   ALWAYS: "Always restart the container regardless of exit status",
   UNLESS_STOPPED: "Always restart unless manually stopped",
-} as const;
-
-export const PRUNE_TARGET_DESCRIPTIONS = {
-  CONTAINERS: "Remove all stopped containers",
-  IMAGES: "Remove unused images (dangling and unreferenced)",
-  VOLUMES: "Remove all unused local volumes",
-  NETWORKS: "Remove all unused networks",
-  SYSTEM: "Run docker system prune (containers, networks, images)",
-  ALL: "Prune all resource types",
 } as const;
 
 export const ALERT_DESCRIPTIONS = {

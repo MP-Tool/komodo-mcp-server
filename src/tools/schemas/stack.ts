@@ -9,8 +9,8 @@
 
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS } from "../../config/index.js";
-import { stackIdSchema } from "./validators.js";
+import { PARAM_DESCRIPTIONS, FIELD_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../../config/index.js";
+import { stackIdSchema, serverIdSchema, resourceNameSchema } from "./validators.js";
 import {
   systemCommandSchema,
   linkedRepoSchema,
@@ -108,6 +108,28 @@ export const stackActionEnum = z
 export const stackActionInputSchema = z.object({
   action: stackActionEnum,
   stack: stackIdSchema.describe("Stack ID or name"),
+});
+
+/**
+ * Discriminated input for `komodo_stack_apply` (create-or-update).
+ *
+ * - `action: "create"` — register a new Stack (`name` required, `server_id` recommended)
+ * - `action: "update"` — PATCH-style update of an existing Stack (`stack` required)
+ */
+/**
+ * Input for `komodo_stack_apply` (create-or-update).
+ *
+ * Flat schema so MCP Inspector renders the form. The handler enforces
+ * `name` for create and `stack` for update at runtime.
+ */
+export const stackApplyInputSchema = z.object({
+  action: z.enum(["create", "update"]).describe("'create' to register a new stack, 'update' to PATCH an existing one"),
+  name: resourceNameSchema.optional().describe("Required when action='create' — unique name for the new stack"),
+  stack: stackIdSchema.optional().describe("Required when action='update' — existing stack id or name"),
+  server_id: serverIdSchema
+    .optional()
+    .describe("Convenience field for action='create' — target server (mirrors `config.server_id`)"),
+  config: stackConfigSchema.optional().describe(CONFIG_DESCRIPTIONS.STACK_CONFIG_PARTIAL),
 });
 
 // ============================================================================

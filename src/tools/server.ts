@@ -1,30 +1,31 @@
 /**
  * Server Tools
  *
- * Tools for listing, inspecting, creating, updating, and deleting Komodo servers,
- * plus host-level resource pruning (`komodo_server_prune`) which targets a
- * server resource (not a container).
+ * Tools for listing, inspecting, applying (create-or-update), and deleting Komodo servers,
+ * plus host-level operations (`komodo_server_action`) for batch container lifecycle,
+ * Docker pruning, and resource deletion.
  *
  * @module tools/server
  */
 
-import { defineTool, structured, text, z } from "mcp-server-framework";
+import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import { AppErrorFactory } from "../errors/index.js";
 import {
-  serverConfigSchema,
+  serverApplyInputSchema,
   serverIdSchema,
-  resourceNameSchema,
-  pruneTargetSchema,
+  serverActionInputSchema,
+  serverActionOutputSchema,
   serverListOutputSchema,
   serverInfoOutputSchema,
   serverStatsOutputSchema,
-  actionResultSchema,
+  applyResultSchema,
+  deleteResultSchema,
   inlineFullInputSchema,
   paginationInputSchema,
 } from "./schemas/index.js";
 import {
-  formatActionResponse,
   requireClient,
   wrapApiCall,
   paginate,
@@ -36,6 +37,8 @@ import {
   renderServerStats,
   renderActionResult,
   tryRegisterResource,
+  buildApplyResult,
+  buildDeleteResult,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -143,51 +146,50 @@ export const getServerInfoTool = defineTool({
   },
 });
 
-export const createServerTool = defineTool({
-  name: "komodo_server_create",
-  description:
-    "Register a new server in Komodo. The server must have Periphery agent running. Provide the address for Core -> Periphery connections.",
+export const applyServerTool = defineTool({
+  name: "komodo_server_apply",
+  description: [
+    "Create or update a Komodo Server (PATCH-style; safe to call repeatedly).",
+    'action="create": new server. Required: name. Periphery agent must be reachable at config.address.',
+    'action="update": existing server (`server` required). Only fields in `config` change.',
+  ].join("\n"),
+  input: serverApplyInputSchema,
+  output: applyResultSchema,
   annotations: { idempotentHint: false },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.ADMIN],
-  input: z.object({
-    name: resourceNameSchema.describe(PARAM_DESCRIPTIONS.SERVER_NAME),
-    config: serverConfigSchema.partial().optional().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_CREATE),
-  }),
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const result = await wrapApiCall(
-      "createServer",
-      // @type-variance — Zod .partial() output includes `| undefined` per field, komodo_client Partial<> does not
-      () => komodo.client.write("CreateServer", { name: args.name, config: (args.config || {}) as Types.ServerConfig }),
-      abortSignal,
-    );
-    const header = formatActionResponse({ action: "create", resourceType: "server", resourceId: args.name });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
-  },
-});
-
-export const updateServerTool = defineTool({
-  name: "komodo_server_update",
-  description:
-    "Update an existing server configuration (PATCH-style: only provided fields are updated, others remain unchanged).",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
-    config: serverConfigSchema.partial().describe(CONFIG_DESCRIPTIONS.SERVER_CONFIG_PARTIAL),
-  }),
-  annotations: { idempotentHint: true },
-  _meta: { category: ToolCategories.SERVER },
-  requiredScopes: [ToolScopes.ADMIN],
-  handler: async (args, { abortSignal }) => {
-    const komodo = requireClient();
+    if (args.action === "create") {
+      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      const name = args.name;
+      const result = await wrapApiCall(
+        "createServer",
+        // @type-variance — Zod-inferred optional fields (`T | undefined`) → SDK `Partial<ServerConfig>` (`T`).
+        () =>
+          komodo.client.write("CreateServer", {
+            name,
+            config: (args.config ?? {}) as Types._PartialServerConfig,
+          }),
+        abortSignal,
+      );
+      const built = buildApplyResult("create", "server", name, result);
+      return structured(built.payload, { text: built.text });
+    }
+    if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+    const server = args.server;
     const result = await wrapApiCall(
       "updateServer",
-      // @type-variance — Zod .partial() output includes `| undefined` per field, komodo_client Partial<> does not
-      () => komodo.client.write("UpdateServer", { id: args.server, config: args.config as Types.ServerConfig }),
+      // @type-variance — Zod-inferred optional fields (`T | undefined`) → SDK `Partial<ServerConfig>` (`T`).
+      () =>
+        komodo.client.write("UpdateServer", {
+          id: server,
+          config: args.config as Types._PartialServerConfig,
+        }),
       abortSignal,
     );
-    const header = formatActionResponse({ action: "update", resourceType: "server", resourceId: args.server });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
+    const built = buildApplyResult("update", "server", server, result);
+    return structured(built.payload, { text: built.text });
   },
 });
 
@@ -197,6 +199,7 @@ export const deleteServerTool = defineTool({
   input: z.object({
     server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
   }),
+  output: deleteResultSchema,
   annotations: { destructiveHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.ADMIN],
@@ -207,8 +210,8 @@ export const deleteServerTool = defineTool({
       () => komodo.client.write("DeleteServer", { id: args.server }),
       abortSignal,
     );
-    const header = formatActionResponse({ action: "remove", resourceType: "server", resourceId: args.server });
-    return text(`${header}\n\n${JSON.stringify(result, null, 2)}`);
+    const built = buildDeleteResult("server", args.server, result);
+    return structured(built.payload, { text: built.text });
   },
 });
 
@@ -217,62 +220,57 @@ export const deleteServerTool = defineTool({
 // ============================================================================
 
 /**
- * Maps prune target names to Komodo execute API action names.
- * The underlying Komodo APIs (PruneContainers/Images/Volumes/Networks/System)
- * target a server, so the tool lives in `tools/server.ts`.
+ * Maps the `komodo_server_action` discriminator to the Komodo execute API name.
+ * All targeted endpoints are host-scoped (single `{ server }` param), the
+ * `delete_*` variants additionally require a `{ name }` param (validated at runtime).
  */
-const PRUNE_ACTION_MAP: Record<string, string> = {
-  containers: "PruneContainers",
-  images: "PruneImages",
-  volumes: "PruneVolumes",
-  networks: "PruneNetworks",
-  system: "PruneSystem",
-};
+const SERVER_ACTION_API_MAP = {
+  start_all_containers: "StartAllContainers",
+  restart_all_containers: "RestartAllContainers",
+  pause_all_containers: "PauseAllContainers",
+  unpause_all_containers: "UnpauseAllContainers",
+  stop_all_containers: "StopAllContainers",
+  prune_containers: "PruneContainers",
+  prune_images: "PruneImages",
+  prune_volumes: "PruneVolumes",
+  prune_networks: "PruneNetworks",
+  prune_system: "PruneSystem",
+  prune_docker_builders: "PruneDockerBuilders",
+  prune_buildx: "PruneBuildx",
+  delete_network: "DeleteNetwork",
+  delete_image: "DeleteImage",
+  delete_volume: "DeleteVolume",
+} as const;
 
-export const serverPruneTool = defineTool({
-  name: "komodo_server_prune",
+export const serverActionTool = defineTool({
+  name: "komodo_server_action",
   description:
-    "Prune unused Docker resources on a server. This permanently removes stopped containers, unused images, volumes, or networks to free up resources.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
-    pruneTarget: pruneTargetSchema,
-  }),
-  output: actionResultSchema,
-  annotations: { destructiveHint: true },
+    "Host-level operations on a Komodo server: batch container lifecycle (start/restart/pause/unpause/stop all), Docker resource pruning (containers, images, volumes, networks, system, builders, buildx), or deletion of named networks/images/volumes. Destructive — frees disk space or stops workloads.",
+  input: serverActionInputSchema,
+  output: serverActionOutputSchema,
+  annotations: { readOnlyHint: false, idempotentHint: false, destructiveHint: true },
   _meta: { category: ToolCategories.SERVER },
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    const apiAction = SERVER_ACTION_API_MAP[args.action];
 
-    if (args.pruneTarget === "all") {
-      const targets = ["containers", "images", "volumes", "networks"] as const;
-      for (const target of targets) {
-        await wrapExecuteAndPoll(
-          `prune${target}`,
-          () => komodo.client.execute(PRUNE_ACTION_MAP[target] as "PruneContainers", { server: args.server }),
-          abortSignal,
-          reportProgress,
-        );
-      }
-      const payload = {
-        success: true,
-        status: "Complete",
-        action: "prune",
-        resource_type: "server" as const,
-        resource_id: args.server,
-        server: args.server,
-      };
-      return structured(payload, { text: renderActionResult(payload) });
+    let params: Record<string, unknown>;
+    if (args.action === "delete_network" || args.action === "delete_image" || args.action === "delete_volume") {
+      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      params = { server: args.server, name: args.name };
+    } else {
+      params = { server: args.server };
     }
 
-    const action = PRUNE_ACTION_MAP[args.pruneTarget];
     const update = await wrapExecuteAndPoll(
-      "pruneResources",
-      () => komodo.client.execute(action as "PruneContainers", { server: args.server }),
+      `${args.action} on server '${args.server}'`,
+      // @sdk-constraint — SDK execute() type uses literal-keyed unions; runtime accepts mapped string
+      () => komodo.client.execute(apiAction as "PruneContainers", params as unknown as Types.PruneContainers),
       abortSignal,
       reportProgress,
     );
-    const payload = buildActionResult(update, `prune-${args.pruneTarget}`, "server", args.server, args.server);
+    const payload = buildActionResult(update, args.action, "server", args.server, args.server);
     return structured(payload, {
       text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
     });

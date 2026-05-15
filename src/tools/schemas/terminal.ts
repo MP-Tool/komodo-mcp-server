@@ -11,7 +11,7 @@
  */
 
 import { z } from "mcp-server-framework";
-import { PARAM_DESCRIPTIONS, VALIDATION_LIMITS } from "../../config/index.js";
+import { VALIDATION_LIMITS } from "../../config/index.js";
 import { serverIdSchema, containerNameSchema, stackIdSchema, deploymentIdSchema } from "./validators.js";
 
 /** Shell command to execute (max 4096 chars) */
@@ -44,39 +44,35 @@ const execServiceNameSchema = z
   .describe("The service name within the stack to execute the command in");
 
 /**
- * Discriminated union schema for `komodo_exec`.
+ * Flat input schema for `komodo_exec`.
  *
- * Discriminator: `target` — selects one of four execution contexts.
- * Each variant carries the fields required by that context.
+ * Replaces `z.discriminatedUnion("target", …)` so MCP Inspector and other UI
+ * clients render the form. The handler validates per-target required fields
+ * at runtime via `AppErrorFactory.validation.fieldRequired`.
+ *
+ * - `server`        — requires `server` + `command`
+ * - `container`     — requires `server` + `container` + `command`
+ * - `deployment`    — requires `deployment` + `command`
+ * - `stack_service` — requires `stack` + `service` + `command`
  */
-export const execInputSchema = z.discriminatedUnion("target", [
-  z.object({
-    target: z.literal("server").describe("Execute on a Komodo server (host shell via Periphery terminal)."),
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
-    command: execCommandSchema.describe("The shell command to execute on the server"),
-    terminal: execTerminalNameSchema,
-  }),
-  z.object({
-    target: z.literal("container").describe("Execute inside a running Docker container (like `docker exec`)."),
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
-    container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_ACTION),
-    command: execCommandSchema.describe("The command to execute inside the container"),
-    shell: execShellSchema,
-  }),
-  z.object({
-    target: z.literal("deployment").describe("Execute inside the container of a Komodo deployment."),
-    deployment: deploymentIdSchema.describe("Deployment ID or name to execute the command in"),
-    command: execCommandSchema.describe("The command to execute inside the deployment container"),
-    shell: execShellSchema,
-  }),
-  z.object({
-    target: z.literal("stack_service").describe("Execute inside a specific service container of a Komodo stack."),
-    stack: stackIdSchema.describe("Stack ID or name"),
-    service: execServiceNameSchema,
-    command: execCommandSchema.describe("The command to execute inside the service container"),
-    shell: execShellSchema,
-  }),
-]);
+export const execInputSchema = z.object({
+  target: z
+    .enum(["server", "container", "deployment", "stack_service"])
+    .describe("Execution context: server | container | deployment | stack_service"),
+  command: execCommandSchema.describe("The shell command to execute"),
+  // server / container
+  server: serverIdSchema.optional().describe("Required for 'server' / 'container': Komodo server id or name"),
+  terminal: execTerminalNameSchema,
+  // container
+  container: containerNameSchema.optional().describe("Required for 'container': container name or id"),
+  // deployment
+  deployment: deploymentIdSchema.optional().describe("Required for 'deployment': deployment id or name"),
+  // stack_service
+  stack: stackIdSchema.optional().describe("Required for 'stack_service': stack id or name"),
+  service: execServiceNameSchema.optional(),
+  // container / deployment / stack_service
+  shell: execShellSchema,
+});
 
 // ============================================================================
 // Output Schema

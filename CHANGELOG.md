@@ -7,57 +7,82 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
-## [Unreleased]
+## [1.4.0] - 2026-05-16
 
-### Tool Surface (Breaking)
+A major release focused on **breadth, clarity and context efficiency**. The tool surface grew from 51 to **70 tools across 16 categories** and now covers every Komodo resource type — Builds, Repos, Procedures, Actions, Alerters, Docker Swarms, Variables, Resource Syncs and the Update audit log — while large payloads no longer flood your AI assistant's context window.
 
-- **Consistent naming**: All tools renamed to `komodo_<domain>_<action>` (e.g. `komodo_list_containers` → `komodo_container_list`, `komodo_get_server_info` → `komodo_server_info`, `komodo_create_api_key` → `komodo_user_create_api_key`).
-- **Lifecycle consolidation**: 5 container, 8 stack and 8 deployment lifecycle tools collapsed into single `komodo_container_action` / `komodo_stack_action` / `komodo_deployment_action` tools with an `action` discriminator. Reduces `tools/list` size and avoids action-explosion in pickers.
-- **Terminal consolidation**: `komodo_server_exec`, `komodo_container_exec`, `komodo_deployment_exec`, `komodo_stack_service_exec` merged into one `komodo_exec` tool with a `target` discriminated union.
-- **Prune relocation**: `komodo_prune` is now `komodo_server_prune` (the underlying Komodo APIs target a server, not a container).
-- **Tool count**: 51 → **30** tools.
+### Highlights
+
+- 🧰 **Full Komodo coverage** — Manage every Komodo resource from your AI assistant: containers, servers, stacks, deployments, builds, repos, procedures, actions, alerters, Docker Swarms (Komodo v2), variables, resource syncs and the audit log.
+- 🪶 **Smaller context, faster answers** — Big responses (`inspect`, `info`, `logs`, `search_logs`) are no longer dumped into the chat. They live as session-scoped resources your client fetches on demand. Pass `inline_full: true` to opt out.
+- 📑 **Cursor pagination on every list** — Stop pulling thousands of containers, deployments or update entries into a single response. Default page size is 50 (1–100), and a `next_cursor` lets your assistant page through results without overwhelming the LLM.
+- 📊 **Typed responses for both humans and LLMs** — Every read tool now returns rich Markdown (state badges, formatted logs, exec output) for the user *and* a typed `structuredContent` payload for the LLM. Modern clients render both; legacy clients see clean Markdown.
+- 🪝 **Consistent tool names** — All tools follow `komodo_<domain>_<action>` (e.g. `komodo_container_list`, `komodo_server_info`). Easier to remember, easier to teach your AI assistant.
+- 📂 **Categories & RBAC scopes** — Every tool carries a `_meta.category` (16 categories) and `requiredScopes` (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP gateways and clients can filter or gate tools cleanly.
 
 ### Added
 
-- **Markdown renderers** in `src/utils/markdown.ts` — 16 renderers (`renderContainerList/Inspect/Logs/SearchLogs`, `renderServerList/Info/Stats`, `renderDeploymentList/Info`, `renderStackList/Info`, `renderActionResult`, `renderExecResult`, `renderApiKeyList/Created`, `renderHealthCheck`) producing rich human-readable output: bullet lists with state badges, embedded JSON blocks for inspect/info responses, fenced code blocks for logs and exec output, and multi-line action results with `Result`, `Status`, `Update ID`, `Version` plus log excerpts (last two on success, all failed/stderr stages on failure, each truncated to 1000 chars). Wired into every typed tool via the framework's new `structured(payload, { text: ... })` option.
-- **`_meta.category`** on every tool — forward-compatible category metadata via new `ToolCategories` constants in `config/categories.ts`.
-- **`requiredScopes`** on every tool — three-tier RBAC scopes (`komodo:read` / `komodo:operate` / `komodo:admin`) via new `ToolScopes` constants in `config/scopes.ts`. Passive today (Komodo has no OIDC yet); the framework filter activates automatically once tokens carry scopes.
-- **`tools/schemas/shared.ts`** — shared Zod subschemas reused across multiple tool domains (`paginationInputSchema`, `inlineFullInputSchema`, `systemCommandSchema`, `linkedRepoSchema`, `webhookSchema`, `resourceLinkSchema`, `pageOutputSchema`).
-- **Output schemas for read tools** — typed response envelopes per read-tool family in `tools/schemas/{container,server,deployment,stack}.ts` (`*ListOutputSchema`, `*InfoOutputSchema`, plus `containerInspectOutputSchema`, `containerLogsOutputSchema`, `containerSearchLogsOutputSchema`, `serverStatsOutputSchema`). Wired into `defineTool({ output: ... })` and emitted as `structuredContent` on each read tool's response, so MCP clients receive a typed payload alongside the human-readable text content.
-- **Typed `structuredContent` on 11 read tools** — `komodo_container_list`, `komodo_container_inspect`, `komodo_container_logs`, `komodo_container_search_logs`, `komodo_server_list`, `komodo_server_info`, `komodo_server_stats`, `komodo_deployment_list`, `komodo_deployment_info`, `komodo_stack_list`, `komodo_stack_info` now return both human-readable text and a structured payload validated against the corresponding output schema.
-- **`actionResultSchema` shared envelope** — wired into `komodo_container_action`, `komodo_deployment_action`, `komodo_stack_action`, and `komodo_server_prune`. Clients now receive `{ success, status, action, resource_type, resource_id, server?, version? }` alongside the formatted text response.
-- **`buildActionResult()` utility** in `utils/polling.ts` — converts a Komodo `Update` into the `actionResultSchema` payload (mirroring `formatUpdateResult`'s human-readable output).
-- **`execOutputSchema` on `komodo_exec`** — typed `{ target, command, output, exit_code, truncated, server?, container?, deployment?, stack?, service? }` payload across all four execution targets.
-- **`healthCheckOutputSchema` on `komodo_health_check`** — typed `{ configured, healthy, server?, komodo_version?, mcp_server_version, error? }` payload covering the unconfigured / healthy / unhealthy / error branches.
-- **API-key tool outputs** — `listApiKeysOutputSchema` on `komodo_user_list_api_keys` (returns `{ items: [{ name, key, created_at, expires }] }`) and `createApiKeyOutputSchema` on `komodo_user_create_api_key` (returns `{ name, key, secret, expires }` — secret shown only on creation).
-- **`tools/schemas/{user,config}.ts`** — new schema modules covering API-key and health-check outputs, exposed via the schema barrel.
-- **Ephemeral resource links for large read responses**: `komodo_container_inspect`, `komodo_container_logs`, `komodo_server_info`, `komodo_deployment_info` and `komodo_stack_info` now register their full payload in the framework's `DynamicResourceRegistry` and surface it as both a `resource_link` content block and a `resourceLink: { uri }` field in `structuredContent`. The text body shrinks to a one-line pointer (`... available as resource: ephemeral://<category>/<id>`) — clients fetch the full content on demand via `resources/read` instead of pulling it through the LLM context. Each tool gains an `inline_full?: boolean` opt-out (from the new shared `inlineFullInputSchema`) for callers that explicitly want the inline payload. Stateless callers (no `sessionId`) and registration failures fall back to the legacy inline behavior automatically, so no client breaks.
-- **`utils/resource-link.ts`** — new `tryRegisterResource()` helper bridging Komodo tool handlers to the framework's dynamic registry. Registers `content` against the caller's `sessionId`, returns a `ResourceLinkSpec` on success, or `null` (stateless / opted-out / failed) so callers fall back to inlining. Exposed via the `utils` barrel together with the `ResourceCategory`, `ResourceLinkContext` and `RegisterResourceOptions` types.
-- **Resource-registry config (`KOMODO_RESOURCE_TTL_INFO`, `KOMODO_RESOURCE_TTL_LOGS`, `KOMODO_RESOURCE_MAX_ENTRIES`)** in `config/env.ts` — durations (`'15m'` / `'2m'`) and an entry cap (default 1000) for the dynamic registry. Logs use the shorter TTL because of their volatility, info/inspect responses live longer.
-- **Registry bootstrap in `src/index.ts`** — `configureDynamicResourceRegistry({ uriScheme: "ephemeral", maxEntries })` plus `defineDynamicResourceTemplate()` are called at startup so the `ephemeral://{category}/{id}` template is exposed in `resources/templates/list` and the registry uses the configured cap.
-- **Cursor-based pagination on list tools** — `komodo_container_list`, `komodo_server_list`, `komodo_deployment_list`, `komodo_stack_list` and `komodo_user_list_api_keys` now accept `cursor?: string` and `page_size?: number` (1-100, default 25) from the shared `paginationInputSchema` and return a `page: { next_cursor?, total }` envelope alongside `items`. Komodo APIs return full lists; the new `utils/pagination.ts` (`paginate()`, `encodeCursor()`, `decodeCursor()`) slices client-side using base64-encoded `{ offset }` cursors. Markdown renderers append a one-line pagination footer (`_Showing N of M. More results available — pass cursor: "..." for the next page._`) when more pages exist, so agents can iterate without flooding the LLM context.
+#### New resource domains
 
-### Changed
+- **Builds (6 tools)** — List, inspect, run, cancel, fetch logs and create/update/delete Komodo Builds. The `run` tool reports live progress while the build executes.
+- **Repos (5 tools)** — List, inspect and create/update/delete Komodo Repos plus a single `komodo_repo_action` covering `clone` / `pull` / `build` / `cancel_build`.
+- **Procedures (5 tools)** — Run and manage multi-stage Komodo Procedures, with live per-stage progress reporting while a procedure executes.
+- **Actions (5 tools)** — Run, cancel and manage Komodo Actions (KomodoTS scripts). Live progress for `run`.
+- **Alerters (4 tools)** — List, inspect and create/update/delete Komodo Alerter sinks (Slack, Discord, Pushover, Custom HTTP …).
+- **Docker Swarm (7 tools, Komodo v2)** — Manage Swarm clusters end-to-end: list/info, list nodes, list services, create/update/delete, plus a single `komodo_swarm_action` covering node updates and removal of nodes / services / stacks.
+- **Variables (4 tools)** — Manage Komodo Variables and Secrets. `apply` handles both create and update of value, description and the `is_secret` flag.
+- **Resource Syncs (5 tools)** — Manage Komodo's GitOps-style ResourceSyncs: list/info, run, refresh and create/update/delete.
+- **Update audit log (2 tools, read-only)** — Query the global Komodo Update log with server-side filtering by `operation`, `target_type` and `target_id`, paginated through the standard cursor envelope.
 
-- **Typed tool responses follow the MCP 2025-06-18 "Structured Content" recommendation**: tools that declare an `output` schema now emit `structuredContent` as the primary payload and a rich Markdown rendering in the `TextContent` block (bullet lists with state badges, embedded JSON for inspect/info, fenced code blocks for logs and exec output, multi-line action results with `Update ID` and log excerpts). Modern clients render the Markdown for the user and consume `structuredContent` for the LLM; legacy clients fall back to the same Markdown instead of a bloated JSON dump. Applies to `komodo_container_list/inspect/logs/search_logs/action`, `komodo_server_list/info/stats/prune`, `komodo_deployment_list/info/action`, `komodo_stack_list/info/action`, `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_health_check`, and `komodo_exec`. State-change tools without an output schema (`komodo_configure`, all `*_create`/`*_update`/`*_delete`, `komodo_user_delete_api_key`) keep their existing human-readable Markdown.
+#### Smarter, leaner responses
+
+- **Ephemeral resource links** — `komodo_container_inspect`, `komodo_container_logs`, `komodo_container_search_logs`, `komodo_server_info`, `komodo_deployment_info`, `komodo_stack_info` and most `info` tools now register their full payload as a session-scoped `ephemeral://…` resource. The text response shrinks to a one-line pointer; the assistant can fetch the full payload on demand via `resources/read`. Pass `inline_full: true` to keep the legacy inline behavior. Stateless clients automatically fall back to inlining — nothing breaks.
+- **Cursor-based pagination** on every list tool (`{ cursor?, page_size? }`, 1–100, default 50) with a `page: { next_cursor?, total }` envelope. The Markdown renderer appends a clear footer when more results exist.
+- **Typed `structuredContent` on every read and state-change tool** — Per the MCP 2025-06-18 "Structured Content" recommendation, modern clients receive a validated typed payload alongside the human-readable Markdown. This includes 11 read tools, every `*_action`, every `*_apply`, every `*_delete`, plus `komodo_exec`, `komodo_health_check`, `komodo_configure`, `komodo_user_list_api_keys`, `komodo_user_create_api_key` and `komodo_user_delete_api_key`.
+- **Rich Markdown formatting** — Bullet lists with state badges (`✅ Running`, `🟡 Paused`, `❌ Exited`), embedded JSON for inspect/info, fenced code blocks for logs and exec output, and multi-line action results showing `Status`, `Update ID`, `Version` plus the most relevant log excerpts (last two stages on success, all failed/stderr stages on failure).
+
+#### Operability
+
+- **`_meta.category` on every tool** — One of 16 categories. MCP clients and gateways can filter or group tools by category.
+- **`requiredScopes` on every tool** — Three-tier RBAC (`komodo:read` / `komodo:operate` / `komodo:admin`). Currently passive (Komodo has no OIDC yet); the framework's scope filter will activate automatically once tokens carry scopes.
+- **New environment variables** for the resource-link cache: `KOMODO_RESOURCE_TTL_INFO` (default `15m`), `KOMODO_RESOURCE_TTL_LOGS` (default `2m`) and `KOMODO_RESOURCE_MAX_ENTRIES` (default `1000`). Logs use a shorter TTL because of their volatility.
+
+### Changed (Breaking)
+
+- **Tool naming** — All tools were renamed to `komodo_<domain>_<action>`. Examples: `komodo_list_containers` → `komodo_container_list`, `komodo_get_server_info` → `komodo_server_info`, `komodo_create_api_key` → `komodo_user_create_api_key`. See **Migration** below.
+- **Lifecycle consolidation** — Per-verb container/stack/deployment/repo lifecycle tools were collapsed into a single `*_action` tool per domain with an `action` discriminator. `komodo_container_action` covers `start` / `stop` / `restart` / `pause` / `unpause`; `komodo_stack_action` and `komodo_deployment_action` cover `deploy` / `pull` / `start` / `restart` / `pause` / `unpause` / `stop` / `destroy`; `komodo_repo_action` covers `clone` / `pull` / `build` / `cancel_build`.
+- **CRUD consolidation (`*_apply`)** — `komodo_<domain>_create` and `komodo_<domain>_update` were merged into `komodo_<domain>_apply` with `{ action: "create" | "update" }` for `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `swarm` and the new domains (Action, Alerter, ResourceSync, Variable). 14 tools became 7.
+- **Build run/cancel consolidation** — `komodo_build_run` and `komodo_build_cancel` merged into `komodo_build_action`.
+- **Procedure run consolidation** — `komodo_procedure_run` renamed to `komodo_procedure_action` for naming consistency.
+- **Terminal consolidation** — `komodo_server_exec`, `komodo_container_exec`, `komodo_deployment_exec` and `komodo_stack_service_exec` merged into a single `komodo_exec` tool with a `target` discriminator (`server` / `container` / `deployment` / `stack_service`).
+- **Prune relocation** — The standalone `komodo_prune` tool is gone. Pruning is now part of `komodo_server_action`, alongside the new batch container ops (`start_all_containers`, `restart_all_containers`, `pause_all_containers`, `unpause_all_containers`, `stop_all_containers`), the full prune family (`prune_containers` / `prune_images` / `prune_volumes` / `prune_networks` / `prune_system` / `prune_docker_builders` / `prune_buildx`) and named-resource deletion (`delete_network` / `delete_image` / `delete_volume`). All require `komodo:admin`.
+
+### Fixed
+
+- **`komodo_exec` no longer leaves an orphan rejected promise on auth failure ([#124](https://github.com/MP-Tool/komodo-mcp-server/pull/124))** — When an API key lacked the `Terminal` permission, the exec helper produced a second, unhandled rejection alongside the real error. Cleanup now runs through a single `.finally()` chain so the side-channel rejection no longer exists. Thanks to @puigru for the report and original patch.
+- **`KomodoClient.login()` timer leak ([#125](https://github.com/MP-Tool/komodo-mcp-server/issues/125))** — The login timeout's `setTimeout` was never cleared after the race resolved, keeping the process alive for up to `API_TIMEOUT_MS` longer than necessary and risking an unhandled rejection on a late timer fire. The timer is now cleared in `finally` on both the success and error paths.
 
 ### Removed
 
-- **Dead Markdown formatters** in `utils/response-formatter.ts` (`formatCompletedActionResponse`, `formatListHeader`, `formatInfoResponse`, `formatErrorResponse`, `formatLogsResponse`, `formatSearchResponse`, `formatPruneResponse`) and `utils/polling.ts` (`formatUpdateResult`) — superseded by the framework's `structured()` helper for typed tools. The remaining formatters (`formatActionResponse`, `buildActionResult`) are still used by state-change and lifecycle tools.
-
-### Schemas
-
-- **Schemas**: per-domain action enums and discriminated input schemas added to `tools/schemas/{container,deployment,stack}.ts`; new `tools/schemas/terminal.ts` with the `komodo_exec` discriminated union.
-- **Stack config**: `stackConfigSchema` now composes `linkedRepoSchema` and `webhookSchema` from `tools/schemas/shared.ts` via `.merge()` instead of inlining the git/webhook fields.
-- **Optional `state` on summary schemas** — `containerSummarySchema`, `serverSummarySchema`, `deploymentSummarySchema`, and `stackSummarySchema` now mark `state` as optional. The `state: "unknown"` placeholder previously emitted by `*_inspect` / `*_info` / `*_logs` / `*_search_logs` is dropped — the field is simply omitted when the underlying read API does not return it.
+- **Builder tools (4 tools)** — `komodo_builder_list`, `komodo_builder_info`, `komodo_builder_apply` and `komodo_builder_delete` were removed. In Komodo v2, Builders are conceptually Komodo Servers/Nodes — the dedicated tools added duplicate surface without operational value. Use `komodo_server_*` instead.
 
 ### Dependencies
 
-- Bumped `mcp-server-framework` from `^1.0.5` to `^1.1.0`. `1.1.0` adds: the `structured()` response helper plus `structuredContent` on response options (per MCP 2025-06-18 "Structured Content"); `output: ZodTypeAny` on `defineTool()` (forwarded as `outputSchema`); the `resourceLink()` helper and `links?: readonly ResourceLinkSpec[]` option on every response helper for emitting `resource_link` content blocks; the `DynamicResourceRegistry` (`getDynamicResourceRegistry()`, `configureDynamicResourceRegistry()`, `defineDynamicResourceTemplate()`) for ephemeral, session-bound resource payloads; and `ResourceContext` / `ResourceReadResult` on resource read handlers so per-call MIME types and session-binding work end to end. The Komodo server uses all of these.
+- Bumped `mcp-server-framework` from `^1.0.5` to `^1.1.0` for the new `structured()` response helper, typed `output` schemas on `defineTool()`, the dynamic resource registry powering `ephemeral://…` links, and per-call resource read context.
 
 ### Migration
 
-Tool names changed across the board. Update any client prompts, scripts or chat instructions that hard-code the old `komodo_list_*` / `komodo_get_*` / `komodo_*_container` names.
+The renames and consolidations are breaking. Update any client prompts, scripts or AI assistant instructions that hard-code old tool names.
+
+- **Renames** — Replace `komodo_list_*` / `komodo_get_*` / `komodo_*_container` calls with the new `komodo_<domain>_<action>` names. Examples: `komodo_list_containers` → `komodo_container_list`, `komodo_get_server_info` → `komodo_server_info`, `komodo_create_api_key` → `komodo_user_create_api_key`.
+- **Lifecycle (`*_action`)** — Replace per-verb container/stack/deployment/repo tools with the consolidated `*_action` tool. Example: `komodo_repo_clone` → `komodo_repo_action` with `{ action: "clone", repo: "<id-or-name>" }`.
+- **CRUD (`*_apply`)** — Replace `*_create` / `*_update` with `*_apply`:
+  - Create: `{ action: "create", name: "<name>", config: { … } }`
+  - Update: `{ action: "update", <domain>: "<id-or-name>", config: { … } }` (e.g. `server: "prod-1"`, `stack: "my-stack"`)
+- **Builds** — `komodo_build_run` and `komodo_build_cancel` → `komodo_build_action` with `{ action: "run" | "cancel", build: "<id-or-name>" }`.
+- **Terminal** — `komodo_server_exec` / `komodo_container_exec` / `komodo_deployment_exec` / `komodo_stack_service_exec` → `komodo_exec` with `{ target: "server" | "container" | "deployment" | "stack_service", … }`.
+- **Prune** — `komodo_prune` → `komodo_server_action` with `{ action: "prune_containers" | "prune_images" | … }`.
+- **Builders** — Tools removed. Use `komodo_server_list` / `komodo_server_info` / `komodo_server_apply` for the underlying Komodo Server resource.
 
 --------------------------------------------------------------
 

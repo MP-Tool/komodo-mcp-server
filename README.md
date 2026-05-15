@@ -22,7 +22,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 
 ### 🛠️ Complete Infrastructure Control
 
-- **52 Tools, 7 Categories** — Full lifecycle management for containers, stacks, deployments, and servers — from listing and inspecting to deploying, scaling, and destroying.
+- **70 Tools, 16 Categories** — Full lifecycle management for containers, stacks, deployments, servers, builds, repos, procedures, actions, alerters, Docker Swarms (Komodo v2), variables, resource syncs and update history — from listing and inspecting to deploying, building, scaling and destroying.
 - **Remote Terminal Access** — Execute commands on servers, containers, deployments, and stack services with real-time output streaming, exit codes, and progress reporting.
 - **Log Search & Analysis** — Pattern-based log search across containers with configurable tail limits and match counting.
 
@@ -47,19 +47,30 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 *Built on [mcp-server-framework](https://github.com/MP-Tool/mcp-server-framework) — a production-ready TypeScript MCP server framework with structured logging, OpenTelemetry, and session management.*
 
 
-## Available Tools (30)
+## Available Tools (70)
 
 | Category | Tools |
 |----------|-------|
 | **Configuration** | `komodo_configure`, `komodo_health_check` |
 | **Containers** | `komodo_container_list`, `komodo_container_inspect`, `komodo_container_logs`, `komodo_container_search_logs`, `komodo_container_action` *(start/stop/restart/pause/unpause)* |
-| **Servers** | `komodo_server_list`, `komodo_server_info`, `komodo_server_stats`, `komodo_server_create`, `komodo_server_update`, `komodo_server_delete`, `komodo_server_prune` |
-| **Stacks** | `komodo_stack_list`, `komodo_stack_info`, `komodo_stack_create`, `komodo_stack_update`, `komodo_stack_delete`, `komodo_stack_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
-| **Deployments** | `komodo_deployment_list`, `komodo_deployment_info`, `komodo_deployment_create`, `komodo_deployment_update`, `komodo_deployment_delete`, `komodo_deployment_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
+| **Servers** | `komodo_server_list`, `komodo_server_info`, `komodo_server_stats`, `komodo_server_apply` *(create/update)*, `komodo_server_delete`, `komodo_server_action` *(start_all/restart_all/pause_all/unpause_all/stop_all\_containers, prune\_\*, delete\_network/image/volume)* |
+| **Stacks** | `komodo_stack_list`, `komodo_stack_info`, `komodo_stack_apply` *(create/update)*, `komodo_stack_delete`, `komodo_stack_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
+| **Deployments** | `komodo_deployment_list`, `komodo_deployment_info`, `komodo_deployment_apply` *(create/update)*, `komodo_deployment_delete`, `komodo_deployment_action` *(deploy/pull/start/restart/pause/unpause/stop/destroy)* |
+| **Builds** | `komodo_build_list`, `komodo_build_info`, `komodo_build_action` *(run/cancel)*, `komodo_build_logs`, `komodo_build_apply` *(create/update)*, `komodo_build_delete` |
+| **Repos** | `komodo_repo_list`, `komodo_repo_info`, `komodo_repo_action` *(clone/pull/build/cancel_build)*, `komodo_repo_apply` *(create/update)*, `komodo_repo_delete` |
+| **Procedures** | `komodo_procedure_list`, `komodo_procedure_info`, `komodo_procedure_action` *(run)*, `komodo_procedure_apply` *(create/update)*, `komodo_procedure_delete` |
+| **Actions** | `komodo_action_list`, `komodo_action_info`, `komodo_action_action` *(run/cancel)*, `komodo_action_apply` *(create/update)*, `komodo_action_delete` |
+| **Alerters** | `komodo_alerter_list`, `komodo_alerter_info`, `komodo_alerter_apply` *(create/update)*, `komodo_alerter_delete` |
+| **Swarms** | `komodo_swarm_list`, `komodo_swarm_info`, `komodo_swarm_apply` *(create/update)*, `komodo_swarm_delete`, `komodo_swarm_nodes_list`, `komodo_swarm_services_list`, `komodo_swarm_action` *(update_node/remove_nodes/remove_services/remove_stacks)* |
+| **Resource Syncs** | `komodo_resource_sync_list`, `komodo_resource_sync_info`, `komodo_resource_sync_action` *(run/refresh)*, `komodo_resource_sync_apply` *(create/update)*, `komodo_resource_sync_delete` |
+| **Variables** | `komodo_variable_list`, `komodo_variable_info`, `komodo_variable_apply` *(create/update — value/description/is_secret)*, `komodo_variable_delete` |
+| **Updates** | `komodo_update_list` *(filterable, paginated)*, `komodo_update_info` |
 | **Terminal** | `komodo_exec` *(target: server / container / deployment / stack_service)* |
 | **API Keys** | `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_user_delete_api_key` |
 
-> **Tip:** Use `komodo_configure` to set credentials at runtime, and `komodo_health_check` to verify connectivity before running other tools.
+> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource-sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
+>
+> List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://…` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
 
 
 ## Quick Start

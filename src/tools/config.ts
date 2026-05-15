@@ -7,12 +7,12 @@
  * @module tools/config
  */
 
-import { defineTool, error, structured, text, z } from "mcp-server-framework";
+import { defineTool, error, structured, z } from "mcp-server-framework";
 import { logger as baseLogger } from "mcp-server-framework";
 import { SERVER_VERSION, RESPONSE_ICONS, ToolCategories, ToolScopes } from "../config/index.js";
 import { KomodoClient, komodoConnection, resolveAuth } from "../client.js";
 import { AuthenticationError } from "../errors/index.js";
-import { healthCheckOutputSchema } from "./schemas/index.js";
+import { healthCheckOutputSchema, configureInputSchema, configureOutputSchema } from "./schemas/index.js";
 import { renderHealthCheck } from "../utils/index.js";
 
 const logger = baseLogger.child({ component: "config-tools" });
@@ -64,21 +64,13 @@ async function queryLoginOptions(url: string): Promise<string | null> {
 // Configure
 // ============================================================================
 
-const configureInput = z.object({
-  url: z.string().url().describe("Komodo Core server URL (e.g., http://host.docker.internal:9120)"),
-  username: z.string().min(1).describe("Komodo username (for password auth)").optional(),
-  password: z.string().min(1).describe("Komodo password (for password auth)").optional(),
-  apiKey: z.string().min(1).describe("Komodo API key (for API-key auth)").optional(),
-  apiSecret: z.string().min(1).describe("Komodo API secret (for API-key auth)").optional(),
-  jwtToken: z.string().min(1).describe("Komodo JWT token (for JWT auth)").optional(),
-});
-
 export const configureTool = defineTool({
   name: "komodo_configure",
   description:
     "Configure connection to Komodo Core server. Required before using any other Komodo tools. " +
     "Supports three auth methods: username+password (local login), apiKey+apiSecret, or jwtToken.",
-  input: configureInput,
+  input: configureInputSchema,
+  output: configureOutputSchema,
   annotations: { idempotentHint: true },
   _meta: { category: ToolCategories.CONFIG },
   // No requiredScopes — bootstrap tool that establishes the connection itself.
@@ -111,13 +103,23 @@ export const configureTool = defineTool({
 
     if (!success) {
       logger.warn("Connected to %s but health check failed: %s", args.url, healthError ?? "unknown");
-      return text(
-        `${RESPONSE_ICONS.WARNING} Connected but health check failed\n\n` +
-          `${RESPONSE_ICONS.NETWORK} Server: ${args.url}\n` +
-          `${RESPONSE_ICONS.AUTH} Auth: ${authLabel}\n` +
-          (healthError ? `${RESPONSE_ICONS.ERROR} Error: ${healthError}\n` : "") +
-          `\nAuthentication succeeded but the health check did not pass.\n` +
-          `Other tools may not work correctly until the server is fully operational.`,
+      return structured(
+        {
+          configured: true,
+          healthy: false,
+          server: args.url,
+          auth_method: auth.method,
+          ...(healthError ? { error: healthError } : {}),
+        },
+        {
+          text:
+            `${RESPONSE_ICONS.WARNING} Connected but health check failed\n\n` +
+            `${RESPONSE_ICONS.NETWORK} Server: ${args.url}\n` +
+            `${RESPONSE_ICONS.AUTH} Auth: ${authLabel}\n` +
+            (healthError ? `${RESPONSE_ICONS.ERROR} Error: ${healthError}\n` : "") +
+            `\nAuthentication succeeded but the health check did not pass.\n` +
+            `Other tools may not work correctly until the server is fully operational.`,
+        },
       );
     }
 
@@ -133,7 +135,17 @@ export const configureTool = defineTool({
     if (loginMethods) lines.push(`${RESPONSE_ICONS.LIST} Login Methods: ${loginMethods}`);
     lines.push("", "Ready for container management.");
 
-    return text(lines.join("\n"));
+    return structured(
+      {
+        configured: true,
+        healthy: true,
+        server: args.url,
+        auth_method: auth.method,
+        ...(version ? { komodo_version: version } : {}),
+        ...(loginMethods ? { login_methods: loginMethods } : {}),
+      },
+      { text: lines.join("\n") },
+    );
   },
 });
 

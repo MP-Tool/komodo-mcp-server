@@ -95,9 +95,12 @@ export class KomodoClient {
     // which is required for the LoginLocalUser endpoint.
     const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
 
-    const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(ConnectionError.timeout(url)), timeoutMs),
-    );
+    let timeoutHandle: NodeJS.Timeout | undefined;
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      timeoutHandle = setTimeout(() => reject(ConnectionError.timeout(url)), timeoutMs);
+    });
+    // Defensive: swallow a late rejection if the timer fires after the race already settled.
+    void timeoutPromise.catch(() => {});
 
     try {
       const result = await Promise.race([
@@ -123,6 +126,8 @@ export class KomodoClient {
         throw AuthenticationError.invalidCredentials();
       }
       throw ConnectionError.failed(url, extractKomodoError(error));
+    } finally {
+      if (timeoutHandle) clearTimeout(timeoutHandle);
     }
   }
 

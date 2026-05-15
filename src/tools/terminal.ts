@@ -153,6 +153,7 @@ function collectCallbackOutput(
   reportProgress?: ProgressReporter,
 ): Promise<TerminalResult> {
   const buf = new OutputBuffer();
+  let timer: NodeJS.Timeout | undefined;
 
   const execPromise = execFn({
     onLine: (line: string) => {
@@ -163,15 +164,17 @@ function collectCallbackOutput(
     onFinish: (code: string) => {
       buf.exitCode = code;
     },
-  }).then(() => buf.getResult());
+  })
+    .finally(() => {
+      if (timer) clearTimeout(timer);
+    })
+    .then(() => buf.getResult());
 
   const timeoutPromise = new Promise<TerminalResult>((resolve) => {
-    const timer = setTimeout(() => {
+    timer = setTimeout(() => {
       buf.markTimeout();
       resolve(buf.getResult());
     }, TERMINAL_TIMEOUT_MS);
-    // Clean up timer when exec finishes first to avoid leaking
-    void execPromise.then(() => clearTimeout(timer));
   });
 
   return Promise.race([execPromise, timeoutPromise]);

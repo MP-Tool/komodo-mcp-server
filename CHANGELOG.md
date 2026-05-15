@@ -7,7 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 --------------------------------------------------------------
 
-## [1.4.0] - 2026-05-16
+## [Unreleased]
+
+---
+
+## [1.4.0] - Full Komodo Coverage & Context Efficiency
 
 A major release focused on **breadth, clarity and context efficiency**. The tool surface grew from 51 to **70 tools across 16 categories** and now covers every Komodo resource type — Builds, Repos, Procedures, Actions, Alerters, Docker Swarms, Variables, Resource Syncs and the Update audit log — while large payloads no longer flood your AI assistant's context window.
 

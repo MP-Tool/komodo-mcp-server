@@ -1,10 +1,17 @@
 name: Publish to MCP Registry
 
-# Publishes to the official MCP Registry after npm publication.
+# Publishes to the official MCP Registry after a GitHub Release is published.
+# Runs in parallel with publish-npm.yml; the wait-for-npm step below ensures
+# the package is actually available on npm before publishing to the registry.
+#
+# Note: This workflow originally subscribed to publish-npm.yml via `workflow_run`.
+# That trigger is unreliable when the upstream workflow runs on a tag ref
+# (release events do), so we now trigger directly off the same release event.
+#
 # Prerequisites:
-# 1. Package published to npm (triggered by publish-npm.yml)
-# 2. server.json in repository root with mcpName matching package.json
-# 3. GitHub OIDC authentication for io.github.mp-tool namespace
+# 1. server.json in repository root with mcpName matching package.json
+# 2. GitHub OIDC authentication for io.github.mp-tool namespace
+# 3. Image published to GHCR with the matching tag
 #
 # References:
 # - Quickstart: https://modelcontextprotocol.io/docs/registry/quickstart
@@ -12,10 +19,8 @@ name: Publish to MCP Registry
 # - Schema: https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json
 
 on:
-  # Triggered after npm publish workflow completes
-  workflow_run:
-    workflows: ['Publish to npm']
-    types: [completed]
+  release:
+    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -37,19 +42,15 @@ jobs:
   publish:
     name: Publish to MCP Registry
     runs-on: ubuntu-latest
-    timeout-minutes: 10
-    # Only run if npm publish succeeded or manual dispatch
-    if: |
-      github.event_name == 'workflow_dispatch' ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
-          # When triggered by workflow_run, check out the exact SHA that the
-          # upstream publish ran against — main may have advanced since.
-          # For workflow_dispatch this falls back to github.sha (the default).
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          # For release events, check out the release tag (which carries the
+          # exact version being published). For workflow_dispatch this falls
+          # back to github.sha (the default branch HEAD).
+          ref: ${{ github.event.release.tag_name || github.sha }}
 
       - name: Resolve target version
         id: version
@@ -140,10 +141,19 @@ jobs:
             echo "❌ server.json top-level version=$SERVER_VERSION (expected $VERSION)"
             exit 1
           fi
-          MISMATCH=$(jq -r --arg v "$VERSION" '[.packages[] | select(.version != $v)] | length')
-          if [ "$MISMATCH" != "0" ]; then
-            echo "❌ One or more package versions in server.json do not match $VERSION"
-            jq '.packages[] | {registryType, version, identifier}' server.json
+
+          # Per-package version check. Listing the actual mismatches (instead of
+          # just a count) avoids the previous silent-failure mode where an empty
+          # jq output was compared against "0" and falsely flagged a mismatch.
+          echo "📋 Package versions in server.json:"
+          jq -r '.packages[] | "  - \(.registryType): \(.version)"' server.json
+
+          MISMATCHES=$(jq -r --arg v "$VERSION" \
+            '.packages[] | select(.version != $v) | "\(.registryType): \(.version)"' \
+            server.json)
+          if [ -n "$MISMATCHES" ]; then
+            echo "❌ Package versions in server.json do not match $VERSION:"
+            printf '%s\n' "$MISMATCHES" | sed 's/^/  - /'
             exit 1
           fi
 

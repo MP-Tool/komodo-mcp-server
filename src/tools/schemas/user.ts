@@ -9,6 +9,50 @@
 import { z } from "mcp-server-framework";
 import { pageOutputSchema } from "./shared.js";
 
+// ============================================================================
+// Input Schemas
+// ============================================================================
+
+/** Input of `komodo_user_create_api_key`. */
+export const createApiKeyInputSchema = z
+  .object({
+    name: z
+      .string()
+      .min(1, "API key name cannot be empty")
+      .max(100, "API key name is too long")
+      .describe("A descriptive name for the API key"),
+    expires_in_days: z
+      .number()
+      .int()
+      .min(0)
+      .max(3650)
+      .default(0)
+      .describe("Number of days until the key expires. 0 means no expiry. Default: 0"),
+  })
+  .describe("Options for creating a new API key for the authenticated user");
+
+/** Input of `komodo_user_delete_api_key`. */
+export const deleteApiKeyInputSchema = z
+  .object({
+    key: z
+      .string()
+      .min(1, "API key cannot be empty")
+      .describe("The API key ID to delete (use komodo_user_list_api_keys to find it)"),
+  })
+  .describe("Identifier of the API key to delete");
+
+/** Output of `komodo_user_delete_api_key`. */
+export const deleteApiKeyOutputSchema = z
+  .object({
+    deleted: z.boolean().describe("Whether the API key was removed"),
+    key: z.string().describe("The API key ID that was deleted"),
+  })
+  .describe("Result envelope for an API key deletion");
+
+// ============================================================================
+// Output Schemas
+// ============================================================================
+
 /** Compact summary of a single API key (no secret material). */
 export const apiKeySummarySchema = z
   .object({

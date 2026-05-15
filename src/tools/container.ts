@@ -222,29 +222,31 @@ export const getContainerLogsTool = defineTool({
 export const searchContainerLogsTool = defineTool({
   name: "komodo_container_search_logs",
   description:
-    "Search container logs for specific patterns or keywords. Retrieves logs and filters them client-side. Returns matching lines with a count of matches.",
-  input: z.object({
-    server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
-    container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_SEARCH),
-    query: z.string().describe(LOG_DESCRIPTIONS.SEARCH_QUERY),
-    tail: z
-      .number()
-      .int()
-      .positive()
-      .optional()
-      .default(LOG_SEARCH_DEFAULTS.TAIL)
-      .describe(LOG_DESCRIPTIONS.TAIL_LINES_FOR_SEARCH(LOG_SEARCH_DEFAULTS.TAIL)),
-    caseSensitive: z
-      .boolean()
-      .optional()
-      .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
-      .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
-  }),
+    "Search container logs for specific patterns or keywords. Retrieves logs and filters them client-side. Returns matching lines with a count of matches. Large match sets are offloaded as a session-scoped resource link unless `inline_full` is set.",
+  input: z
+    .object({
+      server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
+      container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_SEARCH),
+      query: z.string().describe(LOG_DESCRIPTIONS.SEARCH_QUERY),
+      tail: z
+        .number()
+        .int()
+        .positive()
+        .optional()
+        .default(LOG_SEARCH_DEFAULTS.TAIL)
+        .describe(LOG_DESCRIPTIONS.TAIL_LINES_FOR_SEARCH(LOG_SEARCH_DEFAULTS.TAIL)),
+      caseSensitive: z
+        .boolean()
+        .optional()
+        .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
+        .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
+    })
+    .merge(inlineFullInputSchema),
   output: containerSearchLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.READ],
-  handler: async (args, { abortSignal }) => {
+  handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
 
     const result: Log = await wrapApiCall(
@@ -272,11 +274,31 @@ export const searchContainerLogsTool = defineTool({
       return haystack.includes(query);
     });
 
-    const payload = {
-      summary: { name: args.container },
-      matches,
-    };
-    return structured(payload, { text: renderContainerSearchLogs(payload) });
+    const link =
+      matches.length > 0
+        ? tryRegisterResource({
+            ctx: { sessionId },
+            category: "logs",
+            name: `${args.container} (search: ${args.query})`,
+            mimeType: "text/plain",
+            content: matches.map((m) => `[${m.stream}] ${m.line}`).join("\n"),
+            ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+            inlineFull: args.inline_full,
+            description: `${matches.length} matching log line(s) for query "${args.query}" in ${args.container}`,
+          })
+        : null;
+
+    const payload = link
+      ? { summary: { name: args.container }, matches: [], resourceLink: link }
+      : { summary: { name: args.container }, matches };
+    return structured(payload, {
+      text: renderContainerSearchLogs({
+        summary: payload.summary,
+        matches,
+        ...(link ? { resourceLink: link } : {}),
+      }),
+      ...(link ? { links: [link] } : {}),
+    });
   },
 });
 
@@ -304,7 +326,7 @@ export const containerActionTool = defineTool({
     "Note: pause/unpause use cgroups freezer; restart is stop+start.",
   input: containerActionInputSchema,
   output: actionResultSchema,
-  annotations: { idempotentHint: true },
+  annotations: { readOnlyHint: false, idempotentHint: false },
   _meta: { category: ToolCategories.CONTAINER },
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {

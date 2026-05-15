@@ -24,7 +24,6 @@ export const ToolCategories = {
   ACTION: "action",
   ALERTER: "alerter",
   USER: "user",
-  BUILDER: "builder",
   VARIABLE: "variable",
   RESOURCE_SYNC: "resource_sync",
   UPDATE: "update",

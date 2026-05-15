@@ -831,38 +831,6 @@ export function renderSwarmServicesList(payload: {
 }
 
 // ============================================================================
-// Builder
-// ============================================================================
-
-interface BuilderListItemRender {
-  readonly id: string;
-  readonly name: string;
-  readonly builder_type?: string;
-}
-
-export function renderBuilderList(payload: { items: readonly BuilderListItemRender[]; page?: PageInfo }): string {
-  const { items, page } = payload;
-  const header = `${RESPONSE_ICONS.BUILDER} Builders (${items.length})`;
-  if (items.length === 0) return `${header}\n\nNo builders found.`;
-  const rows = items.map((b) => `• ${b.name} (${b.id})${b.builder_type ? ` — ${b.builder_type}` : ""}`).join("\n");
-  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
-}
-
-interface BuilderInfoPayload {
-  readonly summary: { readonly id: string; readonly name: string; readonly builder_type?: string };
-  readonly info?: unknown;
-  readonly resourceLink?: { readonly uri: string };
-}
-
-export function renderBuilderInfo(payload: BuilderInfoPayload): string {
-  const header = `${RESPONSE_ICONS.BUILDER} Builder "${payload.summary.name}"`;
-  if (payload.resourceLink) {
-    return `${header}\n\nFull builder resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
-  }
-  return `${header}\n\n${jsonBlock(payload.info)}`;
-}
-
-// ============================================================================
 // Variable
 // ============================================================================
 

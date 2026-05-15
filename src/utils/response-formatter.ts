@@ -34,7 +34,6 @@ export type ResourceType =
   | "action"
   | "alerter"
   | "swarm"
-  | "builder"
   | "variable"
   | "resource_sync"
   | "api_key";

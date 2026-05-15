@@ -70,8 +70,6 @@ export {
   renderApiKeyList,
   renderApiKeyCreated,
   renderHealthCheck,
-  renderBuilderList,
-  renderBuilderInfo,
   renderVariableList,
   renderVariableInfo,
   renderResourceSyncList,

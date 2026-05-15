@@ -38,7 +38,6 @@ export const RESPONSE_ICONS = {
   SWARM: "🐝",
   NODE: "🖥️",
   SERVICE: "⚙️",
-  BUILDER: "🏗️",
   VARIABLE: "🔣",
   SYNC: "🔁",
   UPDATE_LOG: "🕒",

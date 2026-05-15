@@ -23,7 +23,21 @@ export type ActionType =
   | "update"
   | "remove";
 
-export type ResourceType = "stack" | "deployment" | "container" | "server";
+export type ResourceType =
+  | "stack"
+  | "deployment"
+  | "container"
+  | "server"
+  | "build"
+  | "repo"
+  | "procedure"
+  | "action"
+  | "alerter"
+  | "swarm"
+  | "builder"
+  | "variable"
+  | "resource_sync"
+  | "api_key";
 
 const ACTION_ICONS: Record<ActionType, string> = {
   deploy: RESPONSE_ICONS.DEPLOY,
@@ -81,4 +95,63 @@ export function formatActionResponse(options: ActionResponseOptions): string {
   if (details.length > 0) message += "\n\n" + details.join("\n");
 
   return message;
+}
+
+/**
+ * Build a structured payload + rendered text for a `*_apply` tool result.
+ *
+ * Pairs with `applyResultSchema` from `tools/schemas/shared.ts`. The handler
+ * is expected to feed the return value into `structured(payload, { text })`.
+ */
+export function buildApplyResult(
+  action: "create" | "update",
+  resourceType: ResourceType,
+  resourceId: string,
+  result: unknown,
+): {
+  payload: {
+    action: "create" | "update";
+    resource_type: string;
+    resource_id: string;
+    resource?: Record<string, unknown>;
+  };
+  text: string;
+} {
+  const header = formatActionResponse({ action, resourceType, resourceId });
+  const resource = result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+  return {
+    payload: {
+      action,
+      resource_type: resourceType,
+      resource_id: resourceId,
+      ...(resource ? { resource } : {}),
+    },
+    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+  };
+}
+
+/**
+ * Build a structured payload + rendered text for a `*_delete` tool result.
+ *
+ * Pairs with `deleteResultSchema` from `tools/schemas/shared.ts`.
+ */
+export function buildDeleteResult(
+  resourceType: ResourceType,
+  resourceId: string,
+  result: unknown,
+): {
+  payload: { action: "remove"; resource_type: string; resource_id: string; resource?: Record<string, unknown> };
+  text: string;
+} {
+  const header = formatActionResponse({ action: "remove", resourceType, resourceId });
+  const resource = result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+  return {
+    payload: {
+      action: "remove",
+      resource_type: resourceType,
+      resource_id: resourceId,
+      ...(resource ? { resource } : {}),
+    },
+    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+  };
 }

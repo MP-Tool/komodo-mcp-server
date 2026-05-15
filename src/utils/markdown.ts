@@ -167,11 +167,15 @@ interface SearchMatch {
 export function renderContainerSearchLogs(payload: {
   summary: { name: string };
   matches: readonly SearchMatch[];
+  resourceLink?: { uri: string };
 }): string {
-  const { summary, matches } = payload;
+  const { summary, matches, resourceLink } = payload;
   const header = `${RESPONSE_ICONS.LIST} Search results in container "${summary.name}"`;
   const countLine = `Found ${matches.length} matching ${matches.length === 1 ? "line" : "lines"}`;
   if (matches.length === 0) return `${header}\n\n${countLine}`;
+  if (resourceLink) {
+    return `${header}\n\n${countLine}\n\nFull match list available as resource: ${resourceLink.uri}`;
+  }
   const body = matches.map((m) => `[${m.stream}] ${m.line}`).join("\n");
   return `${header}\n\n${countLine}\n\n${codeBlock(truncate(body, OUTPUT_BUDGET))}`;
 }
@@ -218,6 +222,248 @@ export function renderServerInfo(payload: ServerInfoPayload): string {
 
 export function renderServerStats(payload: { server: string; status: string }): string {
   return `${RESPONSE_ICONS.SERVER} Server "${payload.server}" status\n\n• Status: ${stateBadge(payload.status)}`;
+}
+
+// ============================================================================
+// Build
+// ============================================================================
+
+interface BuildListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly version?: string;
+  readonly builder_id?: string;
+  readonly repo?: string;
+  readonly branch?: string;
+  readonly last_built_at?: number;
+}
+
+export function renderBuildList(payload: { items: readonly BuildListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.BUILD} Builds (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo builds found.`;
+  const rows = items
+    .map((b) => {
+      const version = b.version ? ` v${b.version}` : "";
+      const repo = b.repo ? ` | ${b.repo}${b.branch ? `@${b.branch}` : ""}` : "";
+      return `• ${b.name} (${b.id})${version} — ${stateBadge(b.state)}${repo}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface BuildInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderBuildInfo(payload: BuildInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Build "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull build resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+interface BuildLogsPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly update_id: string;
+  readonly success: boolean;
+  readonly status: string;
+  readonly logs?: readonly Log[];
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderBuildLogs(payload: BuildLogsPayload): string {
+  const header = `${RESPONSE_ICONS.BUILD} Build logs for "${payload.summary.name}" (${payload.update_id})`;
+  const meta = `Status: ${payload.status} — ${payload.success ? "✅ Success" : "❌ Failed"}`;
+  if (payload.resourceLink) {
+    return `${header}\n\n${meta}\n\nFull per-stage logs available as resource: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  if (!payload.logs || payload.logs.length === 0) {
+    return `${header}\n\n${meta}\n\n(No logs recorded)`;
+  }
+  const blocks = payload.logs.map((l) => {
+    const stageHead = `**[${l.stage}]** ${l.success ? "✅" : "❌"}${l.command ? ` — \`${l.command}\`` : ""}`;
+    const out = l.stdout ? `\n\nstdout:\n\n${codeBlock(truncate(l.stdout, OUTPUT_BUDGET))}` : "";
+    const err = l.stderr ? `\n\nstderr:\n\n${codeBlock(truncate(l.stderr, OUTPUT_BUDGET))}` : "";
+    return `${stageHead}${out}${err}`;
+  });
+  return `${header}\n\n${meta}\n\n${blocks.join("\n\n")}`;
+}
+
+// ============================================================================
+// Repo
+// ============================================================================
+
+interface RepoListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly server_id?: string;
+  readonly builder_id?: string;
+  readonly repo?: string;
+  readonly branch?: string;
+  readonly cloned_hash?: string;
+  readonly built_hash?: string;
+  readonly latest_hash?: string;
+}
+
+export function renderRepoList(payload: { items: readonly RepoListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.REPO} Repos (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo repos found.`;
+  const rows = items
+    .map((r) => {
+      const repo = r.repo ? ` | ${r.repo}${r.branch ? `@${r.branch}` : ""}` : "";
+      const hashes: string[] = [];
+      if (r.cloned_hash) hashes.push(`cloned ${r.cloned_hash}`);
+      if (r.built_hash) hashes.push(`built ${r.built_hash}`);
+      if (r.latest_hash) hashes.push(`latest ${r.latest_hash}`);
+      const hashLine = hashes.length > 0 ? ` (${hashes.join(", ")})` : "";
+      return `• ${r.name} (${r.id}) — ${stateBadge(r.state)}${repo}${hashLine}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface RepoInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderRepoInfo(payload: RepoInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Repo "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull repo resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+// ============================================================================
+// Procedure
+// ============================================================================
+
+interface ProcedureListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly stages?: number;
+  readonly last_run_at?: number;
+  readonly next_scheduled_run?: number;
+  readonly schedule_error?: string;
+}
+
+export function renderProcedureList(payload: { items: readonly ProcedureListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.PROCEDURE} Procedures (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo procedures found.`;
+  const rows = items
+    .map((p) => {
+      const stages = p.stages !== undefined ? ` | ${p.stages} stage${p.stages === 1 ? "" : "s"}` : "";
+      const sched = p.next_scheduled_run ? ` | next ${new Date(p.next_scheduled_run).toISOString()}` : "";
+      const err = p.schedule_error ? ` | schedule_error: ${p.schedule_error}` : "";
+      return `• ${p.name} (${p.id}) — ${stateBadge(p.state)}${stages}${sched}${err}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface ProcedureInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderProcedureInfo(payload: ProcedureInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Procedure "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull procedure resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+// ============================================================================
+// Action
+// ============================================================================
+
+interface ActionListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly last_run_at?: number;
+  readonly next_scheduled_run?: number;
+  readonly schedule_error?: string;
+}
+
+export function renderActionList(payload: { items: readonly ActionListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.ACTION} Actions (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo actions found.`;
+  const rows = items
+    .map((a) => {
+      const sched = a.next_scheduled_run ? ` | next ${new Date(a.next_scheduled_run).toISOString()}` : "";
+      const err = a.schedule_error ? ` | schedule_error: ${a.schedule_error}` : "";
+      return `• ${a.name} (${a.id}) — ${stateBadge(a.state)}${sched}${err}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface ActionInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderActionInfo(payload: ActionInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Action "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull Action resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+// ============================================================================
+// Alerter
+// ============================================================================
+
+interface AlerterListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly enabled?: boolean;
+  readonly endpoint_type?: string;
+}
+
+export function renderAlerterList(payload: { items: readonly AlerterListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.ALERTER} Alerters (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo alerters configured.`;
+  const rows = items
+    .map((a) => {
+      const enabled = a.enabled === undefined ? "" : a.enabled ? " | enabled" : " | disabled";
+      const ep = a.endpoint_type ? ` | ${a.endpoint_type}` : "";
+      return `• ${a.name} (${a.id})${ep}${enabled}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface AlerterInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderAlerterInfo(payload: AlerterInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Alerter "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull alerter resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
 }
 
 // ============================================================================
@@ -478,4 +724,290 @@ export function renderHealthCheck(payload: HealthCheckPayload): string {
   lines.push(`• MCP server version: v${payload.mcp_server_version}`);
   if (payload.error) lines.push(`• Error: ${payload.error}`);
   return lines.join("\n");
+}
+
+// ============================================================================
+// Swarm
+// ============================================================================
+
+interface SwarmListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly server_ids?: readonly string[];
+  readonly err?: string;
+}
+
+export function renderSwarmList(payload: { items: readonly SwarmListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.SWARM} Swarms (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo swarms registered.`;
+  const rows = items
+    .map((s) => {
+      const state = s.state ? ` ${stateBadge(s.state)}` : "";
+      const servers = s.server_ids && s.server_ids.length > 0 ? ` | managers: ${s.server_ids.length}` : "";
+      const err = s.err ? ` | err: ${s.err}` : "";
+      return `• ${s.name} (${s.id})${state}${servers}${err}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface SwarmInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string; readonly server_ids?: readonly string[] };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderSwarmInfo(payload: SwarmInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Swarm "${payload.summary.name}"`;
+  const meta: string[] = [];
+  if (payload.summary.server_ids && payload.summary.server_ids.length > 0) {
+    meta.push(`• Manager servers (${payload.summary.server_ids.length}): ${payload.summary.server_ids.join(", ")}`);
+  }
+  const metaBlock = meta.length > 0 ? `\n\n${meta.join("\n")}` : "";
+  if (payload.resourceLink) {
+    return `${header}${metaBlock}\n\nFull swarm resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}${metaBlock}\n\n${jsonBlock(payload.info)}`;
+}
+
+interface SwarmNodeItem {
+  readonly id?: string;
+  readonly name?: string;
+  readonly hostname?: string;
+  readonly role?: string;
+  readonly availability?: string;
+  readonly state?: string;
+}
+
+export function renderSwarmNodesList(payload: {
+  swarm: string;
+  items: readonly SwarmNodeItem[];
+  page?: PageInfo;
+}): string {
+  const { swarm, items, page } = payload;
+  const header = `${RESPONSE_ICONS.NODE} Nodes for swarm "${swarm}" (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo nodes reported.`;
+  const rows = items
+    .map((n) => {
+      const id = n.id ? ` (${n.id})` : "";
+      const role = n.role ? ` | ${n.role}` : "";
+      const avail = n.availability ? ` | ${n.availability}` : "";
+      const state = n.state ? ` | ${stateBadge(n.state)}` : "";
+      const host = n.hostname && n.hostname !== n.name ? ` | host: ${n.hostname}` : "";
+      return `• ${n.name ?? n.hostname ?? "(unnamed)"}${id}${role}${avail}${state}${host}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface SwarmServiceItem {
+  readonly id?: string;
+  readonly name?: string;
+  readonly image?: string;
+  readonly mode?: string;
+  readonly replicas?: number;
+}
+
+export function renderSwarmServicesList(payload: {
+  swarm: string;
+  items: readonly SwarmServiceItem[];
+  page?: PageInfo;
+}): string {
+  const { swarm, items, page } = payload;
+  const header = `${RESPONSE_ICONS.SERVICE} Services on swarm "${swarm}" (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo services running.`;
+  const rows = items
+    .map((s) => {
+      const id = s.id ? ` (${s.id})` : "";
+      const img = s.image ? ` | ${s.image}` : "";
+      const mode = s.mode ? ` | ${s.mode}` : "";
+      const rep = s.replicas !== undefined ? ` | replicas: ${s.replicas}` : "";
+      return `• ${s.name ?? "(unnamed)"}${id}${img}${mode}${rep}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+// ============================================================================
+// Builder
+// ============================================================================
+
+interface BuilderListItemRender {
+  readonly id: string;
+  readonly name: string;
+  readonly builder_type?: string;
+}
+
+export function renderBuilderList(payload: { items: readonly BuilderListItemRender[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.BUILDER} Builders (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo builders found.`;
+  const rows = items.map((b) => `• ${b.name} (${b.id})${b.builder_type ? ` — ${b.builder_type}` : ""}`).join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface BuilderInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string; readonly builder_type?: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderBuilderInfo(payload: BuilderInfoPayload): string {
+  const header = `${RESPONSE_ICONS.BUILDER} Builder "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull builder resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+// ============================================================================
+// Variable
+// ============================================================================
+
+interface VariableSummary {
+  readonly name: string;
+  readonly value: string;
+  readonly description?: string;
+  readonly is_secret?: boolean;
+}
+
+export function renderVariableList(payload: { items: readonly VariableSummary[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.VARIABLE} Variables (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo variables defined.`;
+  const rows = items
+    .map((v) => {
+      const secret = v.is_secret ? " 🔒" : "";
+      const desc = v.description ? ` — ${v.description}` : "";
+      const value = v.is_secret ? "(secret)" : v.value === "" ? "_(empty)_" : v.value;
+      return `• \`${v.name}\`${secret} = ${value}${desc}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+export function renderVariableInfo(payload: { variable: VariableSummary }): string {
+  const { variable } = payload;
+  const secret = variable.is_secret ? " 🔒 secret" : "";
+  const lines = [
+    `${RESPONSE_ICONS.VARIABLE} Variable \`${variable.name}\`${secret}`,
+    "",
+    `• Value: ${variable.is_secret ? "(secret)" : variable.value === "" ? "_(empty)_" : `\`${variable.value}\``}`,
+  ];
+  if (variable.description) lines.push(`• Description: ${variable.description}`);
+  return lines.join("\n");
+}
+
+// ============================================================================
+// ResourceSync
+// ============================================================================
+
+interface ResourceSyncListItemRender {
+  readonly id: string;
+  readonly name: string;
+  readonly state?: string;
+  readonly managed?: boolean;
+  readonly repo?: string;
+  readonly branch?: string;
+  readonly resource_path?: readonly string[];
+  readonly last_sync_ts?: number;
+  readonly last_sync_hash?: string;
+}
+
+export function renderResourceSyncList(payload: {
+  items: readonly ResourceSyncListItemRender[];
+  page?: PageInfo;
+}): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.SYNC} Resource Syncs (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo resource syncs registered.`;
+  const rows = items
+    .map((s) => {
+      const repo = s.repo ? ` | ${s.repo}${s.branch ? `@${s.branch}` : ""}` : "";
+      const managed = s.managed ? " | managed" : "";
+      const hash = s.last_sync_hash ? ` | last ${s.last_sync_hash}` : "";
+      return `• ${s.name} (${s.id}) — ${stateBadge(s.state)}${managed}${repo}${hash}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface ResourceSyncInfoPayload {
+  readonly summary: { readonly id: string; readonly name: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderResourceSyncInfo(payload: ResourceSyncInfoPayload): string {
+  const header = `${RESPONSE_ICONS.SYNC} Resource Sync "${payload.summary.name}"`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull resource sync payload available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+// ============================================================================
+// Update (history)
+// ============================================================================
+
+interface UpdateSummaryRender {
+  readonly id: string;
+  readonly operation: string;
+  readonly status: string;
+  readonly success?: boolean;
+  readonly start_ts?: number;
+  readonly end_ts?: number;
+  readonly target_type?: string;
+  readonly target_id?: string;
+  readonly username?: string;
+}
+
+function formatTs(ts: number | undefined): string {
+  if (!ts) return "—";
+  try {
+    return new Date(ts).toISOString().replace("T", " ").slice(0, 19);
+  } catch {
+    return String(ts);
+  }
+}
+
+export function renderUpdateList(payload: { items: readonly UpdateSummaryRender[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.UPDATE_LOG} Updates (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo update history.`;
+  const rows = items
+    .map((u) => {
+      const result = u.status === "Complete" ? (u.success ? "✅" : "❌") : u.status === "InProgress" ? "🔄" : "⏳";
+      const target = u.target_type ? ` | ${u.target_type}${u.target_id ? `:${u.target_id}` : ""}` : "";
+      const user = u.username ? ` by ${u.username}` : "";
+      return `• ${result} ${u.operation} (${u.id}) — ${formatTs(u.start_ts)}${target}${user}`;
+    })
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface UpdateInfoPayload {
+  readonly summary: UpdateSummaryRender;
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+
+export function renderUpdateInfo(payload: UpdateInfoPayload): string {
+  const { summary } = payload;
+  const header = `${RESPONSE_ICONS.UPDATE_LOG} Update ${summary.id} — ${summary.operation}`;
+  const meta = [
+    `• Status: ${summary.status}${summary.success !== undefined ? ` (${summary.success ? "✅ success" : "❌ failed"})` : ""}`,
+    `• Started: ${formatTs(summary.start_ts)}`,
+    summary.end_ts ? `• Ended: ${formatTs(summary.end_ts)}` : null,
+    summary.target_type ? `• Target: ${summary.target_type}${summary.target_id ? `:${summary.target_id}` : ""}` : null,
+    summary.username ? `• User: ${summary.username}` : null,
+  ]
+    .filter((v): v is string => v !== null)
+    .join("\n");
+  if (payload.resourceLink) {
+    return `${header}\n\n${meta}\n\nFull update payload (per-stage logs) available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${meta}\n\n${jsonBlock(payload.info)}`;
 }

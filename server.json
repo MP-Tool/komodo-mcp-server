@@ -57,7 +57,6 @@
     {
       "registryType": "oci",
       "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.4.0",
-      "version": "1.4.0",
       "runtimeHint": "docker",
       "transport": {
         "type": "stdio"

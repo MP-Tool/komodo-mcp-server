@@ -96,14 +96,15 @@ jobs:
         run: |
           set -euo pipefail
           # Sync version into all package entries based on registryType.
-          # Iterating by registryType (instead of fixed array indices) keeps the
-          # workflow stable if package order in server.json changes.
+          # Per MCP Registry spec, OCI packages MUST NOT have a top-level
+          # `version` field — the version lives in the `identifier` tag.
+          # npm (and other registry-versioned types) keep `version`.
           jq --arg v "$VERSION" --arg img "$OCI_IMAGE" '
             .version = $v |
             .packages |= map(
               if .registryType == "oci" then
                 .identifier = "\($img):\($v)"
-                | .version = $v
+                | del(.version)
               else
                 .version = $v
               end
@@ -142,18 +143,29 @@ jobs:
             exit 1
           fi
 
-          # Per-package version check. Listing the actual mismatches (instead of
-          # just a count) avoids the previous silent-failure mode where an empty
-          # jq output was compared against "0" and falsely flagged a mismatch.
+          # Per-package version check. OCI packages have no `version` field
+          # (the version lives in `identifier`); other registry types must
+          # match the target version exactly.
           echo "📋 Package versions in server.json:"
-          jq -r '.packages[] | "  - \(.registryType): \(.version)"' server.json
+          jq -r '.packages[] | if .registryType == "oci" then "  - \(.registryType): \(.identifier)" else "  - \(.registryType): \(.version)" end' server.json
 
           MISMATCHES=$(jq -r --arg v "$VERSION" \
-            '.packages[] | select(.version != $v) | "\(.registryType): \(.version)"' \
+            '.packages[]
+             | select(.registryType != "oci")
+             | select(.version != $v)
+             | "\(.registryType): \(.version)"' \
             server.json)
           if [ -n "$MISMATCHES" ]; then
             echo "❌ Package versions in server.json do not match $VERSION:"
             printf '%s\n' "$MISMATCHES" | sed 's/^/  - /'
+            exit 1
+          fi
+
+          # OCI packages MUST NOT carry a top-level `version` field.
+          OCI_WITH_VERSION=$(jq -r '.packages[] | select(.registryType == "oci" and has("version")) | .identifier' server.json)
+          if [ -n "$OCI_WITH_VERSION" ]; then
+            echo "❌ OCI packages must not have a 'version' field (it belongs in 'identifier'):"
+            printf '%s\n' "$OCI_WITH_VERSION" | sed 's/^/  - /'
             exit 1
           fi
 

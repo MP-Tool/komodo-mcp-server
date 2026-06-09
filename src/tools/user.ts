@@ -11,6 +11,7 @@
 import { defineTool, structured } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
+import { AppErrorFactory } from "../errors/index.js";
 import { requireClient, wrapApiCall, renderApiKeyList, renderApiKeyCreated, paginate } from "../utils/index.js";
 import {
   listApiKeysOutputSchema,
@@ -98,7 +99,7 @@ export const deleteApiKeyTool = defineTool({
   name: "komodo_user_delete_api_key",
   description:
     "Delete an API key for the currently authenticated Komodo user. " +
-    "Requires the key ID (not the secret). Use komodo_user_list_api_keys to find key IDs.",
+    "Accepts either the key name or the full K_... key string. Use komodo_user_list_api_keys to see available keys.",
   input: deleteApiKeyInputSchema,
   output: deleteApiKeyOutputSchema,
   annotations: {
@@ -109,11 +110,45 @@ export const deleteApiKeyTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    await wrapApiCall("deleteApiKey", () => komodo.client.auth.manage("DeleteApiKey", { key: args.key }), abortSignal);
+    const input = args.name_or_key;
 
+    // If the input already looks like a raw key string, use it directly.
+    // Otherwise resolve by name via ListApiKeys.
+    let resolvedKey: string;
+    let resolvedName: string | undefined;
+
+    if (input.startsWith("K_")) {
+      resolvedKey = input;
+    } else {
+      const keys = await wrapApiCall("listApiKeysForDelete", () => komodo.client.read("ListApiKeys", {}), abortSignal);
+      const matches = keys.filter((k) => k.name === input);
+
+      if (matches.length === 0) {
+        throw AppErrorFactory.notFound.resource(input, "API key");
+      }
+      if (matches.length > 1) {
+        throw AppErrorFactory.validation.fieldRequired(
+          `Multiple API keys named "${input}" exist. Provide the full K_... key string instead.`,
+        );
+      }
+      const match = matches[0];
+      if (!match) throw AppErrorFactory.notFound.resource(input, "API key");
+      resolvedKey = match.key;
+      resolvedName = match.name;
+    }
+
+    await wrapApiCall(
+      "deleteApiKey",
+      () => komodo.client.auth.manage("DeleteApiKey", { key: resolvedKey }),
+      abortSignal,
+    );
+
+    const label = resolvedName
+      ? `**Name:** ${resolvedName}\n\n**Key:** \`${resolvedKey}\``
+      : `**Key:** \`${resolvedKey}\``;
     return structured(
-      { deleted: true, key: args.key },
-      { text: `✅ API key deleted successfully.\n\n**Key:** \`${args.key}\`` },
+      { deleted: true, key_id: resolvedKey, ...(resolvedName && { name: resolvedName }) },
+      { text: `✅ API key deleted successfully.\n\n${label}` },
     );
   },
 });

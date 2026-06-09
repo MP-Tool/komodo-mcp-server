@@ -34,18 +34,22 @@ export const createApiKeyInputSchema = z
 /** Input of `komodo_user_delete_api_key`. */
 export const deleteApiKeyInputSchema = z
   .object({
-    key: z
+    name_or_key: z
       .string()
-      .min(1, "API key cannot be empty")
-      .describe("The API key ID to delete (use komodo_user_list_api_keys to find it)"),
+      .min(1, "API key name or key ID cannot be empty")
+      .describe(
+        "The key name (e.g. 'mykey') OR the full key string (e.g. 'K_abc...'). " +
+          "Use the name shown in komodo_user_list_api_keys. If multiple keys share the same name, provide the full K_... string.",
+      ),
   })
-  .describe("Identifier of the API key to delete");
+  .describe("Name or key ID of the API key to delete");
 
 /** Output of `komodo_user_delete_api_key`. */
 export const deleteApiKeyOutputSchema = z
   .object({
     deleted: z.boolean().describe("Whether the API key was removed"),
-    key: z.string().describe("The API key ID that was deleted"),
+    key_id: z.string().describe("The full K_... key string that was deleted"),
+    name: z.string().optional().describe("The key name, when resolved by name lookup"),
   })
   .describe("Result envelope for an API key deletion");
 

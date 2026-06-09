@@ -16,6 +16,7 @@
 
 import { defineTool, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
+import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import { execInputSchema, execOutputSchema } from "./schemas/index.js";
@@ -188,7 +189,7 @@ export const execTool = defineTool({
   name: "komodo_exec",
   description: [
     "Execute a shell command on a Komodo target. `target` selects the context:",
-    "server (server[, terminal]) | container (server, container[, shell]) | deployment (deployment[, shell]) | stack_service (stack, service[, shell]).",
+    "server (server[, shell, terminal]) | container (server, container[, shell]) | deployment (deployment[, shell]) | stack_service (stack, service[, shell]).",
     "Output ≤50 KB; timeout 5 min.",
   ].join("\n"),
   input: execInputSchema,
@@ -213,6 +214,7 @@ export const execTool = defineTool({
               target: { type: "Server", params: { server } },
               terminal: args.terminal,
               command: args.command,
+              init: { command: args.shell, recreate: Types.TerminalRecreateMode.DifferentCommand },
             }),
           abortSignal,
         );

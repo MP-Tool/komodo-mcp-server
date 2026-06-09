@@ -24,7 +24,10 @@ export const execShellSchema = z
   .max(50, "Shell path is too long")
   .regex(/^[a-zA-Z0-9/_.-]+$/, "Shell contains invalid characters")
   .default("sh")
-  .describe("The shell to use for execution (e.g. 'sh', 'bash', '/bin/zsh'). Default: sh");
+  .describe(
+    "The shell to use for execution (e.g. 'sh', 'bash', '/bin/zsh'). " +
+      "For 'server' target: used as the terminal init command. Default: sh",
+  );
 
 /** Terminal session name on a server (used for `target: 'server'`) */
 export const execTerminalNameSchema = z
@@ -70,7 +73,7 @@ export const execInputSchema = z.object({
   // stack_service
   stack: stackIdSchema.optional().describe("Required for 'stack_service': stack id or name"),
   service: execServiceNameSchema.optional(),
-  // container / deployment / stack_service
+  // container / deployment / stack_service / server
   shell: execShellSchema,
 });
 

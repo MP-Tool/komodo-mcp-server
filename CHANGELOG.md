@@ -9,6 +9,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **`komodo_exec` — `target: "server"` returned HTTP 500 on Komodo Core v2** ([#135](https://github.com/MP-Tool/komodo-mcp-server/issues/135)): The `execute_terminal_stream` call for the `server` target was missing the `init` parameter that Komodo v2 requires to create or attach to a terminal session before executing a command. The `container`, `deployment` and `stack_service` targets were unaffected because their legacy client methods inject `init` internally. The fix passes `init: { command: shell, recreate: DifferentCommand }` — consistent with what the other targets use — so the named terminal (default: `"mcp"`) is created automatically if it does not yet exist. The `shell` parameter (default `"sh"`) now applies to `target: "server"` as well, giving callers full control over the init shell.
+
 ---
 
 ## [1.4.0] - Full Komodo Coverage & Context Efficiency

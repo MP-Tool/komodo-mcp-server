@@ -38,8 +38,20 @@ const PROGRESS_INTERVAL = 50;
 /** Estimated total lines based on max output capacity (for progress reporting) */
 const ESTIMATED_TOTAL_LINES = Math.ceil(MAX_OUTPUT_LENGTH / 80);
 
-/** Sentinel prefix emitted by Komodo to signal exit code */
-const EXIT_CODE_PREFIX = "__KOMODO_EXIT_CODE__:";
+/** Sentinel prefix emitted by Komodo to signal exit code*/
+const EXIT_CODE_PREFIX = "__KOMODO_EXIT_CODE:";
+
+/**
+ * Parses and validates a raw exit-code value from the Komodo sentinel.
+ *
+ * The PTY echo can inject the printf format literal `"%d"` or other
+ * non-numeric strings before the real sentinel arrives. Any value that
+ * is not a valid integer is treated as unknown and returned as `null`.
+ */
+function parseExitCode(raw: string): string | null {
+  const trimmed = raw.trim();
+  return /^-?\d+$/.test(trimmed) ? trimmed : null;
+}
 
 // ============================================================================
 // Output Collection
@@ -114,7 +126,11 @@ class OutputBuffer {
   }
 
   getResult(): TerminalResult {
-    return { output: this.lines.join("\n"), exitCode: this.exitCode, truncated: this.truncated };
+    // Trim leading/trailing empty lines injected by Komodo's scaffold protocol
+    // (printf outputs a \n before and after the sentinel lines). Internal blank
+    // lines that are part of real command output are preserved.
+    const output = this.lines.join("\n").trim();
+    return { output, exitCode: this.exitCode, truncated: this.truncated };
   }
 }
 
@@ -133,7 +149,7 @@ async function collectStreamOutput(
     if (!buf.isActive(signal)) break;
 
     if (line.startsWith(EXIT_CODE_PREFIX)) {
-      buf.exitCode = line.slice(EXIT_CODE_PREFIX.length).trim();
+      buf.exitCode = parseExitCode(line.slice(EXIT_CODE_PREFIX.length));
       continue;
     }
 
@@ -163,7 +179,7 @@ function collectCallbackOutput(
       if (reportProgress) void buf.reportProgress(reportProgress);
     },
     onFinish: (code: string) => {
-      buf.exitCode = code;
+      buf.exitCode = parseExitCode(code);
     },
   })
     .finally(() => {
@@ -214,7 +230,17 @@ export const execTool = defineTool({
               target: { type: "Server", params: { server } },
               terminal: args.terminal,
               command: args.command,
-              init: { command: args.shell, recreate: Types.TerminalRecreateMode.DifferentCommand },
+              // Wrap the init shell with `stty -echo` to disable PTY input echo.
+              // Komodo Periphery sends its command scaffold as a multi-line string
+              // to the PTY. Without this, the PTY echoes each scaffold line back
+              // into stdout and the sentinel-matching loop in Periphery fires on
+              // the echo rather than on the real printf output — causing the stream
+              // to close before the actual command output arrives.
+              // Workaround until upstream fix: `\n` to `\\n` in the scaffold printf format literal, or a dedicated exec API without the scaffold.
+              init: {
+                command: `sh -c 'stty -echo; exec ${args.shell}'`,
+                recreate: Types.TerminalRecreateMode.DifferentCommand,
+              },
             }),
           abortSignal,
         );

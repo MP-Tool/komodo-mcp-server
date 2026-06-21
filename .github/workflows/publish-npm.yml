@@ -72,6 +72,9 @@ jobs:
         env:
           NODE_ENV: production
 
+      - name: Make CLI entry executable
+        run: chmod 755 build/index.js
+
       - name: Get package version
         id: version
         run: |
@@ -89,6 +92,13 @@ jobs:
             exit 1
           fi
           echo "✅ Main entry point exists"
+
+          if [ ! -x "build/index.js" ]; then
+            echo "❌ build/index.js is not executable"
+            ls -l build/index.js
+            exit 1
+          fi
+          echo "✅ Main entry point is executable"
           
           # Verify NO source maps in production build
           SOURCEMAPS=$(find build -name "*.js.map" | wc -l)

@@ -9,12 +9,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [1.4.1] - Fixes tools and update dependencies
+
 ### Fixed
 
 - **`komodo_exec` — `target: "server"` failed with HTTP 500 on Komodo Core v2** ([#135](https://github.com/MP-Tool/komodo-mcp-server/issues/135)): Running a command on a server target always returned an error. The terminal session was not being initialised before the command was sent, which Komodo v2 requires. The `shell` parameter (default `sh`) now also applies to `target: "server"`, consistent with the other targets.
 - **`komodo_exec` — exit code was always missing or showed `%d` instead of a number** ([#135](https://github.com/MP-Tool/komodo-mcp-server/issues/135)): The exit code reported by Komodo was not being recognised correctly, so `exit_code` was always `null` for server targets and sometimes showed the raw placeholder `%d` for container/deployment/stack targets. Both cases are now handled and invalid values are returned as `null`.
 - **`komodo_exec` — `target: "server"` returned garbled output instead of the command result** ([#135](https://github.com/MP-Tool/komodo-mcp-server/issues/135)): Instead of showing the actual command output, the response contained internal protocol markers from Komodo. Caused by a known issue in Komodo Periphery where the terminal echoes the command scaffold back into the output stream before the real output arrives. Fixed client-side; a separate bug report has been filed with the Komodo project.
 - **`komodo_user_delete_api_key` — deleting by key name returned HTTP 404**: The tool expected the raw `K_...` key string, but a name like `"test"` was a natural and expected input. When the name was passed, Komodo returned 404 because it could not find a key matching that identifier. The tool now accepts either the key name or the full `K_...` string. If a name is provided, it is resolved to the key string via `ListApiKeys` before deletion. If multiple keys share the same name, the tool asks for the full key string to avoid ambiguity.
+
+### Dependencies
+- Bumped: mcp-server-framework from 1.1.0 to 1.1.2, qs from 6.15.1 to 6.15.2, typescript-eslint from 8.59.3 to 8.59.4, @grpc/grpc-js from 1.14.3 to 1.14.4, hono from 4.12.18 to 4.12.26 and all other dependencies to their latest versions for security and stability
 
 ---
 

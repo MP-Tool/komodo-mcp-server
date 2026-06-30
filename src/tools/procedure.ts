@@ -68,8 +68,8 @@ export const listProceduresTool = defineTool({
       name: p.name,
       state: p.info.state,
       stages: p.info.stages,
-      ...(p.info.last_run_at !== undefined ? { last_run_at: p.info.last_run_at } : {}),
-      ...(p.info.next_scheduled_run !== undefined ? { next_scheduled_run: p.info.next_scheduled_run } : {}),
+      ...(p.info.last_run_at != null ? { last_run_at: p.info.last_run_at } : {}),
+      ...(p.info.next_scheduled_run != null ? { next_scheduled_run: p.info.next_scheduled_run } : {}),
       ...(p.info.schedule_error ? { schedule_error: p.info.schedule_error } : {}),
     }));
 

@@ -73,8 +73,8 @@ export const listActionsTool = defineTool({
       id: a.id,
       name: a.name,
       state: a.info.state,
-      ...(a.info.last_run_at !== undefined ? { last_run_at: a.info.last_run_at } : {}),
-      ...(a.info.next_scheduled_run !== undefined ? { next_scheduled_run: a.info.next_scheduled_run } : {}),
+      ...(a.info.last_run_at != null ? { last_run_at: a.info.last_run_at } : {}),
+      ...(a.info.next_scheduled_run != null ? { next_scheduled_run: a.info.next_scheduled_run } : {}),
       ...(a.info.schedule_error ? { schedule_error: a.info.schedule_error } : {}),
     }));
 

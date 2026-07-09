@@ -68,7 +68,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 | **Terminal** | `komodo_exec` *(target: server / container / deployment / stack_service)* |
 | **API Keys** | `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_user_delete_api_key` |
 
-> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource-sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
+> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource-sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC. Container inspect and stack info redact credential-bearing values before returning or registering payloads.
 >
 > List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://…` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
 

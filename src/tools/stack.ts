@@ -30,6 +30,7 @@ import {
   tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  redactSensitiveData,
 } from "../utils/index.js";
 import {
   stackApplyInputSchema,
@@ -97,18 +98,19 @@ export const getStackInfoTool = defineTool({
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
+    const safeResult = redactSensitiveData(result);
     const link = tryRegisterResource({
       ctx: { sessionId },
       category: "info",
       name: `${args.stack} (stack info)`,
       mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
+      content: JSON.stringify(safeResult, null, 2),
       ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Full stack resource for ${args.stack}`,
     });
     const summary = { id: args.stack, name: args.stack };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: safeResult };
     return structured(payload, {
       text: renderStackInfo(payload),
       ...(link ? { links: [link] } : {}),

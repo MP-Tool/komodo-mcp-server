@@ -19,6 +19,9 @@ export { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
 export { tryRegisterResource } from "./resource-link.js";
 export type { ResourceCategory, ResourceLinkContext, RegisterResourceOptions } from "./resource-link.js";
 
+// --- Sensitive Output Redaction ---
+export { REDACTION_MARKER, redactSensitiveData } from "./redact-sensitive.js";
+
 // --- Polling ---
 export { extractUpdateId, wrapExecuteAndPoll, buildActionResult } from "./polling.js";
 export type { ActionResult } from "./polling.js";

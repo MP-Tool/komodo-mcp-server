@@ -21,6 +21,7 @@
     "lint:fix": "eslint 'src/**/*.ts' --fix",
     "format": "prettier --write 'src/**/*.ts'",
     "format:check": "prettier --check 'src/**/*.ts'",
+    "test": "npm run build:prod && node --test test/*.test.mjs",
     "docker:build": "docker build --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest .",
     "docker:build-no-cache": "docker build --no-cache --build-arg VERSION=$npm_package_version --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) --build-arg COMMIT_SHA=$(git rev-parse HEAD 2>/dev/null || echo 'unknown') -t komodo-mcp-server:$npm_package_version -t komodo-mcp-server:latest ."
   },

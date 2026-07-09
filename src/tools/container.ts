@@ -38,6 +38,7 @@ import {
   renderContainerSearchLogs,
   renderActionResult,
   tryRegisterResource,
+  redactSensitiveData,
 } from "../utils/index.js";
 import {
   containerActionInputSchema,
@@ -117,19 +118,20 @@ export const inspectContainerTool = defineTool({
       () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),
       abortSignal,
     );
+    const safeResult = redactSensitiveData(result);
     const link = tryRegisterResource({
       ctx: { sessionId },
       category: "inspect",
       name: `${args.container} (inspect)`,
       mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
+      content: JSON.stringify(safeResult, null, 2),
       ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
     const payload = link
       ? { summary: { name: args.container }, resourceLink: link }
-      : { summary: { name: args.container }, inspect: result };
+      : { summary: { name: args.container }, inspect: safeResult };
     return structured(payload, {
       text: renderContainerInspect(payload),
       ...(link ? { links: [link] } : {}),

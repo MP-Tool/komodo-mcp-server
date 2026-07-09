@@ -9,6 +9,7 @@
  */
 
 import { RESPONSE_ICONS } from "../config/index.js";
+import { redactSensitiveData } from "./redact-sensitive.js";
 
 export type ActionType =
   | "deploy"
@@ -117,7 +118,8 @@ export function buildApplyResult(
   text: string;
 } {
   const header = formatActionResponse({ action, resourceType, resourceId });
-  const resource = result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+  const safeResult = redactSensitiveData(result);
+  const resource = safeResult && typeof safeResult === "object" ? (safeResult as Record<string, unknown>) : undefined;
   return {
     payload: {
       action,
@@ -125,7 +127,7 @@ export function buildApplyResult(
       resource_id: resourceId,
       ...(resource ? { resource } : {}),
     },
-    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+    text: `${header}\n\n${JSON.stringify(safeResult, null, 2)}`,
   };
 }
 
@@ -143,7 +145,8 @@ export function buildDeleteResult(
   text: string;
 } {
   const header = formatActionResponse({ action: "remove", resourceType, resourceId });
-  const resource = result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+  const safeResult = redactSensitiveData(result);
+  const resource = safeResult && typeof safeResult === "object" ? (safeResult as Record<string, unknown>) : undefined;
   return {
     payload: {
       action: "remove",
@@ -151,6 +154,6 @@ export function buildDeleteResult(
       resource_id: resourceId,
       ...(resource ? { resource } : {}),
     },
-    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+    text: `${header}\n\n${JSON.stringify(safeResult, null, 2)}`,
   };
 }

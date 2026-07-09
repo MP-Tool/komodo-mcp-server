@@ -37,6 +37,35 @@ test("redacts sensitive assignments in multiline environment strings", async () 
   );
 });
 
+test("redacts indented Compose environment assignments while preserving indentation", async () => {
+  const { redactSensitiveData, REDACTION_MARKER } = await loadRedactor();
+  const input = [
+    "services:",
+    "  vpn:",
+    "    environment:",
+    "      OPENVPN_PASSWORD: sentinel-password",
+    "      PUBLIC_NAME: visible",
+  ].join("\n");
+
+  assert.equal(
+    redactSensitiveData(input),
+    [
+      "services:",
+      "  vpn:",
+      "    environment:",
+      `      OPENVPN_PASSWORD: ${REDACTION_MARKER}`,
+      "      PUBLIC_NAME: visible",
+    ].join("\n"),
+  );
+});
+
+test("redacts common short pass assignment keys without matching pass inside ordinary words", async () => {
+  const { redactSensitiveData, REDACTION_MARKER } = await loadRedactor();
+  const input = ["PIA_PASS=sentinel-password", "COMPASS_MODE=visible"].join("\n");
+
+  assert.equal(redactSensitiveData(input), `PIA_PASS=${REDACTION_MARKER}\nCOMPASS_MODE=visible`);
+});
+
 test("redacts sensitive entries in Docker Env arrays while preserving ordinary values", async () => {
   const { redactSensitiveData, REDACTION_MARKER } = await loadRedactor();
   const input = { Config: { Env: ["PORT=9180", "API_KEY=sentinel-key", "DB_PASSWORD=sentinel-password"] } };

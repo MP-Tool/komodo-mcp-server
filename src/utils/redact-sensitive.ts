@@ -18,7 +18,8 @@ const SENSITIVE_KEY_PARTS = [
 
 function isSensitiveKey(key: string): boolean {
   const normalized = key.toLowerCase().replace(/[^a-z0-9]/g, "");
-  return SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part));
+  const tokens = key.toLowerCase().split(/[^a-z0-9]+/);
+  return tokens.includes("pass") || SENSITIVE_KEY_PARTS.some((part) => normalized.includes(part));
 }
 
 function decodeKey(key: string): string {
@@ -31,9 +32,9 @@ function decodeKey(key: string): string {
 
 function redactString(input: string): string {
   const assignmentsRedacted = input.replace(
-    /(^|[\r\n])([A-Za-z_][A-Za-z0-9_.-]*)(\s*[:=]\s*)([^\r\n]*)/g,
-    (match, prefix: string, key: string, separator: string) =>
-      isSensitiveKey(key) ? `${prefix}${key}${separator}${REDACTION_MARKER}` : match,
+    /(^|[\r\n])([^\S\r\n]*)([A-Za-z_][A-Za-z0-9_.-]*)([^\S\r\n]*[:=][^\S\r\n]*)([^\r\n]*)/g,
+    (match, prefix: string, indentation: string, key: string, separator: string) =>
+      isSensitiveKey(key) ? `${prefix}${indentation}${key}${separator}${REDACTION_MARKER}` : match,
   );
 
   const userInfoRedacted = assignmentsRedacted.replace(

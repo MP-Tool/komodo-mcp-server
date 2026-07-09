@@ -65,6 +65,46 @@ test("stack info redacts both inline and resource-link payloads", async () => {
   assert.match(resource.content, /\[REDACTED\]/);
 });
 
+test("stack info redacts indented Compose and short pass environment secrets", async () => {
+  const indentedSentinel = "sentinel-indented-compose-password";
+  const shortPassSentinel = "sentinel-short-pass-password";
+  komodoConnection.getClient = () =>
+    fakeClient({
+      config: {
+        file_contents: [
+          "services:",
+          "  vpn:",
+          "    environment:",
+          `      OPENVPN_PASSWORD: ${indentedSentinel}`,
+          "      PUBLIC_NAME: visible",
+          `      PIA_PASS=${shortPassSentinel}`,
+          "      COMPASS_MODE=visible",
+        ].join("\n"),
+      },
+      name: "safe-stack",
+    });
+
+  const inline = await getStackInfoTool.handler({ stack: "stack", inline_full: true }, { abortSignal: signal });
+  const inlineJson = JSON.stringify(inline.structuredContent);
+  assert.doesNotMatch(inlineJson, new RegExp(indentedSentinel));
+  assert.doesNotMatch(inlineJson, new RegExp(shortPassSentinel));
+  assert.match(inlineJson, /\[REDACTED\]/);
+  assert.match(inlineJson, /PUBLIC_NAME: visible/);
+  assert.match(inlineJson, /COMPASS_MODE=visible/);
+
+  framework.resetDynamicResourceRegistry();
+  framework.configureDynamicResourceRegistry({ uriScheme: "ephemeral", maxEntries: 10 });
+  const linked = await getStackInfoTool.handler({ stack: "stack" }, { abortSignal: signal, sessionId: "redaction-test" });
+  const resource = await framework
+    .getDynamicResourceRegistry()
+    .read(linked.structuredContent.resourceLink.uri, "redaction-test");
+  assert.doesNotMatch(resource.content, new RegExp(indentedSentinel));
+  assert.doesNotMatch(resource.content, new RegExp(shortPassSentinel));
+  assert.match(resource.content, /\[REDACTED\]/);
+  assert.match(resource.content, /PUBLIC_NAME: visible/);
+  assert.match(resource.content, /COMPASS_MODE=visible/);
+});
+
 test("shared apply and delete responses redact returned resource snapshots", () => {
   const resource = { config: { environment: `API_SECRET=${sentinel}\nPUBLIC_NAME=visible` } };
   for (const built of [

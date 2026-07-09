@@ -11,7 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- **Container inspect and stack info leaked resolved credentials** — Sensitive object fields, environment assignments, Docker `Env` entries, URL userinfo, and credential-bearing query parameters are now redacted before either inline serialization or session resource registration.
+- **Inspect/info and resource mutation responses leaked resolved credentials** — Sensitive object fields, environment assignments, Docker `Env` entries, URL userinfo, and credential-bearing query parameters are now redacted before inline serialization, session resource registration, or shared apply/delete response formatting.
 
 ## [1.4.1] - Fixes tools and update dependencies
 

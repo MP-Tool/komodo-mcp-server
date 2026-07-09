@@ -6,6 +6,7 @@ const framework = await import("mcp-server-framework");
 const { komodoConnection } = await import("../build/client.js");
 const { inspectContainerTool } = await import("../build/tools/container.js");
 const { getStackInfoTool } = await import("../build/tools/stack.js");
+const { buildApplyResult, buildDeleteResult } = await import("../build/utils/response-formatter.js");
 
 const sentinel = "sentinel-never-return";
 const signal = new AbortController().signal;
@@ -64,3 +65,15 @@ test("stack info redacts both inline and resource-link payloads", async () => {
   assert.match(resource.content, /\[REDACTED\]/);
 });
 
+test("shared apply and delete responses redact returned resource snapshots", () => {
+  const resource = { config: { environment: `API_SECRET=${sentinel}\nPUBLIC_NAME=visible` } };
+  for (const built of [
+    buildApplyResult("create", "stack", "stack", resource),
+    buildDeleteResult("stack", "stack", resource),
+  ]) {
+    const output = JSON.stringify(built);
+    assert.doesNotMatch(output, new RegExp(sentinel));
+    assert.match(output, /\[REDACTED\]/);
+    assert.match(output, /PUBLIC_NAME=visible/);
+  }
+});

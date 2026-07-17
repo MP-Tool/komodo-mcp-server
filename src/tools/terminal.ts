@@ -17,6 +17,7 @@
 import { defineTool, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
 import { Types } from "komodo_client";
+import type { KomodoClient } from "../client.js";
 import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import { execInputSchema, execOutputSchema } from "./schemas/index.js";
@@ -225,6 +226,42 @@ function collectCallbackOutput(
 }
 
 // ============================================================================
+// Core Compatibility
+// ============================================================================
+
+/** Komodo core major version that introduced the unified `target`-based terminal API. */
+const MIN_TERMINAL_CORE_MAJOR = 2;
+
+/**
+ * Extract the leading major-version integer from a Komodo core version string
+ * (e.g. `"1.19.5"` → `1`, `"v2.0.0-dev"` → `2`). Returns `null` when the string
+ * can't be parsed, so an unrecognised format never blocks an otherwise-valid call.
+ */
+function parseMajorVersion(version: string): number | null {
+  const match = /^\D*(\d+)/.exec(version);
+  return match ? Number(match[1]) : null;
+}
+
+/**
+ * Fail fast when the connected Komodo core is too old for the terminal API.
+ *
+ * Core 2.0 unified exec under a single `target`-based request body; older cores
+ * expect a flat per-target body and reject every 2.x terminal call with a
+ * cryptic `missing field "server"` deserialization error. Surface an actionable
+ * message instead of letting that 422 reach the client.
+ */
+async function assertTerminalApiSupported(komodo: KomodoClient): Promise<void> {
+  const version = await wrapApiCall("checkCoreVersion", () => komodo.client.core_version());
+  const major = parseMajorVersion(version);
+  if (major !== null && major < MIN_TERMINAL_CORE_MAJOR) {
+    throw AppErrorFactory.api.custom(
+      `komodo_exec requires Komodo core >= ${MIN_TERMINAL_CORE_MAJOR}.0, but the connected server reports ${version}. ` +
+        `The terminal API changed in core 2.0 — please upgrade your Komodo core to use exec.`,
+    );
+  }
+}
+
+// ============================================================================
 // Consolidated `komodo_exec` Tool
 // ============================================================================
 
@@ -245,6 +282,7 @@ export const execTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await assertTerminalApiSupported(komodo);
     // Shown in the confirmation prompt — keep it recognizable but bounded.
     const commandPreview = args.command.length > 200 ? `${args.command.slice(0, 200)}…` : args.command;
 

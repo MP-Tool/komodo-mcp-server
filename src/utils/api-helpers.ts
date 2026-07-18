@@ -79,6 +79,43 @@ export function requireClient(): KomodoClient {
 }
 
 // ============================================================================
+// Core Version (cached read)
+// ============================================================================
+
+/** Short-TTL cache of the connected core's version string, keyed by base URL. */
+interface CachedCoreVersion {
+  readonly version: string;
+  readonly expiresAt: number;
+}
+const coreVersionCache = new Map<string, CachedCoreVersion>();
+const CORE_VERSION_TTL_MS = 60_000;
+const CORE_VERSION_CACHE_MAX = 1_000;
+
+/**
+ * Read the current tool call's connected Komodo core version string, cached
+ * briefly per base URL.
+ *
+ * Resolves its own client via {@link requireClient} — same as every other guard
+ * in this module — so callers don't thread a `KomodoClient` through just for
+ * this check. Version guards (see `requireMinimalVersion` in `./version.js`)
+ * call this on every gated tool invocation, so the cache keeps that to at most
+ * one `GetVersion` round-trip per core per minute. Keyed by URL (not client
+ * instance), so per-user clients pointing at the same server share the cache;
+ * the short TTL lets a core upgrade take effect without a restart.
+ */
+export async function readCoreVersion(): Promise<string> {
+  const komodo = requireClient();
+  const now = Date.now();
+  const cached = coreVersionCache.get(komodo.url);
+  if (cached && cached.expiresAt > now) return cached.version;
+
+  const version = await wrapApiCall("checkCoreVersion", () => komodo.client.core_version());
+  if (coreVersionCache.size >= CORE_VERSION_CACHE_MAX) coreVersionCache.clear();
+  coreVersionCache.set(komodo.url, { version, expiresAt: now + CORE_VERSION_TTL_MS });
+  return version;
+}
+
+// ============================================================================
 // Per-Resource Authorization (fail-early)
 // ============================================================================
 

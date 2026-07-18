@@ -26,6 +26,9 @@ import {
   requireClient,
   requireKomodoPermission,
   requireDestructiveConfirmation,
+  requireMinimalVersion,
+  readCoreVersion,
+  KOMODO_MINIMAL_API_VERSION,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
@@ -59,6 +62,15 @@ type SwarmListItem = Types.SwarmListItem;
 type SwarmNodeListItem = Types.SwarmNodeListItem;
 type SwarmServiceListItem = Types.SwarmServiceListItem;
 
+/**
+ * Docker Swarm is a Komodo 2.0+ resource — its request types don't exist on
+ * older cores, which reject every swarm call with a cryptic deserialization
+ * error. Fail fast with an actionable message instead.
+ */
+async function requireSwarmSupport(): Promise<void> {
+  requireMinimalVersion(await readCoreVersion(), KOMODO_MINIMAL_API_VERSION, "Docker Swarm tools");
+}
+
 // ============================================================================
 // List
 // ============================================================================
@@ -74,6 +86,7 @@ export const listSwarmsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     const swarms = await wrapApiCall("listSwarms", () => komodo.client.read("ListSwarms", {}), abortSignal);
 
     const allItems = swarms.map((s: SwarmListItem) => ({
@@ -109,6 +122,7 @@ export const getSwarmInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getSwarm",
@@ -156,6 +170,7 @@ export const listSwarmNodesTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Read);
     const nodes = await wrapApiCall(
       "listSwarmNodes",
@@ -192,6 +207,7 @@ export const listSwarmServicesTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Read);
     const services = await wrapApiCall(
       "listSwarmServices",
@@ -236,6 +252,7 @@ export const swarmActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Execute);
     const apiAction = SWARM_ACTION_API_MAP[args.action];
 
@@ -308,6 +325,7 @@ export const applySwarmTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     if (args.action === "create") {
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
@@ -354,6 +372,7 @@ export const deleteSwarmTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireSwarmSupport();
     await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Write);
     await requireDestructiveConfirmation({ action: "delete", resourceType: "swarm", resourceId: args.swarm });
     const result = await wrapApiCall(

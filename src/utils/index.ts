@@ -17,10 +17,21 @@ export {
   requireClient,
   requireKomodoPermission,
   requireDestructiveConfirmation,
+  readCoreVersion,
   checkCancelled,
   wrapApiCall,
   type DestructiveConfirmationRequest,
 } from "./api-helpers.js";
+
+// --- Version Compatibility ---
+export {
+  KOMODO_MINIMAL_API_VERSION,
+  parseVersion,
+  compareVersions,
+  isVersionGreater,
+  requireMinimalVersion,
+  type Version,
+} from "./version.js";
 
 // --- Resource Links (ephemeral session-bound payloads) ---
 export { tryRegisterResource } from "./resource-link.js";

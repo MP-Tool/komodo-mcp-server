@@ -26,7 +26,7 @@ export default [
     files: ["**/*.ts"],
     languageOptions: {
       parserOptions: {
-        project: "./tsconfig.json",
+        project: ["./tsconfig.json", "./tsconfig.test.json"],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -102,6 +102,17 @@ export default [
 
       // Not all string comparisons are security-sensitive
       "security/detect-possible-timing-attacks": "warn",
+    },
+  },
+
+  // node:test files — top-level `test(...)` calls are intentionally
+  // fire-and-forget (the test runner awaits them internally), and `as any`
+  // casts on assertion results are acceptable for brevity.
+  {
+    files: ["**/*.test.ts"],
+    rules: {
+      "@typescript-eslint/no-floating-promises": "off",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 

@@ -70,6 +70,28 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Komodo-version guards on version-sensitive tools** (generalizes
+  [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay): several tools
+  use Komodo APIs that only exist from core 2.0 on and otherwise fail with a cryptic
+  deserialization error. A shared `requireMinimalVersion(current, minimum, feature)` guard
+  (`src/utils/version.ts`) compares the connected core's version — semver-style over
+  `major.minor.patch`, with any leading `v` or pre-release/build suffix (e.g. `-dev102`) ignored and
+  an unparseable version never blocking — against a minimum and fails fast with an actionable
+  "upgrade" message. `komodo_exec` and all Docker Swarm tools
+  (`komodo_swarm_*`) require core ≥ 2.0 (the unified `target`-based terminal request body, which
+  older cores reject with `missing field "server"`, and the Swarm resources, which don't exist on
+  1.x cores at all); for `komodo_exec` the check runs before the permission round-trip and the
+  confirmation prompt. The core version is read through a short-TTL per-URL cache (`readCoreVersion`),
+  so the guard adds at most one `GetVersion` round-trip per core per minute. The reusable
+  `parseVersion` / `compareVersions` / `isVersionGreater` helpers let any tool be gated on the
+  specific Komodo version its features need.
+- **`komodo_exec` on containers, deployments, and stack services returned the echoed command
+  scaffold with a `null` exit code instead of the real output**
+  ([#159](https://github.com/MP-Tool/komodo-mcp-server/pull/159), thanks @jjsmackay): the server
+  branch already suppressed PTY echo (`stty -echo`) so Komodo Periphery's sentinel-matching fires
+  on real output, but the other three targets went through `komodo_client`'s legacy
+  `execute_*_exec` helpers with a bare-shell init. All four targets now share the same
+  echo-suppressing terminal init.
 - **`komodo_action_list` / `komodo_procedure_list` failed with an output validation error**
   ([#158](https://github.com/MP-Tool/komodo-mcp-server/pull/158), thanks @sai-roda): Komodo Core
   returns JSON `null` (not a missing key) for `last_run_at` / `next_scheduled_run` on actions and

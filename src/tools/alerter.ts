@@ -24,9 +24,9 @@ import {
   paginate,
   renderAlerterList,
   renderAlerterInfo,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   alerterIdSchema,
@@ -96,26 +96,23 @@ export const getAlerterInfoTool = defineTool({
       () => komodo.client.read("GetAlerter", { alerter: args.alerter }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (alerter info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full alerter resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.alerter,
       name: result.name,
       ...(result.config?.enabled !== undefined ? { enabled: result.config.enabled } : {}),
       ...(result.config?.endpoint?.type ? { endpoint_type: result.config.endpoint.type } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderAlerterInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (alerter info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full alerter resource for ${result.name}`,
+      },
+      render: (payload) => renderAlerterInfo(payload),
     });
   },
 });

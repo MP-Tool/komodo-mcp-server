@@ -29,10 +29,10 @@ import {
   renderResourceSyncList,
   renderResourceSyncInfo,
   renderActionResult,
-  tryRegisterResource,
   formatActionResponse,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   resourceSyncIdSchema,
@@ -114,24 +114,21 @@ export const getResourceSyncInfoTool = defineTool({
       () => komodo.client.read("GetResourceSync", { sync: args.resource_sync }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (resource sync info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full resource sync payload for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.resource_sync,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderResourceSyncInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (resource sync info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full resource sync payload for ${result.name}`,
+      },
+      render: (payload) => renderResourceSyncInfo(payload),
     });
   },
 });

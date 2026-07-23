@@ -8,7 +8,10 @@
  * @module utils/response-formatter
  */
 
+import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { structured, type ResourceLinkSpec } from "mcp-server-framework";
 import { RESPONSE_ICONS } from "../config/index.js";
+import { tryRegisterResource, type RegisterResourceOptions } from "./resource-link.js";
 
 export type ActionType =
   | "deploy"
@@ -153,4 +156,43 @@ export function buildDeleteResult(
     },
     text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
   };
+}
+
+/**
+ * Build a `CallToolResult` for a `*_info` tool: register the content for
+ * resource-link offload and assemble the summary + (resourceLink | info)
+ * payload consumed by the handler's renderer.
+ *
+ * Secret redaction is NOT this builder's job: inline results pass the
+ * framework's central tool-result boundary, and offloaded content is scrubbed
+ * on register by the `DynamicResourceRegistry` (both wired in `src/index.ts`).
+ *
+ * Pairs with the various `*InfoOutputSchema` shapes across `tools/schemas`.
+ */
+export function buildInfoResult<S extends object>(input: {
+  result: unknown;
+  summary: S;
+  register: {
+    ctx: { sessionId?: string | undefined };
+    name: string;
+    ttlMs: number;
+    inlineFull?: boolean | undefined;
+    description: string;
+  };
+  render: (payload: { summary: S } & ({ info: unknown } | { resourceLink: ResourceLinkSpec })) => string;
+}): CallToolResult {
+  const link = tryRegisterResource({
+    ctx: input.register.ctx,
+    category: "info",
+    name: input.register.name,
+    mimeType: "application/json",
+    content: JSON.stringify(input.result, null, 2),
+    ttlMs: input.register.ttlMs,
+    inlineFull: input.register.inlineFull,
+    description: input.register.description,
+  } satisfies RegisterResourceOptions);
+  const payload = link
+    ? { summary: input.summary, resourceLink: link }
+    : { summary: input.summary, info: input.result };
+  return structured(payload, { text: input.render(payload), ...(link ? { links: [link] } : {}) });
 }

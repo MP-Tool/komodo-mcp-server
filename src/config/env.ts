@@ -76,6 +76,40 @@ export const appEnvSchema = z.object({
    * "deny" refuses the destructive call, "allow" executes it with a warning. Default: "deny"
    */
   KOMODO_CONFIRM_FALLBACK: z.enum(["deny", "allow"]).default("deny"),
+
+  /**
+   * Master switch for secret redaction of tool output. Applied centrally by the
+   * framework at the tool-result boundary and on offloaded-resource
+   * registration (best-effort key-name + value-shape heuristics). Only the
+   * string "true" enables. Default: true
+   */
+  KOMODO_SECRET_SCRUB_ENABLED: booleanFromEnv(true),
+
+  /** Comma-separated extra key-name fragments always redacted (case-insensitive). */
+  KOMODO_SECRET_SCRUB_KEYS: z
+    .string()
+    .transform((s) =>
+      s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    )
+    .optional(),
+
+  /**
+   * Comma-separated exact key names never redacted by key-based matching
+   * (case-insensitive), merged with the built-in Komodo allowlist
+   * (`public_key`, `is_secret`, …).
+   */
+  KOMODO_SECRET_SCRUB_ALLOW_KEYS: z
+    .string()
+    .transform((s) =>
+      s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    )
+    .optional(),
 });
 
 export type AppEnvConfig = z.infer<typeof appEnvSchema>;

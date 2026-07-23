@@ -48,6 +48,10 @@ function projectVariable(v: Variable): {
 } {
   return {
     name: v.name,
+    // Secret values are masked centrally: the declarative `maskWhenSibling`
+    // policy (utils/redact.ts) redacts `value` whenever `is_secret` is true —
+    // applied at the framework's scrub boundary, so the projection keeps the
+    // flag alongside the value and never handles the secret itself.
     value: v.value ?? "",
     ...(v.description !== undefined && v.description !== "" ? { description: v.description } : {}),
     ...(v.is_secret ? { is_secret: true } : {}),
@@ -194,6 +198,8 @@ export const deleteVariableTool = defineTool({
       () => komodo.client.write("DeleteVariable", { name: args.name }),
       abortSignal,
     );
+    // The deleted-resource snapshot echoes the variable verbatim — redact a
+    // secret value before it reaches the client transcript.
     const built = buildDeleteResult("variable", args.name, result);
     return structured(built.payload, { text: built.text });
   },

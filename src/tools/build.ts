@@ -34,6 +34,7 @@ import {
   tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   buildIdSchema,
@@ -120,16 +121,6 @@ export const getBuildInfoTool = defineTool({
       () => komodo.client.read("GetBuild", { build: args.build }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (build info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full build resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.build,
       name: result.name,
@@ -139,10 +130,17 @@ export const getBuildInfoTool = defineTool({
       ...(result.config?.branch ? { branch: result.config.branch } : {}),
       ...(result.info?.last_built_at ? { last_built_at: result.info.last_built_at } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderBuildInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (build info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full build resource for ${result.name}`,
+      },
+      render: (payload) => renderBuildInfo(payload),
     });
   },
 });

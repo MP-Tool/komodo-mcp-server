@@ -35,9 +35,9 @@ import {
   renderActionList,
   renderActionInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   actionIdSchema,
@@ -111,24 +111,21 @@ export const getActionInfoTool = defineTool({
       () => komodo.client.read("GetAction", { action: args.action_id }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (action info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full Action resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.action_id,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderActionInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (action info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full Action resource for ${result.name}`,
+      },
+      render: (payload) => renderActionInfo(payload),
     });
   },
 });

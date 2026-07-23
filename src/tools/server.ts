@@ -38,9 +38,9 @@ import {
   renderServerInfo,
   renderServerStats,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -131,21 +131,18 @@ export const getServerInfoTool = defineTool({
       () => komodo.client.read("GetServer", { server: args.server }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.server} (server info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full server resource for ${args.server}`,
-    });
     const summary = { id: args.server, name: args.server };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderServerInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.server} (server info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full server resource for ${args.server}`,
+      },
+      render: (payload) => renderServerInfo(payload),
     });
   },
 });

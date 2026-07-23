@@ -8,6 +8,10 @@
  * Stateless callers and explicit `inline_full=true` opt-outs continue to
  * receive the full payload inline.
  *
+ * Registered content is secret-scrubbed by the registry itself (scrub-on-
+ * register, wired in `src/index.ts`); inline fallbacks pass the framework's
+ * tool-result boundary instead — callers never scrub here.
+ *
  * @module utils/resource-link
  */
 

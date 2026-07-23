@@ -37,7 +37,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 - **Three Auth Methods** — API Key/Secret (recommended), username/password, or JWT token. All support Docker secrets via `*_FILE` variants.
 - **Auth Enabled by Default** — Per-user local login in HTTP mode unless explicitly disabled. The global `[komodo]` connection is configured once at startup (or via env vars) and used only for stdio or auth-disabled deployments.
 - **Confirmation for Destructive Actions** — Deletes, destroys, prunes, and shell execution ask the human operator for explicit approval first (MCP elicitation with a confirm checkbox). Fail-closed on clients that can't prompt; tunable via `KOMODO_CONFIRM_DESTRUCTIVE` / `KOMODO_CONFIRM_FALLBACK`.
-- **Hardened by Default** — Input validation (Zod), secret scrubbing in logs, rate limiting, DNS rebinding protection, and security headers via Helmet.
+- **Hardened by Default** — Input validation (Zod), rate limiting, DNS rebinding protection, security headers via Helmet, and central fail-closed secret redaction: every tool result (including exec output and retrieved logs) passes the framework's scrub boundary before it reaches the client transcript — see [Secret Redaction](config/README.md#secret-redaction).
 
 ### ⚡ Reliability & Operations
 
@@ -217,6 +217,8 @@ GPL-3.0 License - see [LICENSE](LICENSE) for details.
 Report security vulnerabilities via GitHub's Private Vulnerability Reporting (see [SECURITY.md](SECURITY.md)).
 
 **Destructive-action confirmation:** By default, destructive tools (all `*_delete` tools, `komodo_exec`, stack/deployment `destroy`, server `stop_all`/`prune_*`/`delete_*`, swarm `remove_*`, and procedure/action/resource-sync `run`) require the human operator to approve an MCP elicitation prompt — "accept" plus a ticked confirm checkbox — before anything executes. Clients that cannot prompt (no elicitation support, or stateless HTTP mode) are refused by default. Tune with `KOMODO_CONFIRM_FALLBACK=allow` (execute with a warning on such clients) or `KOMODO_CONFIRM_DESTRUCTIVE=false` (disable the feature) — relevant for stdio setups whose client lacks elicitation support.
+
+**Secret redaction:** Tool results are persisted to the MCP client transcript and forwarded to the model provider, so every tool result passes the framework's central, fail-closed scrub boundary before it leaves the process — structured resource config (env blocks, `webhook_secret`, `passkey`), alerter webhook URLs, exec output, and container/build/update logs, for inline payloads and offloaded resource links alike. On top, `is_secret` variable values are always masked and stacks drop the post-interpolation `deployed_config`/`deployed_contents`. Best-effort defence-in-depth: heuristics catch deterministic secret shapes, not arbitrary material. Intended exception: `komodo_user_create_api_key` returns its one-time secret unredacted. See [Secret Redaction](config/README.md#secret-redaction).
 
 **Best practices:**
 - Never commit credentials

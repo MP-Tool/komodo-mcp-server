@@ -39,9 +39,9 @@ import {
   renderSwarmNodesList,
   renderSwarmServicesList,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   swarmIdSchema,
@@ -129,25 +129,22 @@ export const getSwarmInfoTool = defineTool({
       () => komodo.client.read("GetSwarm", { swarm: args.swarm }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (swarm info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full swarm resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.swarm,
       name: result.name,
       ...(result.config?.server_ids ? { server_ids: result.config.server_ids } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderSwarmInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (swarm info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full swarm resource for ${result.name}`,
+      },
+      render: (payload) => renderSwarmInfo(payload),
     });
   },
 });

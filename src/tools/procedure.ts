@@ -29,9 +29,9 @@ import {
   renderProcedureList,
   renderProcedureInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   procedureIdSchema,
@@ -105,24 +105,21 @@ export const getProcedureInfoTool = defineTool({
       () => komodo.client.read("GetProcedure", { procedure: args.procedure }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (procedure info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full procedure resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.procedure,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderProcedureInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (procedure info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full procedure resource for ${result.name}`,
+      },
+      render: (payload) => renderProcedureInfo(payload),
     });
   },
 });

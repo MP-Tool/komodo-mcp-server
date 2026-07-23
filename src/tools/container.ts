@@ -115,6 +115,10 @@ export const inspectContainerTool = defineTool({
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
+    // Config.Env is the resolved runtime environment, so a secret stored as a
+    // Komodo Variable surfaces here as plaintext — covered centrally: the
+    // framework scrubs the tool result at the boundary and the offloaded
+    // resource on register (KEY=value entries in the Env array included).
     const result = await wrapApiCall(
       "inspectContainer",
       () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),

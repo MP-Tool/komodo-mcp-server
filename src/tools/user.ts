@@ -71,12 +71,17 @@ export const createApiKeyTool = defineTool({
   description:
     "Create a new API key for the currently authenticated Komodo user. " +
     "Returns the key and secret — the secret is shown only once and cannot be retrieved later. " +
+    "NOTE: the one-time secret is intentionally NOT redacted from this result and persists in the " +
+    "client transcript — rotate the key if the transcript is untrusted. " +
     "Optionally set an expiry time.",
   input: createApiKeyInputSchema,
   output: createApiKeyOutputSchema,
   annotations: { readOnlyHint: false },
   _meta: { category: ToolCategories.USER },
   requiredScopes: [ToolScopes.ADMIN],
+  // The tool's entire purpose is returning the one-time secret — the central
+  // redaction boundary would destroy it (documented exposure, issue #160).
+  scrubResult: false,
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
 

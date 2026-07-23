@@ -29,9 +29,9 @@ import {
   renderDeploymentList,
   renderDeploymentInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   deploymentApplyInputSchema,
@@ -106,21 +106,18 @@ export const getDeploymentInfoTool = defineTool({
       () => komodo.client.read("GetDeployment", { deployment: args.deployment }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.deployment} (deployment info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full deployment resource for ${args.deployment}`,
-    });
     const summary = { id: args.deployment, name: args.deployment };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderDeploymentInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.deployment} (deployment info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full deployment resource for ${args.deployment}`,
+      },
+      render: (payload) => renderDeploymentInfo(payload),
     });
   },
 });

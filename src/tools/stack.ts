@@ -29,9 +29,9 @@ import {
   renderStackList,
   renderStackInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   stackApplyInputSchema,
@@ -47,6 +47,11 @@ import {
 } from "./schemas/index.js";
 
 type StackListItem = Types.StackListItem;
+
+// NOTE: The post-interpolation deploy artifacts (`deployed_config`,
+// `deployed_contents` — `[[variable.x]]` already expanded to real values) are
+// removed centrally by the declarative `dropKeys` policy in `utils/redact.ts`,
+// applied at the framework's scrub boundary and on resource-link offload.
 
 // ============================================================================
 // List
@@ -100,21 +105,18 @@ export const getStackInfoTool = defineTool({
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.stack} (stack info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full stack resource for ${args.stack}`,
-    });
     const summary = { id: args.stack, name: args.stack };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderStackInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.stack} (stack info)`,
+        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full stack resource for ${args.stack}`,
+      },
+      render: (payload) => renderStackInfo(payload),
     });
   },
 });

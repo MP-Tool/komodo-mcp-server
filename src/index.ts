@@ -20,7 +20,7 @@ import {
   defineDynamicResourceTemplate,
   iconFromFile,
 } from "mcp-server-framework";
-import type { AuthOptions, LocalLoginConfig } from "mcp-server-framework";
+import type { AuthOptions, LocalLoginConfig, ScrubToolResultsConfig } from "mcp-server-framework";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
@@ -34,6 +34,7 @@ import { configureKomodoConnections, stopKomodoConnections, resolveAuth, KomodoC
 import { AuthenticationError } from "./errors/index.js";
 import { buildKomodoContext, komodoAuthInfo } from "./auth/komodo-identity.js";
 import { komodoLoginPage } from "./auth/login.js";
+import { KOMODO_SCRUB_ALLOW_KEYS, KOMODO_SCRUB_RULES } from "./utils/redact.js";
 
 // Side-effect imports — register all tools in the global registry
 import "./tools/index.js";
@@ -49,10 +50,23 @@ const komodoIcon = iconFromFile(
 // Register [komodo] config file section before server init
 registerKomodoConfigSection();
 
+// Central secret redaction (issue #160): one POLICY (utils/redact.ts), one
+// framework implementation, applied at every choke point — the tool-result
+// boundary (createServer.scrubToolResults), offloaded-resource registration
+// (DynamicResourceRegistry.scrub), and forwarded log notifications.
+const scrubOptions: ScrubToolResultsConfig = config.KOMODO_SECRET_SCRUB_ENABLED
+  ? {
+      ...KOMODO_SCRUB_RULES,
+      additionalKeys: config.KOMODO_SECRET_SCRUB_KEYS ?? [],
+      allowKeys: [...KOMODO_SCRUB_ALLOW_KEYS, ...(config.KOMODO_SECRET_SCRUB_ALLOW_KEYS ?? [])],
+    }
+  : false;
+
 // Configure ephemeral resource registry and register the canonical template
 configureDynamicResourceRegistry({
   uriScheme: "ephemeral",
   maxEntries: config.KOMODO_RESOURCE_MAX_ENTRIES,
+  scrub: scrubOptions,
 });
 defineDynamicResourceTemplate();
 
@@ -185,6 +199,10 @@ const { start } = createServer({
     tools: { listChanged: true },
     logging: true,
   },
+
+  // Central tool-result secret redaction (issue #160) — same config as the
+  // dynamic-resource registry above.
+  scrubToolResults: scrubOptions,
 
   ...(authConfig && { auth: authConfig }),
 

@@ -209,6 +209,36 @@ operator for approval via the MCP client's elicitation UI before executing.
 | `KOMODO_CONFIRM_DESTRUCTIVE` | *(env only)* | `true` | Require manual confirmation for destructive tools (only the string `"true"` enables) |
 | `KOMODO_CONFIRM_FALLBACK` | *(env only)* | `deny` | When the client cannot prompt (no elicitation support / stateless mode): `deny` refuses the call, `allow` executes with a warning |
 
+### Secret Redaction
+
+The framework scrubs likely secrets out of **every** tool result at a central, fail-closed
+boundary before it reaches the client transcript; offloaded resource links are scrubbed when they
+are registered. This is a **best-effort, defence-in-depth** measure — key-name and value-shape
+heuristics, not a guarantee.
+
+| Variable | Config Key | Default | Description |
+|----------|-----------|---------|-------------|
+| `KOMODO_SECRET_SCRUB_ENABLED` | *(env only)* | `true` | Master switch for secret scrubbing of tool output (only the string `"true"` enables) |
+| `KOMODO_SECRET_SCRUB_KEYS` | *(env only)* | — | Comma-separated extra key-name fragments to always redact (case-insensitive) |
+| `KOMODO_SECRET_SCRUB_ALLOW_KEYS` | *(env only)* | — | Comma-separated exact key names to never redact by key-matching (case-insensitive), merged with the built-in allowlist (`public_key`, `is_secret`, …) |
+
+**Coverage:** every tool result — structured resource config (env var blocks, `webhook_secret`,
+`passkey`), alerter webhook URLs/emails, container inspect `Config.Env`, `komodo_exec` output,
+and container/build/update logs — inline payloads AND offloaded resource links. Fail-closed: if
+scrubbing itself fails, the result is withheld rather than returned unscrubbed. Komodo's domain
+rules are declared as policy and enforced by the same engine: secret variables (`is_secret`)
+always have their value masked, alerter endpoint URLs/emails are masked by path, and stacks'
+post-interpolation `deployed_config`/`deployed_contents` are removed entirely — in structured
+payloads, rendered text, and offloaded JSON alike.
+
+**Intended exception:** `komodo_user_create_api_key` returns its one-time secret unredacted —
+that is the tool's purpose. The secret persists in the client transcript; rotate the key if the
+transcript is untrusted.
+
+**Limits:** runtime output (exec/logs) is scanned with the same heuristics — deterministic shapes
+(tokenised URLs, JWTs, `KEY=value` pairs) are caught, but arbitrary secret material without a
+recognizable shape is not. Don't rely on this feature as the only line of defence.
+
 ## Sessions
 
 | Variable | Config Key | Default | Description |

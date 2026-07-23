@@ -17,6 +17,7 @@ import {
   deriveServerBaseUrl,
   resolveAuthConfig,
   configureDynamicResourceRegistry,
+  configureLoggerFromEnv,
   defineDynamicResourceTemplate,
   iconFromFile,
 } from "mcp-server-framework";
@@ -49,6 +50,11 @@ const komodoIcon = iconFromFile(
 
 // Register [komodo] config file section before server init
 registerKomodoConfigSection();
+
+// Apply the logger config up front so bootstrap logging (auth setup, resource
+// registry) is formatted consistently — createServer() reapplies it later. Without
+// this, anything logged before createServer() uses the bare default format.
+configureLoggerFromEnv({ name: SERVER_NAME, version: SERVER_VERSION });
 
 // Central secret redaction (issue #160): one POLICY (utils/redact.ts), one
 // framework implementation, applied at every choke point — the tool-result

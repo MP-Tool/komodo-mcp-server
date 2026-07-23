@@ -22,6 +22,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **Automatic secret redaction in tool results and logs** (closes
+  [#160](https://github.com/MP-Tool/komodo-mcp-server/issues/160)): every tool result — and any
+  large output offloaded to a fetchable resource, such as build/container logs — is now scrubbed
+  for secrets before it reaches the MCP client or the connected model. This covers places easy to
+  miss with one-off checks, like `komodo_exec` output and action/update logs (tokenised clone
+  URLs, `KEY=value` lines). Redaction is **fail-closed**: if it fails for any reason, the result
+  is withheld with an error instead of being returned unredacted. Specifically masked: alerter
+  webhook URLs/emails, variable values marked as secret, and a stack's resolved deployment config
+  (which can contain interpolated secrets) — while non-secret lookalike fields (e.g. `public_key`)
+  are left untouched. The one intentional exception is `komodo_user_create_api_key`, which still
+  returns the newly created key in full — that's the tool's purpose, and it says so in its own
+  description. Configuration: `KOMODO_SECRET_SCRUB_ENABLED` (default on), `KOMODO_SECRET_SCRUB_KEYS`
+  (redact additional field names), `KOMODO_SECRET_SCRUB_ALLOW_KEYS` (exempt specific field names).
+  This is best-effort defense-in-depth — it catches recognizable secret shapes, not arbitrary
+  sensitive text, so don't rely on it as your only safeguard (see config/README for details).
 - **Manual confirmation for destructive actions (MCP elicitation)**: destructive tools now ask the
   human operator for explicit approval before executing — via the client's elicitation UI
   (`elicitation/create`), requiring both "accept" AND a ticked confirm checkbox (double opt-in).

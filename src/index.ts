@@ -30,6 +30,7 @@ import {
   registerKomodoConfigSection,
   config,
   getKomodoCredentials,
+  ToolScopes,
 } from "./config/index.js";
 import { configureKomodoConnections, stopKomodoConnections, resolveAuth, KomodoClient } from "./client.js";
 import { AuthenticationError } from "./errors/index.js";
@@ -180,18 +181,27 @@ if (authActive) {
 // connection; authenticated HTTP resolves a per-user client from each request's JWT.
 const anonymousMode = !authConfig;
 
-// Security warning: an open HTTP server backed by shared global credentials means anyone who
-// can reach it acts as that single Komodo identity. Not applicable to stdio (one local user).
-if (httpMode && anonymousMode && resolveAuth(startupCreds) !== null) {
+// Open network deployment (http OR https, no per-user auth) ⇒ READ-ONLY, as an invariant.
+// Anonymous requests are granted only the READ scope, so the framework hides and rejects
+// every write/operate/exec/delete tool (komodo:operate / komodo:admin). This bounds the blast
+// radius of a misconfigured open server to reads; the only way to get write access over the
+// network is to enable [auth]. stdio (httpMode === false) is local & trusted ⇒ unrestricted.
+const anonymousScopes = httpMode && anonymousMode ? [ToolScopes.READ] : undefined;
+
+// Security notice: an open network server backed by shared global credentials is now read-only.
+// Not applicable to stdio (one local user).
+if (anonymousScopes && resolveAuth(startupCreds) !== null) {
   logger.warn(
-    "SECURITY: MCP authentication is disabled but global Komodo credentials are configured — the server is " +
-      "OPEN and every request acts as the shared global identity. Enable [auth] for per-user isolation.",
+    "SECURITY: MCP authentication is disabled — this %s server is READ-ONLY. Write, exec and delete tools are " +
+      "hidden and rejected for anonymous callers; reads act as the shared global identity. Enable [auth] for " +
+      "per-user write access.",
+    transportMode,
   );
   logAuditEvent({
     category: "config",
-    action: "insecure_global_login",
+    action: "restricted_anonymous",
     outcome: "info",
-    detail: { transport: transportMode },
+    detail: { transport: transportMode, grantedScopes: [ToolScopes.READ] },
   });
 }
 
@@ -209,6 +219,10 @@ const { start } = createServer({
   // Central tool-result secret redaction (issue #160) — same config as the
   // dynamic-resource registry above.
   scrubToolResults: scrubOptions,
+
+  // Open network deployment ⇒ read-only: anonymous callers get only the READ scope,
+  // so operate/exec/delete tools are hidden from tools/list and rejected on call.
+  ...(anonymousScopes && { anonymousScopes }),
 
   ...(authConfig && { auth: authConfig }),
 

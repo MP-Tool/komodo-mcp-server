@@ -74,6 +74,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   old implicit "no `[auth]` section = anonymous" default will start requiring login on next restart;
   set `MCP_AUTH_ENABLED=false` or `[auth].enabled = false` to keep the old behavior. `MCP_AUTH_ENABLED`
   is now also honoured from a `.env` file, not just a real exported environment variable.
+- **An open network server is now read-only** (defense-in-depth for advisory GHSA-gf32-w3f6-crx6): if
+  you deliberately turn authentication off (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the
+  server no longer exposes write access to anonymous callers. Every operate/exec/delete tool —
+  including `komodo_exec` and all `*_delete`/`destroy` tools — is hidden from the tool list and
+  rejected if called; only read/list tools work, so a misconfigured open server can look but not
+  touch. This is an invariant, not a toggle: the only way to get write access over the network is to
+  enable authentication (per-user login), which is on by default. Local **stdio** mode is unaffected —
+  it stays fully capable, since it isn't network-reachable and runs as your own single trusted user.
+  Startup logs a clear notice and writes a `restricted_anonymous` audit entry when this mode is active.
 
 ### Changed
 

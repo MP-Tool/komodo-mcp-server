@@ -120,7 +120,7 @@ function renderSelectionPage(
         <div class="mb-3">
           <label for="username" class="form-label">Username</label>
           <input id="username" type="text" name="username" class="form-control"
-                 placeholder="your-username" autocomplete="username"
+                 placeholder="username" autocomplete="username"
                  autocapitalize="off" spellcheck="false" required>
         </div>
         <div class="mb-3">

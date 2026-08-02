@@ -22,6 +22,7 @@ import {
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   renderAlerterList,
   renderAlerterInfo,
   buildApplyResult,
@@ -56,7 +57,7 @@ export const listAlertersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const alerters = await wrapApiCall("listAlerters", () => komodo.client.read("ListAlerters", {}), abortSignal);
+    const alerters = await wrapApiCall("listAlerters", () => komodo.client.read("ListAlerters", LIST_ALL), abortSignal);
 
     const allItems = alerters.map((a: AlerterListItem) => ({
       id: a.id,

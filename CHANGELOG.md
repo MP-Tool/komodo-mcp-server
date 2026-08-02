@@ -103,6 +103,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **List tools no longer silently truncate against Komodo Core ≥ 2.3**
+  ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): Komodo Core 2.3 added
+  server-side pagination to the resource list APIs (default page size), so a `List*` read with an
+  empty body returned only the first page — the list tools would then paginate that already-truncated
+  array client-side and report a plausible-but-wrong total, with no error. The 10 affected reads
+  (stacks, servers, deployments, builds, repos, procedures, actions, alerters, resource-syncs, swarms)
+  now pass `limit: 0` to fetch the complete set before paginating locally. Safe on every Core version:
+  the read requests are not `deny_unknown_fields`, so cores older than 2.3 simply ignore the field.
+  Also bumps `komodo_client` to 2.3.1 and uses Core 2.3's renamed container reads while keeping the
+  pre-2.3 wire names (kept as serde aliases in 2.3), so `komodo_container_list`/`_inspect` keep working
+  across Core 2.0–2.3+.
 - **Komodo-version guards on version-sensitive tools** (generalizes
   [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay): several tools
   use Komodo APIs that only exist from core 2.0 on and otherwise fail with a cryptic

@@ -31,6 +31,7 @@ import {
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -60,7 +61,7 @@ export const listServersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", {}), abortSignal);
+    const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", LIST_ALL), abortSignal);
 
     const allItems = servers.map((s: ServerListItem) => {
       const version = s.info.version && s.info.version.toLowerCase() !== "unknown" ? s.info.version : undefined;

@@ -27,6 +27,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderBuildList,
   renderBuildInfo,
   renderBuildLogs,
@@ -74,7 +75,7 @@ export const listBuildsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const builds = await wrapApiCall("listBuilds", () => komodo.client.read("ListBuilds", {}), abortSignal);
+    const builds = await wrapApiCall("listBuilds", () => komodo.client.read("ListBuilds", LIST_ALL), abortSignal);
 
     const allItems = builds.map((b: BuildListItem) => {
       const version = formatVersion(b.info.version);

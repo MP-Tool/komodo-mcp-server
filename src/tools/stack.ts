@@ -23,6 +23,7 @@ import {
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -67,7 +68,7 @@ export const listStacksTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", {}), abortSignal);
+    const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", LIST_ALL), abortSignal);
     const allItems = stacks.map((s: StackListItem) => ({
       id: s.id,
       name: s.name,

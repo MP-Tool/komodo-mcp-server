@@ -23,6 +23,7 @@ import {
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -66,7 +67,7 @@ export const listDeploymentsTool = defineTool({
     const komodo = requireClient();
     const deployments = await wrapApiCall(
       "list deployments",
-      () => komodo.client.read("ListDeployments", {}),
+      () => komodo.client.read("ListDeployments", LIST_ALL),
       abortSignal,
     );
     const allItems = deployments.map((d: DeploymentListItem) => ({

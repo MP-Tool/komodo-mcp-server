@@ -26,6 +26,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderRepoList,
   renderRepoInfo,
   renderActionResult,
@@ -63,7 +64,7 @@ export const listReposTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const repos = await wrapApiCall("listRepos", () => komodo.client.read("ListRepos", {}), abortSignal);
+    const repos = await wrapApiCall("listRepos", () => komodo.client.read("ListRepos", LIST_ALL), abortSignal);
 
     const allItems = repos.map((r: RepoListItem) => ({
       id: r.id,

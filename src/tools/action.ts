@@ -32,6 +32,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderActionList,
   renderActionInfo,
   renderActionResult,
@@ -69,7 +70,7 @@ export const listActionsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const actions = await wrapApiCall("listActions", () => komodo.client.read("ListActions", {}), abortSignal);
+    const actions = await wrapApiCall("listActions", () => komodo.client.read("ListActions", LIST_ALL), abortSignal);
 
     const allItems = actions.map((a: ActionListItem) => ({
       id: a.id,

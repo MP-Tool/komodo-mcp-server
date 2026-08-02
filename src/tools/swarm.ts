@@ -34,6 +34,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderSwarmList,
   renderSwarmInfo,
   renderSwarmNodesList,
@@ -87,7 +88,7 @@ export const listSwarmsTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     await requireSwarmSupport();
-    const swarms = await wrapApiCall("listSwarms", () => komodo.client.read("ListSwarms", {}), abortSignal);
+    const swarms = await wrapApiCall("listSwarms", () => komodo.client.read("ListSwarms", LIST_ALL), abortSignal);
 
     const allItems = swarms.map((s: SwarmListItem) => ({
       id: s.id,

@@ -57,6 +57,18 @@ type ContainerListItem = Types.ContainerListItem;
 type Log = Types.Log;
 
 // ============================================================================
+// Backward-compatible container read names
+// ============================================================================
+
+// Komodo Core v2.3 renamed the container read APIs (dropping the "Docker" prefix):
+// `ListDockerContainers` → `ListContainers`, `InspectDockerContainer` → `InspectContainer`.
+// Core ≥ 2.3 keeps the old names as serde aliases; Core ≤ 2.2 only knows the old names. We
+// send the legacy names so container tools work on every Komodo v2 core (2.0–2.3+), typed via
+// the current names because the 2.3.x client dropped the old aliases from its generated types.
+const LIST_CONTAINERS_READ = "ListDockerContainers" as unknown as "ListContainers";
+const INSPECT_CONTAINER_READ = "InspectDockerContainer" as unknown as "InspectContainer";
+
+// ============================================================================
 // List
 // ============================================================================
 
@@ -78,7 +90,8 @@ export const listContainersTool = defineTool({
     await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
     const containers = await wrapApiCall(
       "listContainers",
-      () => komodo.client.read("ListDockerContainers", { server: args.server }),
+      // Per-server container list — unpaginated in Core (no server-side page limit to bypass).
+      () => komodo.client.read(LIST_CONTAINERS_READ, { server: args.server }),
       abortSignal,
     );
 
@@ -121,7 +134,7 @@ export const inspectContainerTool = defineTool({
     // resource on register (KEY=value entries in the Env array included).
     const result = await wrapApiCall(
       "inspectContainer",
-      () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),
+      () => komodo.client.read(INSPECT_CONTAINER_READ, { server: args.server, container: args.container }),
       abortSignal,
     );
     const link = tryRegisterResource({

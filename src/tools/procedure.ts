@@ -26,6 +26,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderProcedureList,
   renderProcedureInfo,
   renderActionResult,
@@ -63,7 +64,11 @@ export const listProceduresTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const procedures = await wrapApiCall("listProcedures", () => komodo.client.read("ListProcedures", {}), abortSignal);
+    const procedures = await wrapApiCall(
+      "listProcedures",
+      () => komodo.client.read("ListProcedures", LIST_ALL),
+      abortSignal,
+    );
 
     const allItems = procedures.map((p: ProcedureListItem) => ({
       id: p.id,

@@ -26,6 +26,7 @@ import {
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderResourceSyncList,
   renderResourceSyncInfo,
   renderActionResult,
@@ -66,7 +67,7 @@ export const listResourceSyncsTool = defineTool({
     const komodo = requireClient();
     const syncs = await wrapApiCall(
       "listResourceSyncs",
-      () => komodo.client.read("ListResourceSyncs", {}),
+      () => komodo.client.read("ListResourceSyncs", LIST_ALL),
       abortSignal,
     );
 

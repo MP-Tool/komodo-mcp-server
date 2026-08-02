@@ -45,7 +45,7 @@ export { extractUpdateId, wrapExecuteAndPoll, buildActionResult } from "./pollin
 export type { ActionResult } from "./polling.js";
 
 // --- Pagination (client-side cursor-based slicing) ---
-export { paginate, encodeCursor, decodeCursor, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./pagination.js";
+export { paginate, encodeCursor, decodeCursor, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, LIST_ALL } from "./pagination.js";
 export type { PageEnvelope, PaginateResult } from "./pagination.js";
 
 // --- Response Formatting ---

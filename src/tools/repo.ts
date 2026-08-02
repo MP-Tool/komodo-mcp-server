@@ -121,7 +121,7 @@ export const getRepoInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${result.name} (repo info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full repo resource for ${result.name}`,
       },

@@ -114,7 +114,7 @@ export const getDeploymentInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${args.deployment} (deployment info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full deployment resource for ${args.deployment}`,
       },

@@ -147,7 +147,7 @@ export const getUpdateInfoTool = defineTool({
       name: `Update ${summary.id || args.id} (${summary.operation})`,
       mimeType: "application/json",
       content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Full update payload with per-stage logs`,
     });

@@ -137,7 +137,7 @@ export const getBuildInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${result.name} (build info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full build resource for ${result.name}`,
       },
@@ -245,7 +245,7 @@ export const getBuildLogsTool = defineTool({
           name: `${buildName} (build logs)`,
           mimeType: "text/plain",
           content: fullLogs,
-          ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
           inlineFull: args.inline_full,
           description: `Build logs for update ${args.update_id}`,
         })

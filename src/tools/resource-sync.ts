@@ -125,7 +125,7 @@ export const getResourceSyncInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${result.name} (resource sync info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full resource sync payload for ${result.name}`,
       },

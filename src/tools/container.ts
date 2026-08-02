@@ -143,7 +143,7 @@ export const inspectContainerTool = defineTool({
       name: `${args.container} (inspect)`,
       mimeType: "application/json",
       content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
@@ -216,7 +216,7 @@ export const getContainerLogsTool = defineTool({
           name: `${args.container} (logs)`,
           mimeType: "text/plain",
           content: fullLogs,
-          ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
           inlineFull: args.inline_full,
           description: `Container logs for ${args.container} on ${args.server}`,
         })
@@ -304,7 +304,7 @@ export const searchContainerLogsTool = defineTool({
             name: `${args.container} (search: ${args.query})`,
             mimeType: "text/plain",
             content: matches.map((m) => `[${m.stream}] ${m.line}`).join("\n"),
-            ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+            ttlMs: config.MCP_RESOURCE_TTL_LOGS,
             inlineFull: args.inline_full,
             description: `${matches.length} matching log line(s) for query "${args.query}" in ${args.container}`,
           })

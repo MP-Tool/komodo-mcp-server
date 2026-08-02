@@ -210,7 +210,7 @@ export interface DestructiveConfirmationRequest {
  * requests — confirmation is about the human at the client, not the Komodo identity.
  */
 export async function requireDestructiveConfirmation(req: DestructiveConfirmationRequest): Promise<void> {
-  if (!config.KOMODO_CONFIRM_DESTRUCTIVE) return;
+  if (!config.MCP_CONFIRM_DESTRUCTIVE) return;
 
   const identity = komodoIdentity.read(getCurrentToolContext()?.auth);
   const actor = { ...(identity && { userId: identity.komodoUserId, username: identity.username }) };
@@ -229,7 +229,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
       return; // the framework's tool.call audit records the executed call
 
     case "unsupported":
-      if (config.KOMODO_CONFIRM_FALLBACK === "allow") {
+      if (config.MCP_CONFIRM_FALLBACK === "allow") {
         logger.warn(
           "Destructive action executed WITHOUT user confirmation (client lacks elicitation, KOMODO_CONFIRM_FALLBACK=allow): %s %s",
           req.action,
@@ -251,7 +251,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
         outcome: "denied",
         actor,
         target,
-        detail: { action: req.action, fallback: config.KOMODO_CONFIRM_FALLBACK },
+        detail: { action: req.action, fallback: config.MCP_CONFIRM_FALLBACK },
       });
       throw ConfirmationRequiredError.unavailable(req.action, req.resourceType, req.resourceId);
 

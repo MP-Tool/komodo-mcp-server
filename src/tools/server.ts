@@ -139,7 +139,7 @@ export const getServerInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${args.server} (server info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full server resource for ${args.server}`,
       },

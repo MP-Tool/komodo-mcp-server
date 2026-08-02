@@ -122,7 +122,7 @@ export const getActionInfoTool = defineTool({
       register: {
         ctx: { sessionId },
         name: `${result.name} (action info)`,
-        ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
         inlineFull: args.inline_full,
         description: `Full Action resource for ${result.name}`,
       },

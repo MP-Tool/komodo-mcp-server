@@ -66,7 +66,7 @@ export class KomodoClient {
     const normalized = KomodoClient.normalizeUrl(url);
     try {
       const response = await fetch(`${normalized}/version`, {
-        signal: AbortSignal.timeout(config.API_TIMEOUT_MS),
+        signal: AbortSignal.timeout(config.KOMODO_API_TIMEOUT_MS),
       });
       if (response.ok) {
         const version = await response.text();
@@ -92,7 +92,7 @@ export class KomodoClient {
    */
   static async loginForJwt(baseUrl: string, username: string, password: string): Promise<string> {
     const url = KomodoClient.normalizeUrl(baseUrl);
-    const timeoutMs = config.API_TIMEOUT_MS;
+    const timeoutMs = config.KOMODO_API_TIMEOUT_MS;
 
     logger.trace('Authenticating as "%s" at %s', username, url);
 

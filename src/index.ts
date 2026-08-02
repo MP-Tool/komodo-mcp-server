@@ -30,6 +30,7 @@ import {
   registerKomodoConfigSection,
   config,
   getKomodoCredentials,
+  resolveKomodoConfig,
   ToolScopes,
   ToolCategories,
 } from "./config/index.js";
@@ -58,22 +59,26 @@ registerKomodoConfigSection();
 // this, anything logged before createServer() uses the bare default format.
 configureLoggerFromEnv({ name: SERVER_NAME, version: SERVER_VERSION });
 
+// Resolve config as env > file > default now that the sections are registered. MUST run
+// before any file-backed knob is read below (scrubOptions, resource registry, tool filter).
+resolveKomodoConfig();
+
 // Central secret redaction (issue #160): one POLICY (utils/redact.ts), one
 // framework implementation, applied at every choke point — the tool-result
 // boundary (createServer.scrubToolResults), offloaded-resource registration
 // (DynamicResourceRegistry.scrub), and forwarded log notifications.
-const scrubOptions: ScrubToolResultsConfig = config.KOMODO_SECRET_SCRUB_ENABLED
+const scrubOptions: ScrubToolResultsConfig = config.MCP_SECRET_SCRUB_ENABLED
   ? {
       ...KOMODO_SCRUB_RULES,
-      additionalKeys: config.KOMODO_SECRET_SCRUB_KEYS ?? [],
-      allowKeys: [...KOMODO_SCRUB_ALLOW_KEYS, ...(config.KOMODO_SECRET_SCRUB_ALLOW_KEYS ?? [])],
+      additionalKeys: config.MCP_SECRET_SCRUB_KEYS ?? [],
+      allowKeys: [...KOMODO_SCRUB_ALLOW_KEYS, ...(config.MCP_SECRET_SCRUB_ALLOW_KEYS ?? [])],
     }
   : false;
 
 // Configure ephemeral resource registry and register the canonical template
 configureDynamicResourceRegistry({
   uriScheme: "ephemeral",
-  maxEntries: config.KOMODO_RESOURCE_MAX_ENTRIES,
+  maxEntries: config.MCP_RESOURCE_MAX_ENTRIES,
   scrub: scrubOptions,
 });
 defineDynamicResourceTemplate();
@@ -232,13 +237,13 @@ function validateCategories(raw: readonly string[] | undefined, varName: string)
   return set;
 }
 
-const allowedCategories = validateCategories(config.KOMODO_ALLOWED_CATEGORIES, "KOMODO_ALLOWED_CATEGORIES");
-const excludedCategories = validateCategories(config.KOMODO_EXCLUDED_CATEGORIES, "KOMODO_EXCLUDED_CATEGORIES");
-const excludedTools = new Set(config.KOMODO_EXCLUDED_TOOLS); // tool-name typos fail safe (tool simply stays)
+const allowedCategories = validateCategories(config.MCP_TOOLS_ALLOWED_CATEGORIES, "MCP_TOOLS_ALLOWED_CATEGORIES");
+const excludedCategories = validateCategories(config.MCP_TOOLS_EXCLUDED_CATEGORIES, "MCP_TOOLS_EXCLUDED_CATEGORIES");
+const excludedTools = new Set(config.MCP_TOOLS_EXCLUDED_TOOLS); // tool-name typos fail safe (tool simply stays)
 
 const toolFilterActive = allowedCategories.size + excludedCategories.size + excludedTools.size > 0;
 
-// Tool-name typos in KOMODO_EXCLUDED_TOOLS are harmless (nothing removed); a category
+// Tool-name typos in MCP_TOOLS_EXCLUDED_TOOLS are harmless (nothing removed); a category
 // allowlist keeps only tools in the listed categories, then category/tool excludes remove more.
 const filterTools = toolFilterActive
   ? (tool: ToolDefinition): boolean => {

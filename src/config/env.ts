@@ -18,6 +18,18 @@ import { z, registerConfigSection, getAppConfig, durationSchema, booleanFromEnv 
 // Schema
 // ============================================================================
 
+/** Comma-separated env value → trimmed, non-empty string array (`undefined` when the var is unset). */
+const csvList = () =>
+  z
+    .string()
+    .transform((s) =>
+      s
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean),
+    )
+    .optional();
+
 export const appEnvSchema = z.object({
   /** Komodo Core API URL */
   KOMODO_URL: z.string().url().optional(),
@@ -86,30 +98,33 @@ export const appEnvSchema = z.object({
   KOMODO_SECRET_SCRUB_ENABLED: booleanFromEnv(true),
 
   /** Comma-separated extra key-name fragments always redacted (case-insensitive). */
-  KOMODO_SECRET_SCRUB_KEYS: z
-    .string()
-    .transform((s) =>
-      s
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean),
-    )
-    .optional(),
+  KOMODO_SECRET_SCRUB_KEYS: csvList(),
 
   /**
    * Comma-separated exact key names never redacted by key-based matching
    * (case-insensitive), merged with the built-in Komodo allowlist
    * (`public_key`, `is_secret`, …).
    */
-  KOMODO_SECRET_SCRUB_ALLOW_KEYS: z
-    .string()
-    .transform((s) =>
-      s
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean),
-    )
-    .optional(),
+  KOMODO_SECRET_SCRUB_ALLOW_KEYS: csvList(),
+
+  /**
+   * Operator tool-surface control — prune which tools are registered to shrink the
+   * client's context/token load. Purely subtractive: these only *remove* tools from
+   * `tools/list` (and make them uncallable); they never expose more, and never bypass
+   * the security scope-gating (read-only anonymous mode still applies to what remains).
+   *
+   * Category values are the `_meta.category` strings in `src/config/categories.ts`
+   * (e.g. `server`, `stack`, `deployment`, `terminal`, `resource_sync`).
+   */
+
+  /** Comma-separated category allowlist. Unset/empty ⇒ all categories allowed. */
+  KOMODO_ALLOWED_CATEGORIES: csvList(),
+
+  /** Comma-separated categories to remove entirely. */
+  KOMODO_EXCLUDED_CATEGORIES: csvList(),
+
+  /** Comma-separated individual tool names to remove (e.g. `komodo_exec`). */
+  KOMODO_EXCLUDED_TOOLS: csvList(),
 });
 
 export type AppEnvConfig = z.infer<typeof appEnvSchema>;

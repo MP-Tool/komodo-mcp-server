@@ -89,8 +89,8 @@ export KOMODO_API_SECRET=api-secret
 
 ```bash
 export KOMODO_URL=https://komodo.example.com:9120
-export KOMODO_USERNAME=your-username
-export KOMODO_PASSWORD=your-password
+export KOMODO_USERNAME=username
+export KOMODO_PASSWORD=password
 ```
 
 ---

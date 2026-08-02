@@ -21,7 +21,7 @@ import {
   defineDynamicResourceTemplate,
   iconFromFile,
 } from "mcp-server-framework";
-import type { AuthOptions, LocalLoginConfig, ScrubToolResultsConfig } from "mcp-server-framework";
+import type { AuthOptions, LocalLoginConfig, ScrubToolResultsConfig, ToolDefinition } from "mcp-server-framework";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
@@ -31,6 +31,7 @@ import {
   config,
   getKomodoCredentials,
   ToolScopes,
+  ToolCategories,
 } from "./config/index.js";
 import { configureKomodoConnections, stopKomodoConnections, resolveAuth, KomodoClient } from "./client.js";
 import { AuthenticationError } from "./errors/index.js";
@@ -205,6 +206,62 @@ if (anonymousScopes && resolveAuth(startupCreds) !== null) {
   });
 }
 
+// ============================================================================
+// Operator tool-surface filter (context/token pruning)
+// ============================================================================
+
+// Purely SUBTRACTIVE: these only remove tools from registration (absent from tools/list,
+// not callable). They never expose more and never bypass the security scope-gating above —
+// read-only anonymous mode still applies to whatever tools remain. Category values are the
+// `_meta.category` strings in config/categories.ts.
+const knownCategories = new Set<string>(Object.values(ToolCategories));
+
+/** Drop unknown category names (typo protection) with a clear warning, keep the valid ones. */
+function validateCategories(raw: readonly string[] | undefined, varName: string): Set<string> {
+  const set = new Set(raw);
+  const unknown = [...set].filter((c) => !knownCategories.has(c));
+  if (unknown.length > 0) {
+    logger.warn(
+      "Ignoring unknown categories in %s: %s — valid categories: %s",
+      varName,
+      unknown.join(", "),
+      [...knownCategories].join(", "),
+    );
+    for (const c of unknown) set.delete(c);
+  }
+  return set;
+}
+
+const allowedCategories = validateCategories(config.KOMODO_ALLOWED_CATEGORIES, "KOMODO_ALLOWED_CATEGORIES");
+const excludedCategories = validateCategories(config.KOMODO_EXCLUDED_CATEGORIES, "KOMODO_EXCLUDED_CATEGORIES");
+const excludedTools = new Set(config.KOMODO_EXCLUDED_TOOLS); // tool-name typos fail safe (tool simply stays)
+
+const toolFilterActive = allowedCategories.size + excludedCategories.size + excludedTools.size > 0;
+
+// Tool-name typos in KOMODO_EXCLUDED_TOOLS are harmless (nothing removed); a category
+// allowlist keeps only tools in the listed categories, then category/tool excludes remove more.
+const filterTools = toolFilterActive
+  ? (tool: ToolDefinition): boolean => {
+      const cat = tool._meta?.category as string | undefined;
+      if (allowedCategories.size > 0 && !(cat != null && allowedCategories.has(cat))) return false;
+      if (excludedTools.has(tool.name)) return false;
+      return !(cat != null && excludedCategories.has(cat));
+    }
+  : undefined;
+
+if (toolFilterActive) {
+  logAuditEvent({
+    category: "config",
+    action: "tool_surface_filtered",
+    outcome: "info",
+    detail: {
+      allowedCategories: [...allowedCategories],
+      excludedCategories: [...excludedCategories],
+      excludedTools: [...excludedTools],
+    },
+  });
+}
+
 const { start } = createServer({
   name: SERVER_NAME,
   version: SERVER_VERSION,
@@ -223,6 +280,9 @@ const { start } = createServer({
   // Open network deployment ⇒ read-only: anonymous callers get only the READ scope,
   // so operate/exec/delete tools are hidden from tools/list and rejected on call.
   ...(anonymousScopes && { anonymousScopes }),
+
+  // Operator tool-surface pruning (context/token) — subtractive, never bypasses scope gating.
+  ...(filterTools && { filterTools }),
 
   ...(authConfig && { auth: authConfig }),
 

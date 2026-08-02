@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Limit the exposed tool surface** (context/token control): three optional env vars let an operator
+  prune which tools the server registers, so a client's tool list — and its token cost — stays small.
+  `KOMODO_ALLOWED_CATEGORIES` is a category allowlist (unset ⇒ all allowed); `KOMODO_EXCLUDED_CATEGORIES`
+  removes whole categories; `KOMODO_EXCLUDED_TOOLS` removes individual tools by name (e.g. `komodo_exec`).
+  Category values are the `_meta.category` strings (`server`, `stack`, `deployment`, `terminal`,
+  `resource_sync`, …). Filtered tools are absent from `tools/list` and not callable. This is **purely
+  subtractive** and independent of security: it can only *remove* tools, never expose more, and never
+  bypasses authentication or the read-only-when-open behavior — those still apply to whatever remains.
+  Unknown category names are ignored with a startup warning listing the valid set.
 - **Per-user Komodo authentication (local login)**: Sign in to the MCP server with your Komodo
   username/password. Each authenticated user gets their own isolated Komodo session, derived from
   their own Komodo credentials rather than a single shared global connection. External OAuth

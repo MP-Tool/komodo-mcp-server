@@ -69,7 +69,9 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 | **Terminal** | `komodo_exec` *(target: server / container / deployment / stack_service)* |
 | **API Keys** | `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_user_delete_api_key` |
 
-> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource-sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
+> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource_sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
+>
+> **Limit the tool surface (server-side).** To keep a client's tool list — and its token cost — small, prune what the server registers with three optional env vars: `KOMODO_ALLOWED_CATEGORIES` (category allowlist; unset ⇒ all), `KOMODO_EXCLUDED_CATEGORIES` (drop whole categories), and `KOMODO_EXCLUDED_TOOLS` (drop tools by name, e.g. `komodo_exec`). Use the exact category strings above. Pruned tools are absent from `tools/list` and not callable. This is purely subtractive — it never exposes more and never bypasses authentication or the read-only-when-open behavior.
 >
 > List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://…` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
 
@@ -135,15 +137,17 @@ Add to `.vscode/mcp.json` in your workspace:
 
 ## Use
 
-Once connected, ask Claude, Copilot, or any MCP-compatible assistant:
+Once connected, ask Claude, Copilot, or any MCP-compatible assistant in plain language — it picks the tools. The tool each prompt drives is shown on the right:
 
-```
-"List all my Komodo servers"
-"Show containers on production-server"  
-"Start the nginx container"
-"Deploy my-app to staging"
-"Get stats for dev-server"
-```
+| Prompt | Tool(s) called |
+|--------|----------------|
+| "List all my Komodo servers" | `komodo_server_list` |
+| "Show containers on production-server" | `komodo_container_list` |
+| "Start the nginx container" | `komodo_container_action` *(start)* |
+| "Deploy my-app to staging" | `komodo_deployment_action` *(deploy)* |
+| "Get stats for dev-server" | `komodo_server_stats` |
+| "Why did the last deploy fail?" | `komodo_update_list` → `komodo_update_info` |
+| "Tail the logs for the api container" | `komodo_container_logs` |
 
 ### Testing with MCP Inspector
 
@@ -166,6 +170,16 @@ Three methods are supported — use whichever fits your setup:
 `KOMODO_URL` is always required. All credentials also support Docker secrets via `*_FILE` variants (e.g. `KOMODO_API_KEY_FILE`).
 
 For the full configuration reference (env vars, config files, Docker secrets), see the **[Configuration Guide](config/README.md)**.
+
+## Troubleshooting
+
+**Connection refused / the server can't reach Komodo.** Check `KOMODO_URL` — it needs the scheme, host, and Komodo Core port (e.g. `https://komodo.example.com:9120`). From inside Docker, `localhost` points at the container, not the host — use the host's IP or a Docker network alias. Confirm nothing (firewall, reverse proxy) blocks the port.
+
+**401 Unauthorized when a client connects (HTTP).** Since 1.5.0, authentication defaults **on** for HTTP/HTTPS, so clients must sign in (browser login against your Komodo username/password). Either complete the login, or set `MCP_AUTH_ENABLED=false` to run without it. A 401 *after* login usually means the Komodo credentials are wrong or the account is disabled. (stdio is local and never requires this.)
+
+**Tools are missing from the list.** Two causes, both by design:
+- **Read-only mode.** If you disabled auth (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the server is read-only for anonymous callers — every write/exec/delete tool (incl. `komodo_exec`) is hidden and rejected. Enable `[auth]` (per-user login) to get them back. Startup logs a `READ-ONLY` notice when this is active.
+- **Tool-surface filter.** `KOMODO_ALLOWED_CATEGORIES`, `KOMODO_EXCLUDED_CATEGORIES`, or `KOMODO_EXCLUDED_TOOLS` prune the registered set. Unset all three to expose everything. A bad category name is ignored with a startup warning listing the valid categories.
 
 ## Disclaimer
 
@@ -209,7 +223,7 @@ GPL-3.0 License - see [LICENSE](LICENSE) for details.
 
 ### Requirements
 
-- **Komodo** v2.0.0 or later
+- **Komodo** v2 (Komodo Core 2.x; the server refuses version-sensitive tools like `komodo_exec` on older cores)
 - **Docker** (for containerized deployment) or **Node.js 22+** (for native installation)
 - **Valid Komodo credentials** (API Key/Secret, Username/Password, or JWT Token)
 

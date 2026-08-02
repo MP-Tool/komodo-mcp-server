@@ -239,6 +239,26 @@ transcript is untrusted.
 (tokenised URLs, JWTs, `KEY=value` pairs) are caught, but arbitrary secret material without a
 recognizable shape is not. Don't rely on this feature as the only line of defence.
 
+### Tool Surface
+
+Prune which tools the server registers, to keep a client's tool list — and its token cost — small.
+Category values are the `_meta.category` strings: `config`, `container`, `server`, `stack`,
+`deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource_sync`,
+`variable`, `update`, `terminal`, `user`.
+
+| Variable | Config Key | Default | Description |
+|----------|-----------|---------|-------------|
+| `KOMODO_ALLOWED_CATEGORIES` | *(env only)* | *(all)* | Comma-separated category allowlist. Unset ⇒ all categories allowed |
+| `KOMODO_EXCLUDED_CATEGORIES` | *(env only)* | — | Comma-separated categories to remove entirely |
+| `KOMODO_EXCLUDED_TOOLS` | *(env only)* | — | Comma-separated tool names to remove (e.g. `komodo_exec`) |
+
+Pruned tools are absent from `tools/list` and not callable. This is **purely subtractive** — it can
+only remove tools, never expose more, and is **not** a security control: it never bypasses
+authentication or the read-only-when-open behavior (those still apply to whatever remains). Unknown
+category names are ignored with a startup warning naming the valid set; a tool-name typo is harmless
+(the tool simply stays). Filtering order: the category allowlist keeps only listed categories, then
+the category/tool excludes remove more.
+
 ## Sessions
 
 | Variable | Config Key | Default | Description |

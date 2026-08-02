@@ -12,8 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Limit the exposed tool surface** (context/token control): three optional env vars let an operator
   prune which tools the server registers, so a client's tool list — and its token cost — stays small.
-  `KOMODO_ALLOWED_CATEGORIES` is a category allowlist (unset ⇒ all allowed); `KOMODO_EXCLUDED_CATEGORIES`
-  removes whole categories; `KOMODO_EXCLUDED_TOOLS` removes individual tools by name (e.g. `komodo_exec`).
+  `MCP_TOOLS_ALLOWED_CATEGORIES` is a category allowlist (unset ⇒ all allowed); `MCP_TOOLS_EXCLUDED_CATEGORIES`
+  removes whole categories; `MCP_TOOLS_EXCLUDED_TOOLS` removes individual tools by name (e.g. `komodo_exec`).
   Category values are the `_meta.category` strings (`server`, `stack`, `deployment`, `terminal`,
   `resource_sync`, …). Filtered tools are absent from `tools/list` and not callable. This is **purely
   subtractive** and independent of security: it can only *remove* tools, never expose more, and never
@@ -42,8 +42,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   (which can contain interpolated secrets) — while non-secret lookalike fields (e.g. `public_key`)
   are left untouched. The one intentional exception is `komodo_user_create_api_key`, which still
   returns the newly created key in full — that's the tool's purpose, and it says so in its own
-  description. Configuration: `KOMODO_SECRET_SCRUB_ENABLED` (default on), `KOMODO_SECRET_SCRUB_KEYS`
-  (redact additional field names), `KOMODO_SECRET_SCRUB_ALLOW_KEYS` (exempt specific field names).
+  description. Configuration: `MCP_SECRET_SCRUB_ENABLED` (default on), `MCP_SECRET_SCRUB_KEYS`
+  (redact additional field names), `MCP_SECRET_SCRUB_ALLOW_KEYS` (exempt specific field names).
   This is best-effort defense-in-depth — it catches recognizable secret shapes, not arbitrary
   sensitive text, so don't rely on it as your only safeguard (see config/README for details).
 - **Manual confirmation for destructive actions (MCP elicitation)**: destructive tools now ask the
@@ -56,12 +56,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   run`, and `komodo_action_action run`. Benign lifecycle actions (deploy/pull/start/restart/
   pause/unpause/stop) are never prompted. Declined/cancelled/timed-out prompts abort with a clear
   `ConfirmationRequiredError` and a `confirmation.declined` audit entry — a timeout never falls
-  open. Configuration: `KOMODO_CONFIRM_DESTRUCTIVE` (default `true`) turns the feature off
-  entirely; `KOMODO_CONFIRM_FALLBACK` (default `deny`) controls clients that cannot prompt (no
+  open. Configuration: `MCP_CONFIRM_DESTRUCTIVE` (default `true`) turns the feature off
+  entirely; `MCP_CONFIRM_FALLBACK` (default `deny`) controls clients that cannot prompt (no
   elicitation capability, or stateless HTTP mode) — `deny` refuses such destructive calls
   (fail-closed), `allow` executes them with a warning and a `confirmation.bypassed` audit entry.
-  **Note for stdio/simple clients without elicitation support:** set `KOMODO_CONFIRM_FALLBACK=allow`
-  or `KOMODO_CONFIRM_DESTRUCTIVE=false` to keep destructive tools usable.
+  **Note for stdio/simple clients without elicitation support:** set `MCP_CONFIRM_FALLBACK=allow`
+  or `MCP_CONFIRM_DESTRUCTIVE=false` to keep destructive tools usable.
 - **Per-resource permission pre-checks on all resource-scoped tools**: authenticated requests now
   verify the user's Komodo permission on the target resource (Read/Execute/Write) *before* the API
   call runs, failing fast with a clear `AuthorizationError` and a `permission.denied` audit entry
@@ -95,6 +95,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Configuration consolidated and unified**: every setting is now configurable via **both**
+  environment variables and the config file (`[komodo]`, `[auth]`, `[tools]`, `[redaction]`,
+  `[resources]`, …), resolved env > file > default. Naming is now principled — `KOMODO_*` for the
+  Komodo Core connection, `MCP_*` for this server's own behavior. Renamed keys (1.5.0 is the first
+  release to carry them, so no prior deployments are affected): `API_TIMEOUT_MS` → `KOMODO_API_TIMEOUT_MS`;
+  `KOMODO_CONFIRM_*` → `MCP_CONFIRM_*`; `KOMODO_SECRET_SCRUB_*` → `MCP_SECRET_SCRUB_*`;
+  `KOMODO_ALLOWED_CATEGORIES`/`KOMODO_EXCLUDED_*` → `MCP_TOOLS_ALLOWED_CATEGORIES`/`MCP_TOOLS_EXCLUDED_*`;
+  `KOMODO_RESOURCE_*` → `MCP_RESOURCE_*`. The example configs (`config/example.config.{toml,yaml,env}`)
+  and the [configuration reference](config/README.md) document the full, current surface.
 - **Reusable auth code moved into MCP-Server-Framework**: The browser OAuth/OIDC login flow now uses
   the framework's generic `createBrowserOAuthLogin()` (callback routes mounted via the new
   `configureHttpApp` hook); per-session credentials use the framework's typed `defineAuthExtra`

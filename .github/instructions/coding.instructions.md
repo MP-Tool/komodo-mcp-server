@@ -117,7 +117,7 @@ import { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";
 |--------|---------|-------|
 | `registerConfigSection(name, schema)` | Register app config section for config file | `config/env.ts` |
 | `getAppConfig(name)` | Retrieve parsed config section at runtime | Access registered config |
-| `durationSchema(default)` | Zod schema for `"30s"`, `"1m"`, `5000` | `API_TIMEOUT_MS` |
+| `durationSchema(default)` | Zod schema for `"30s"`, `"1m"`, `5000` | `KOMODO_API_TIMEOUT_MS` |
 | `parseDuration(value)` | Parse duration string to ms | Utility |
 | `formatDuration(ms)` | Format ms to human string | Utility |
 
@@ -125,7 +125,7 @@ import { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";
 import { z, registerConfigSection, getAppConfig, durationSchema } from "mcp-server-framework";
 
 // Duration: accepts "30s", "1m", "500ms", or plain number (ms)
-API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
+KOMODO_API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
 ```
 
 ### Types

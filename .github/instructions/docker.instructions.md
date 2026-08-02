@@ -51,7 +51,7 @@ Skipped in stdio mode (always healthy).
 | `KOMODO_API_KEY` | — | API Key (alternative to username/password) |
 | `KOMODO_API_SECRET` | — | API Secret (for API Key auth) |
 | `KOMODO_JWT_TOKEN` | — | Pre-existing JWT token (OIDC, GitHub, Google OAuth) |
-| `API_TIMEOUT_MS` | `"30s"` | Request timeout. Accepts durations (`"30s"`, `"1m"`) or ms (`30000`) |
+| `KOMODO_API_TIMEOUT_MS` | `"30s"` | Request timeout. Accepts durations (`"30s"`, `"1m"`) or ms (`30000`) |
 
 ### Docker Secrets (`_FILE` pattern)
 

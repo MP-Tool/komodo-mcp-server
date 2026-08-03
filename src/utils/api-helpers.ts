@@ -222,7 +222,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
     "This action is destructive and may not be reversible.",
   ].join("\n");
 
-  const outcome = await elicitConfirmation({ message });
+  const outcome = await elicitConfirmation({ message, timeoutMs: config.MCP_CONFIRM_TIMEOUT_MS });
 
   switch (outcome) {
     case "accepted":

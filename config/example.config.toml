@@ -122,6 +122,14 @@ port = 8000
 ## Default: "127.0.0.1"
 host = "127.0.0.1"
 
+## Public base URL the server is reached at, e.g. behind a reverse proxy or on a
+## domain. Set this so OAuth redirects, the login URL and the RFC 9728 metadata URL
+## use the externally reachable address instead of the internal bind host/port. The
+## host is also trusted automatically for DNS-rebinding protection.
+## Env: MCP_BASE_URL
+## Default: derived from mode + host + port (e.g. http://127.0.0.1:8000)
+# base_url = "https://mcp.example.com"
+
 ## Enable the legacy SSE transport (MCP protocol version 2024-11-05).
 ## Only needed for backwards compatibility with older MCP clients that
 ## don't support Streamable HTTP (protocol 2025-03-26).
@@ -184,10 +192,8 @@ enabled = true
 ## Optional, no default.
 # required_scopes = ["mcp"]
 
-## Protected Resource Metadata URL (RFC 9728) advertised to clients (advanced).
-## Env: MCP_AUTH_RESOURCE_METADATA_URL
-## Optional, no default.
-# resource_metadata_url = "https://mcp.example.com/.well-known/oauth-protected-resource"
+## The RFC 9728 Protected Resource Metadata URL advertised to clients is derived
+## automatically from the public base URL (see [transport].base_url) as
 
 ## External OAuth providers ([auth.providers.<name>]) for Google/GitHub/OIDC federation
 ## are reserved for upcoming work and NOT wired in yet. Today, enabling auth offers local
@@ -319,6 +325,12 @@ confirm_destructive = true
 ## Env: MCP_CONFIRM_FALLBACK
 ## Default: "deny"
 confirm_fallback = "deny"
+
+## How long to wait for the user to answer the confirmation prompt before giving up.
+## Accepts a duration ("30s", "5m", "1h") or plain milliseconds.
+## Env: MCP_CONFIRM_TIMEOUT_MS
+## Default: "5m"
+confirm_timeout = "5m"
 
 
 ###############

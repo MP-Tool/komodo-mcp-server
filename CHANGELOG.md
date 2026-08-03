@@ -30,6 +30,10 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_TOOLS`. See the
   [configuration reference](config/README.md).
 - **Server branding.** MCP clients that support it now show the server's name and the Komodo logo.
+- **Public URL setting for reverse-proxy/domain setups.** Set `MCP_BASE_URL` (for example
+  `https://mcp.example.com`) so sign-in links and OAuth redirects use the address clients actually
+  reach - not the internal bind host/port. That host is also trusted automatically, so you don't have
+  to repeat it in the allowed-hosts list.
 
 ### Security
 
@@ -44,9 +48,10 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   best-effort, so don't treat it as your only safeguard. (The create-API-key tool still returns its
   key on purpose.)
 - **Destructive actions ask first.** Deletes, `destroy`, prune, terminal commands, and
-  procedure/action/sync runs now require your confirmation before running. On by default; tune with
-  `MCP_CONFIRM_DESTRUCTIVE` and `MCP_CONFIRM_FALLBACK` (clients that can't show a prompt may need
-  `MCP_CONFIRM_FALLBACK=allow`).
+  procedure/action/sync runs now require your confirmation before running - a single approve click, no
+  extra checkbox. On by default; tune with `MCP_CONFIRM_DESTRUCTIVE` and `MCP_CONFIRM_FALLBACK` (clients
+  that can't show a prompt may need `MCP_CONFIRM_FALLBACK=allow`). The prompt now waits up to 5 minutes
+  for your answer, adjustable with `MCP_CONFIRM_TIMEOUT_MS` (e.g. `30s`, `5m`, `1h`).
 - **Per-user permissions are enforced.** A signed-in user can only act on the Komodo resources their
   account allows; anything else fails fast with a clear error instead of a raw Komodo failure.
 
@@ -54,11 +59,15 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
 
 - **Unified configuration.** Every setting now works both as an environment variable and in the
   config file (TOML/YAML/JSON), with consistent naming - `KOMODO_*` for the Komodo connection, `MCP_*`
-  for the server's own behavior. Some keys were renamed (see Upgrade notes). The example configs and
-  the [configuration reference](config/README.md) document the full, current set of settings.
+  for the server's own behavior. Time settings accept plain-language durations (`30s`, `5m`, `1h`) as
+  well as milliseconds. Some keys were renamed (see Upgrade notes). The example configs and the
+  [configuration reference](config/README.md) document the full, current set of settings.
 
 ### Fixed
 
+- **Better compatibility with MCP clients** during connection setup: the server now negotiates the
+  MCP protocol version the way the spec intends, so newer clients (e.g. MCP Inspector v2) connect
+  cleanly instead of failing the handshake.
 - **Lists no longer cut off at the first page** on Komodo Core 2.3+
   ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): list tools now fetch the complete
   set instead of silently returning only the first ~50 items. Also updated for Core 2.3's renamed

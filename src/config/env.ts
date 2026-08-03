@@ -105,6 +105,13 @@ export const appEnvSchema = z.object({
    */
   MCP_CONFIRM_FALLBACK: z.enum(["deny", "allow"]).default("deny"),
 
+  /**
+   * How long to wait for the user to answer a confirmation prompt before giving up.
+   * Accepts a human-readable duration ("30s", "5m", "1h") or plain milliseconds. Default: 5m.
+   * Env: MCP_CONFIRM_TIMEOUT_MS
+   */
+  MCP_CONFIRM_TIMEOUT_MS: durationSchema("5m").pipe(z.number().int().positive()),
+
   // ── Secret redaction (MCP-server output security) ──────────────────────────
 
   /**
@@ -192,6 +199,7 @@ function fileSectionOverrides(): Record<string, string> {
   put("MCP_TOOLS_EXCLUDED_TOOLS", tools?.excluded_tools);
   put("MCP_CONFIRM_DESTRUCTIVE", tools?.confirm_destructive);
   put("MCP_CONFIRM_FALLBACK", tools?.confirm_fallback);
+  put("MCP_CONFIRM_TIMEOUT_MS", tools?.confirm_timeout);
   put("MCP_SECRET_SCRUB_ENABLED", redaction?.enabled);
   put("MCP_SECRET_SCRUB_KEYS", redaction?.keys);
   put("MCP_SECRET_SCRUB_ALLOW_KEYS", redaction?.allow_keys);
@@ -303,6 +311,8 @@ const toolsConfigFileSchema = z.object({
   confirm_destructive: z.boolean().optional(),
   /** Behavior when a client cannot prompt: "deny" or "allow". Env: MCP_CONFIRM_FALLBACK */
   confirm_fallback: z.enum(["deny", "allow"]).optional(),
+  /** How long to wait for a confirmation answer as duration ('5m', '30s') or ms. Env: MCP_CONFIRM_TIMEOUT_MS */
+  confirm_timeout: z.union([z.number().int().positive(), z.string()]).optional(),
 });
 
 /** `[redaction]` — secret redaction of tool output (env `MCP_SECRET_SCRUB_*`). */

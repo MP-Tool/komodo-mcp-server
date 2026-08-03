@@ -179,7 +179,9 @@ connection above. Only applies to `http`/`https`; `stdio` is local and never aut
 |----------|-----------|---------|-------------|
 | `MCP_AUTH_ENABLED` | `auth.enabled` | `true` | Require clients to sign in |
 | `MCP_AUTH_REQUIRED_SCOPES` | `auth.required_scopes` | - | Required scopes for `/mcp` (advanced) |
-| `MCP_AUTH_RESOURCE_METADATA_URL` | `auth.resource_metadata_url` | - | RFC 9728 metadata URL (advanced) |
+
+> The RFC 9728 Protected Resource Metadata URL is derived automatically from the public base URL
+> (`MCP_BASE_URL`) — there is no separate setting.
 
 **Enabled (default):** clients sign in via a browser username/password login against Komodo; each
 user gets an isolated, per-user Komodo session with their own permissions, and every tool call is
@@ -201,6 +203,7 @@ Controls how the MCP server communicates with clients.
 | `MCP_TRANSPORT` | `transport.mode` | `stdio` | Transport mode: `stdio`, `http`, or `https` |
 | `MCP_PORT` | `transport.port` | `8000` | HTTP/HTTPS listen port |
 | `MCP_BIND_HOST` | `transport.host` | `127.0.0.1` | Bind address (`0.0.0.0` for all interfaces) |
+| `MCP_BASE_URL` | `transport.base_url` | *(derived)* | Public URL behind a proxy/domain (OAuth redirects, metadata URL, trusted host) |
 | `MCP_LEGACY_SSE_ENABLED` | `transport.sse_enabled` | `false` | Enable legacy SSE transport (protocol 2024-11-05) |
 | `MCP_JSON_RESPONSE` | `transport.json_response` | `false` | Prefer JSON over SSE for non-streaming responses |
 
@@ -246,6 +249,7 @@ operator for approval via the MCP client's elicitation UI before executing.
 |----------|-----------|---------|-------------|
 | `MCP_CONFIRM_DESTRUCTIVE` | `tools.confirm_destructive` | `true` | Require manual confirmation for destructive tools |
 | `MCP_CONFIRM_FALLBACK` | `tools.confirm_fallback` | `deny` | When the client cannot prompt (no elicitation support / stateless mode): `deny` refuses the call, `allow` executes with a warning |
+| `MCP_CONFIRM_TIMEOUT_MS` | `tools.confirm_timeout` | `5m` | How long to wait for the confirmation answer (duration like `30s`/`5m`/`1h`, or ms) |
 
 ### Secret Redaction
 

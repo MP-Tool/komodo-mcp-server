@@ -19,7 +19,7 @@ Open the configuration file for Claude Desktop on your computer:
 
 If the file doesn't exist, create it. You can also navigate through the Claude Desktop UI to locate the configuration file:
   
-  Open Claude Desktop → Settings → Developer → Edit Config
+  Open Claude Desktop -> Settings -> Developer -> Edit Config
 
 ### 2. Add Configuration
 Copy the following configuration into the file. You can also download our [template](./claude_desktop_config.json) and copy it to the folder.

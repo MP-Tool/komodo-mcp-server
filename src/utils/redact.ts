@@ -8,7 +8,7 @@
  * Values masked in structured content are also purged from the rendered text
  * of the same result (the boundary's value collector), so the declarative
  * rules below reach every representation. Wired in `src/index.ts` together
- * with the `KOMODO_SECRET_SCRUB_*` env extensions.
+ * with the `MCP_SECRET_SCRUB_*` env extensions.
  *
  * There is deliberately no redaction CODE in Komodo anymore — supersedes the
  * bespoke `redactAlerterEndpoint` / `redactDeployedSecrets` / `maskSecretValue`
@@ -28,7 +28,7 @@ export const REDACTED = REDACTED_VALUE;
 /**
  * Komodo field names that key-based heuristics would over-redact via substring
  * matching but which are never actually secret. Extendable via
- * `KOMODO_SECRET_SCRUB_ALLOW_KEYS`.
+ * `MCP_SECRET_SCRUB_ALLOW_KEYS`.
  */
 export const KOMODO_SCRUB_ALLOW_KEYS: readonly string[] = [
   "public_key",

@@ -8,7 +8,7 @@ description: General coding standards and best practices
 ## General Principles
 
 - **Readable Code**: Self-documenting names for variables, functions, classes
-- **DRY Principle**: No code duplication — centralize constants, messages, schemas
+- **DRY Principle**: No code duplication - centralize constants, messages, schemas
 - **SOLID Principles**: SRP, DIP, OCP applied consistently
 - **Separation of Concerns**: Config / Tools / Utils / Errors / Client are distinct layers
 
@@ -41,10 +41,10 @@ Centralized messages with interpolation in `errors/messages.ts`:
 import { getAppMessage } from "../errors/index.js";
 
 getAppMessage("API_REQUEST_FAILED_REASON", { reason: "timeout" });
-// → "API request failed: timeout"
+// -> "API request failed: timeout"
 
 getAppMessage("RESOURCE_NOT_FOUND_TYPE", { resourceType: "Container", resourceId: "nginx" });
-// → "Container 'nginx' not found"
+// -> "Container 'nginx' not found"
 ```
 
 ### API Call Wrapping
@@ -160,7 +160,7 @@ Only `mcp-server-framework/errors` is currently used in this project. The main e
 
 - Validate all external inputs via Zod schemas
 - Never log sensitive data (framework logger scrubs automatically)
-- Credentials never in code or commits — use env vars or Docker secrets (`_FILE` pattern)
+- Credentials never in code or commits - use env vars or Docker secrets (`_FILE` pattern)
 - Non-root container user in production
 
 ## Observability
@@ -177,7 +177,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 - Directory structure mirrors architecture (see `architecture.instructions.md`)
 - Config aggregation: central config files with barrel export (`config/index.ts`)
-- Constants: centralized in `config/descriptions.ts` — no magic strings
+- Constants: centralized in `config/descriptions.ts` - no magic strings
 - JSDoc for public APIs and module headers
 
 ## Naming Conventions

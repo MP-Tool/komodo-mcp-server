@@ -26,18 +26,28 @@ I release security updates for the latest version (main branch) only. Please kee
 
 ## Security Measures
 
-We implement the following security measures in our development and release process:
+**In the server (runtime):**
 
-- **SAST Scanning**: CodeQL analysis runs on every pull request.
-- **Dependency Review**: Automated checks for vulnerable dependencies in PRs.
-- **Container Hardening**:
-  - Base images are regularly updated in build process.
-  - Containers run as a non-root user.
-- **Transport Security**:
-  - Strict `MCP-Protocol-Version` header validation.
-  - `Host` header validation to prevent DNS rebinding.
-  - Rate limiting on API endpoints.
-  - Input validation using Zod schemas.
+- **Authentication on by default** for HTTP/HTTPS - each user signs in and acts as their own Komodo
+  identity with their own permissions, never a shared account.
+- **Open servers are read-only**: if you disable authentication on a network transport, only read
+  tools are available - write, delete and terminal tools are hidden and refused.
+- **Per-resource permission checks** run before every action, enforced against the user's Komodo
+  permissions.
+- **Confirmation for destructive actions** (delete, destroy, prune, terminal commands, and
+  procedure/action/sync runs), fail-closed.
+- **Secret redaction** removes secrets from tool output at a central, fail-closed boundary before it
+  reaches the client or the model.
+- **Transport hardening**: `MCP-Protocol-Version` and `Host` header validation (DNS-rebinding
+  protection), rate limiting, and Zod input validation.
+
+**In development & release:**
+
+- **SAST**: CodeQL analysis on every pull request.
+- **Dependency review**: automated checks for vulnerable dependencies.
+- **Container hardening**: regularly updated base images; containers run as a non-root user.
+
+See the [configuration reference](config/README.md) for how these behave and how to configure them.
 
 ---
 

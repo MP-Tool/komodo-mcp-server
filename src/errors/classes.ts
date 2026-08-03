@@ -263,7 +263,7 @@ export class NotFoundError extends AppError {
 /**
  * A destructive action was not confirmed by the user — either the confirmation
  * prompt was declined/cancelled/timed out, or the client cannot prompt at all
- * (no MCP elicitation support) and `KOMODO_CONFIRM_FALLBACK` is `"deny"`.
+ * (no MCP elicitation support) and `MCP_CONFIRM_FALLBACK` is `"deny"`.
  */
 export class ConfirmationRequiredError extends AppError {
   constructor(message: string, options: Omit<BaseErrorOptions, "code"> = {}) {
@@ -295,8 +295,8 @@ export class ConfirmationRequiredError extends AppError {
   static unavailable(action: string, resourceType: string, resourceId: string): ConfirmationRequiredError {
     return new ConfirmationRequiredError(getAppMessage("CONFIRM_UNAVAILABLE", { action, resourceType, resourceId }), {
       recoveryHint:
-        "Use an MCP client that supports elicitation, or set KOMODO_CONFIRM_FALLBACK=allow " +
-        "(execute without confirmation on such clients) or KOMODO_CONFIRM_DESTRUCTIVE=false " +
+        "Use an MCP client that supports elicitation, or set MCP_CONFIRM_FALLBACK=allow " +
+        "(execute without confirmation on such clients) or MCP_CONFIRM_DESTRUCTIVE=false " +
         "(disable confirmations entirely).",
       context: { action, resourceType, resourceId },
     });

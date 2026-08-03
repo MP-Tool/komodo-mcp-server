@@ -35,7 +35,7 @@ logger.error("API request failed", { error: err.message, endpoint });
 // ✅ Printf-style placeholders
 logger.info("Container %s started on %s", containerName, serverName);
 
-// ❌ Never use console.log — stdout is reserved for MCP protocol data
+// ❌ Never use console.log - stdout is reserved for MCP protocol data
 console.log("Debug:", data);
 ```
 
@@ -50,4 +50,4 @@ Even with automatic scrubbing, avoid passing sensitive data to log calls.
 
 ## Stdio Constraint
 
-In Stdio transport mode, **all logs go to stderr**. `stdout` is reserved exclusively for MCP protocol messages. The framework handles this automatically — using the `logger` instead of `console.log` is sufficient.
+In Stdio transport mode, **all logs go to stderr**. `stdout` is reserved exclusively for MCP protocol messages. The framework handles this automatically - using the `logger` instead of `console.log` is sufficient.

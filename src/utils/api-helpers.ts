@@ -199,12 +199,12 @@ export interface DestructiveConfirmationRequest {
  * destructive operation via the client's MCP elicitation UI (accept + confirm checkbox).
  *
  * Policy (config-driven):
- * - `KOMODO_CONFIRM_DESTRUCTIVE=false` → no-op (feature disabled).
+ * - `MCP_CONFIRM_DESTRUCTIVE=false` → no-op (feature disabled).
  * - Prompt declined / cancelled / timed out → throws {@link ConfirmationRequiredError}
  *   and writes a `confirmation.declined` audit entry. Never falls open.
  * - Client cannot prompt (no elicitation capability, stateless mode):
- *   `KOMODO_CONFIRM_FALLBACK=deny` (default) → throws + `confirmation.unavailable` audit;
- *   `KOMODO_CONFIRM_FALLBACK=allow` → executes with a warning + `confirmation.bypassed` audit.
+ *   `MCP_CONFIRM_FALLBACK=deny` (default) → throws + `confirmation.unavailable` audit;
+ *   `MCP_CONFIRM_FALLBACK=allow` → executes with a warning + `confirmation.bypassed` audit.
  *
  * Unlike {@link requireKomodoPermission} this also applies to anonymous/global-mode
  * requests — confirmation is about the human at the client, not the Komodo identity.
@@ -231,7 +231,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
     case "unsupported":
       if (config.MCP_CONFIRM_FALLBACK === "allow") {
         logger.warn(
-          "Destructive action executed WITHOUT user confirmation (client lacks elicitation, KOMODO_CONFIRM_FALLBACK=allow): %s %s",
+          "Destructive action executed WITHOUT user confirmation (client lacks elicitation, MCP_CONFIRM_FALLBACK=allow): %s %s",
           req.action,
           target,
         );

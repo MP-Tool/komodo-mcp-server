@@ -11,7 +11,7 @@ description: Docker and deployment guidelines
 
 `node:22-alpine` with multi-stage build:
 1. **Builder Stage**: Compiles TypeScript with devDependencies, prunes to production
-2. **Development Stage**: For DevContainers — mounts workspace as volume, pre-installs dependencies
+2. **Development Stage**: For DevContainers - mounts workspace as volume, pre-installs dependencies
 3. **Production Stage**: Only runtime dependencies, read-only artifacts
 
 ### Security
@@ -23,7 +23,7 @@ description: Docker and deployment guidelines
 
 ### Health Check
 
-Uses Node.js built-in `fetch()` — no wget/curl needed:
+Uses Node.js built-in `fetch()` - no wget/curl needed:
 
 ```dockerfile
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
@@ -45,12 +45,12 @@ Skipped in stdio mode (always healthy).
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `KOMODO_URL` | — | Komodo Core API URL (e.g. `https://komodo.example.com`) |
-| `KOMODO_USERNAME` | — | Username for login auth |
-| `KOMODO_PASSWORD` | — | Password for login auth |
-| `KOMODO_API_KEY` | — | API Key (alternative to username/password) |
-| `KOMODO_API_SECRET` | — | API Secret (for API Key auth) |
-| `KOMODO_JWT_TOKEN` | — | Pre-existing JWT token (OIDC, GitHub, Google OAuth) |
+| `KOMODO_URL` | - | Komodo Core API URL (e.g. `https://komodo.example.com`) |
+| `KOMODO_USERNAME` | - | Username for login auth |
+| `KOMODO_PASSWORD` | - | Password for login auth |
+| `KOMODO_API_KEY` | - | API Key (alternative to username/password) |
+| `KOMODO_API_SECRET` | - | API Secret (for API Key auth) |
+| `KOMODO_JWT_TOKEN` | - | Pre-existing JWT token (OIDC, GitHub, Google OAuth) |
 | `KOMODO_API_TIMEOUT_MS` | `"30s"` | Request timeout. Accepts durations (`"30s"`, `"1m"`) or ms (`30000`) |
 
 ### Docker Secrets (`_FILE` pattern)
@@ -100,7 +100,7 @@ secrets:
 |----------|---------|-------------|
 | `LOG_LEVEL` | `info` | `trace`, `debug`, `info`, `warn`, `error` |
 | `LOG_FORMAT` | `text` | `text` or `json` (ECS format) |
-| `LOG_DIR` | — | Optional directory for log files |
+| `LOG_DIR` | - | Optional directory for log files |
 
 ### OpenTelemetry (opt-in)
 
@@ -108,7 +108,7 @@ secrets:
 |----------|---------|-------------|
 | `OTEL_ENABLED` | `false` | Enable distributed tracing and metrics |
 | `OTEL_SERVICE_NAME` | `mcp-server` | Service name for traces |
-| `OTEL_EXPORTER_OTLP_ENDPOINT` | — | OTLP endpoint (e.g. `http://localhost:4318`) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | - | OTLP endpoint (e.g. `http://localhost:4318`) |
 
 ## Deployment Checklist
 

@@ -132,7 +132,7 @@ input: z.object({
 
 ### Shared Schemas
 
-Reuse schemas from `tools/schemas/` — never duplicate validation logic:
+Reuse schemas from `tools/schemas/` - never duplicate validation logic:
 
 ```typescript
 import { serverIdSchema, containerNameSchema, containerActionSchema } from "./schemas/index.js";
@@ -172,7 +172,7 @@ Adding a new tool file: create the file with `defineTool()` calls, then add an i
 
 ## Error Handling in Tools
 
-Tools should **not** catch errors from `wrapApiCall()` — the framework converts them to MCP error responses automatically. Only catch errors when custom recovery logic is needed.
+Tools should **not** catch errors from `wrapApiCall()` - the framework converts them to MCP error responses automatically. Only catch errors when custom recovery logic is needed.
 
 ```typescript
 // ✅ Let errors propagate

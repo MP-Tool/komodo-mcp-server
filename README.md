@@ -71,9 +71,9 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 
 > **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource_sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
 >
-> **Limit the tool surface (server-side).** To keep a client's tool list — and its token cost — small, prune what the server registers with three optional env vars: `MCP_TOOLS_ALLOWED_CATEGORIES` (category allowlist; unset ⇒ all), `MCP_TOOLS_EXCLUDED_CATEGORIES` (drop whole categories), and `MCP_TOOLS_EXCLUDED_TOOLS` (drop tools by name, e.g. `komodo_exec`). Use the exact category strings above. Pruned tools are absent from `tools/list` and not callable. This is purely subtractive — it never exposes more and never bypasses authentication or the read-only-when-open behavior.
+> **Limit the tool surface (server-side).** To keep a client's tool list - and its token cost - small, prune what the server registers with three optional env vars: `MCP_TOOLS_ALLOWED_CATEGORIES` (category allowlist; unset -> all), `MCP_TOOLS_EXCLUDED_CATEGORIES` (drop whole categories), and `MCP_TOOLS_EXCLUDED_TOOLS` (drop tools by name, e.g. `komodo_exec`). Use the exact category strings above. Pruned tools are absent from `tools/list` and not callable. This is purely subtractive - it never exposes more and never bypasses authentication or the read-only-when-open behavior.
 >
-> List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://…` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
+> List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://...` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
 
 
 ## Quick Start
@@ -90,11 +90,11 @@ cp docker.env .env  # Edit with your credentials
 docker compose up -d
 ```
 
-→ **[Full Docker Guide](docker/README.md)**
+-> **[Full Docker Guide](docker/README.md)**
 
 ### Claude Desktop
 
-Add to your `claude_desktop_config.json` (Settings → Developer → Edit Config):
+Add to your `claude_desktop_config.json` (Settings -> Developer -> Edit Config):
 
 ```json
 "komodo-mcp-server": {
@@ -109,7 +109,7 @@ Add to your `claude_desktop_config.json` (Settings → Developer → Edit Config
 }
 ```
 
-→ **[Full Claude Guide](examples/claude/README.md)**
+-> **[Full Claude Guide](examples/claude/README.md)**
 
 ### VS Code / GitHub Copilot
 
@@ -133,7 +133,7 @@ Add to `.vscode/mcp.json` in your workspace:
 }
 ```
 
-→ **[Full VS Code Guide](examples/vscode/README.md)** · **[Node.js / npx (no Docker)](examples/node/README.md)** · **[All Integrations](examples/README.md)**
+-> **[Full VS Code Guide](examples/vscode/README.md)** · **[Node.js / npx (no Docker)](examples/node/README.md)** · **[All Integrations](examples/README.md)**
 
 ## Use
 
@@ -146,7 +146,7 @@ Once connected, ask Claude, Copilot, or any MCP-compatible assistant in plain la
 | "Start the nginx container" | `komodo_container_action` *(start)* |
 | "Deploy my-app to staging" | `komodo_deployment_action` *(deploy)* |
 | "Get stats for dev-server" | `komodo_server_stats` |
-| "Why did the last deploy fail?" | `komodo_update_list` → `komodo_update_info` |
+| "Why did the last deploy fail?" | `komodo_update_list` -> `komodo_update_info` |
 | "Tail the logs for the api container" | `komodo_container_logs` |
 
 ### Testing with MCP Inspector
@@ -159,7 +159,9 @@ Use `/mcp` for Streamable HTTP or `/sse` for legacy SSE transport (if enabled). 
 
 ## Authentication
 
-Three methods are supported — use whichever fits your setup:
+There are two distinct layers - don't confuse them:
+
+**1. Connecting to Komodo** - how the server itself talks to Komodo Core. Choose one method:
 
 | Method | Environment Variables | Best For |
 |--------|----------------------|----------|
@@ -167,7 +169,14 @@ Three methods are supported — use whichever fits your setup:
 | **Username / Password** | `KOMODO_USERNAME` + `KOMODO_PASSWORD` | Interactive users |
 | **JWT Token** | `KOMODO_JWT_TOKEN` | Browser-based SSO (OIDC, GitHub, Google OAuth) |
 
-`KOMODO_URL` is always required. All credentials also support Docker secrets via `*_FILE` variants (e.g. `KOMODO_API_KEY_FILE`).
+`KOMODO_URL` is always required. All credentials also support Docker secrets via `*_FILE` variants
+(e.g. `KOMODO_API_KEY_FILE`). This shared connection is used for stdio and for open (auth-disabled)
+HTTP mode.
+
+**2. Users signing in to the MCP server** (HTTP/HTTPS) - **on by default** since 1.5.0. Each person
+logs in with their own Komodo username and password and gets their own session with their own
+permissions. Turn it off with `MCP_AUTH_ENABLED=false` (an open network server is then read-only);
+`stdio` is local and never authenticated.
 
 For the full configuration reference (env vars, config files, Docker secrets), see the **[Configuration Guide](config/README.md)**.
 

@@ -11,7 +11,7 @@ description: TypeScript-specific coding standards
 
 ## Type Safety
 
-- **No `any`** — use `unknown` with type guards instead
+- **No `any`** - use `unknown` with type guards instead
 - If `any` is unavoidable: document why with a comment tag (e.g. `// @sdk-constraint`)
 - Explicit return types for public functions
 - Use `readonly` on interface properties for immutable data
@@ -68,4 +68,4 @@ export const serverIdSchema = z.string().min(1);
 
 - `async/await` over Promise chains
 - Use `AbortSignal` for cancellable operations
-- Let errors propagate through `wrapApiCall()` — no defensive try/catch
+- Let errors propagate through `wrapApiCall()` - no defensive try/catch

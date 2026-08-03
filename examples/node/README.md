@@ -1,6 +1,6 @@
 # NPM / Node.js Integration
 
-Run the Komodo MCP Server directly with Node.js — no Docker required. Perfect for **Windows**, **macOS**, and **Linux** users who prefer a native installation.
+Run the Komodo MCP Server directly with Node.js - no Docker required. Perfect for **Windows**, **macOS**, and **Linux** users who prefer a native installation.
 
 ## 🚀 Quick Start
 

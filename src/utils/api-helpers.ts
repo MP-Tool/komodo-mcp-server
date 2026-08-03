@@ -143,6 +143,10 @@ export async function requireKomodoPermission(
   target: Types.ResourceTarget,
   required: Types.PermissionLevel,
 ): Promise<void> {
+  // Record the affected resource on the tool.call audit entry regardless of identity —
+  // "what was touched" is independent of whether this is per-user or global mode.
+  getCurrentToolContext()?.recordAuditDetail({ affected: [{ type: target.type, id: target.id }] });
+
   const identity = komodoIdentity.read(getCurrentToolContext()?.auth);
   if (!identity) return; // anonymous / global mode — not per-user gated here
 
@@ -168,6 +172,7 @@ export async function requireKomodoPermission(
       category: "permission",
       action: "permission.denied",
       outcome: "denied",
+      requestId: currentRequestId(),
       actor: { userId: identity.komodoUserId, username: identity.username },
       target: `${target.type}:${target.id}`,
       detail: { required, have: level, phase: "pre-check" },
@@ -239,6 +244,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
           category: "confirmation",
           action: "confirmation.bypassed",
           outcome: "info",
+          requestId: currentRequestId(),
           actor,
           target,
           detail: { action: req.action, reason: "client lacks elicitation support" },
@@ -249,6 +255,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
         category: "confirmation",
         action: "confirmation.unavailable",
         outcome: "denied",
+        requestId: currentRequestId(),
         actor,
         target,
         detail: { action: req.action, fallback: config.MCP_CONFIRM_FALLBACK },
@@ -262,6 +269,7 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
         category: "confirmation",
         action: "confirmation.declined",
         outcome: "denied",
+        requestId: currentRequestId(),
         actor,
         target,
         detail: { action: req.action, outcome },
@@ -272,6 +280,15 @@ export async function requireDestructiveConfirmation(req: DestructiveConfirmatio
 
 function capitalize(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+/**
+ * The current tool call's request id (stringified), or `undefined` outside a tool context.
+ * Used to correlate an action's permission/confirmation audit entries with its `tool.call` entry.
+ */
+function currentRequestId(): string | undefined {
+  const id = getCurrentToolContext()?.requestId;
+  return id === undefined ? undefined : String(id);
 }
 
 // ============================================================================

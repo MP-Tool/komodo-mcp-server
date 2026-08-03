@@ -329,6 +329,8 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation |
 | `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep |
 | `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled) |
+| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on) |
+| `LOG_AUDIT_TOOL_IO` | `logging.audit_tool_io` | `summary` | Audit request/result depth per tool call (scrubbed): `off`, `summary`, `full` |
 
 ## Telemetry (Experimental)
 

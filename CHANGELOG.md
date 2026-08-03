@@ -54,6 +54,10 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   for your answer, adjustable with `MCP_CONFIRM_TIMEOUT_MS` (e.g. `30s`, `5m`, `1h`).
 - **Per-user permissions are enforced.** A signed-in user can only act on the Komodo resources their
   account allows; anything else fails fast with a clear error instead of a raw Komodo failure.
+- **A complete audit trail.** The audit log now records, for each tool call, what was requested, which
+  resources were affected, and the outcome - with a shared request id linking an action to its
+  permission and confirmation entries. Secrets are stripped first. Tune how much request/result detail
+  is kept with `LOG_AUDIT_TOOL_IO` (`off` / `summary` / `full`; default `summary`).
 
 ### Changed
 

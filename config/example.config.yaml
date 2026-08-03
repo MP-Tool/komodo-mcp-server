@@ -468,6 +468,21 @@ logging:
   ## Default: 0 (disabled)
   retention_days: 0
 
+  ## Path to the dedicated audit-log file (JSON Lines), written in parallel to the normal
+  ## logs and always on. Each line records who did what to which resource, and the outcome.
+  ## Env: LOG_AUDIT_FILE
+  ## Default: "<log dir or ./logs>/audit.log"
+  # audit_file: "/var/log/komodo-mcp/audit.log"
+
+  ## How much request/result detail the audit log records for each tool call (always
+  ## secret-scrubbed). Lets you reconstruct what was requested and which resources were affected.
+  ##   - "off":     outcome + affected resources only (no request args, no result body)
+  ##   - "summary": request args + a result summary (recommended)
+  ##   - "full":    also the result's structured content (larger logs)
+  ## Env: LOG_AUDIT_TOOL_IO
+  ## Default: "summary"
+  audit_tool_io: "summary"
+
 
 ## ===========================================================================
 ## TELEMETRY

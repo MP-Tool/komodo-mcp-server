@@ -6,172 +6,79 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
-## [1.5.0] - 
+## [1.5.0]
+
+The main themes: **sign in with your own Komodo account**, **secure by default** over the network,
+**safer** destructive actions, and a **cleaner, unified configuration**.
+
+> **Upgrade notes**
+> - **Login is now required by default** over HTTP/HTTPS - clients must sign in with a Komodo
+>   username and password. To keep the old open behavior, set `MCP_AUTH_ENABLED=false` (an open
+>   network server then runs **read-only**). Local `stdio` is unaffected.
+> - **Two settings from earlier releases were renamed** - update them if you use them:
+>   `API_TIMEOUT_MS` -> `KOMODO_API_TIMEOUT_MS` and `KOMODO_RESOURCE_*` -> `MCP_RESOURCE_*`. See the
+>   [configuration reference](config/README.md).
+> - The `komodo_configure` tool was removed (see Removed).
 
 ### Added
 
-- **Limit the exposed tool surface** (context/token control): three optional env vars let an operator
-  prune which tools the server registers, so a client's tool list — and its token cost — stays small.
-  `MCP_TOOLS_ALLOWED_CATEGORIES` is a category allowlist (unset ⇒ all allowed); `MCP_TOOLS_EXCLUDED_CATEGORIES`
-  removes whole categories; `MCP_TOOLS_EXCLUDED_TOOLS` removes individual tools by name (e.g. `komodo_exec`).
-  Category values are the `_meta.category` strings (`server`, `stack`, `deployment`, `terminal`,
-  `resource_sync`, …). Filtered tools are absent from `tools/list` and not callable. This is **purely
-  subtractive** and independent of security: it can only *remove* tools, never expose more, and never
-  bypasses authentication or the read-only-when-open behavior — those still apply to whatever remains.
-  Unknown category names are ignored with a startup warning listing the valid set.
-- **Per-user Komodo authentication (local login)**: Sign in to the MCP server with your Komodo
-  username/password. Each authenticated user gets their own isolated Komodo session, derived from
-  their own Komodo credentials rather than a single shared global connection. External OAuth
-  providers (Google/GitHub/generic OIDC) are not wired in yet — see the upcoming
-  `feat/oauth-login` work.
-- **MCP server icon & title**: The server now advertises a title ("Komodo MCP Server") and the
-  Komodo lizard mark as its icon via the MCP `serverInfo` `title`/`icons` fields, so MCP clients
-  that support the spec's icon/title extension show Komodo branding instead of a generic
-  placeholder.
+- **Sign in with your own Komodo account.** Over HTTP/HTTPS each person logs in with their own Komodo
+  username and password and gets their own session with their own permissions, instead of everyone
+  sharing a single connection. (External Google/GitHub/OIDC login is planned, not in this release.)
+- **Choose which tools are available.** Limit the tool list to restrict what the assistant can do
+  (for example read-only, or no terminal access) and to keep the list small:
+  `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_TOOLS`. See the
+  [configuration reference](config/README.md).
+- **Server branding.** MCP clients that support it now show the server's name and the Komodo logo.
 
 ### Security
 
-- **Automatic secret redaction in tool results and logs** (closes
-  [#160](https://github.com/MP-Tool/komodo-mcp-server/issues/160)): every tool result — and any
-  large output offloaded to a fetchable resource, such as build/container logs — is now scrubbed
-  for secrets before it reaches the MCP client or the connected model. This covers places easy to
-  miss with one-off checks, like `komodo_exec` output and action/update logs (tokenised clone
-  URLs, `KEY=value` lines). Redaction is **fail-closed**: if it fails for any reason, the result
-  is withheld with an error instead of being returned unredacted. Specifically masked: alerter
-  webhook URLs/emails, variable values marked as secret, and a stack's resolved deployment config
-  (which can contain interpolated secrets) — while non-secret lookalike fields (e.g. `public_key`)
-  are left untouched. The one intentional exception is `komodo_user_create_api_key`, which still
-  returns the newly created key in full — that's the tool's purpose, and it says so in its own
-  description. Configuration: `MCP_SECRET_SCRUB_ENABLED` (default on), `MCP_SECRET_SCRUB_KEYS`
-  (redact additional field names), `MCP_SECRET_SCRUB_ALLOW_KEYS` (exempt specific field names).
-  This is best-effort defense-in-depth — it catches recognizable secret shapes, not arbitrary
-  sensitive text, so don't rely on it as your only safeguard (see config/README for details).
-- **Manual confirmation for destructive actions (MCP elicitation)**: destructive tools now ask the
-  human operator for explicit approval before executing — via the client's elicitation UI
-  (`elicitation/create`), requiring both "accept" AND a ticked confirm checkbox (double opt-in).
-  Gated per tool *and* per action: all 12 `*_delete` tools, `komodo_exec` (with the command shown
-  in the prompt), `komodo_server_action` (stop_all/prune_*/delete_* — batch start/restart/pause
-  stay unprompted), stack/deployment `destroy`, swarm `remove_*`, and the composite runners
-  `komodo_resource_sync_action run` (its diff can delete other resources), `komodo_procedure_action
-  run`, and `komodo_action_action run`. Benign lifecycle actions (deploy/pull/start/restart/
-  pause/unpause/stop) are never prompted. Declined/cancelled/timed-out prompts abort with a clear
-  `ConfirmationRequiredError` and a `confirmation.declined` audit entry — a timeout never falls
-  open. Configuration: `MCP_CONFIRM_DESTRUCTIVE` (default `true`) turns the feature off
-  entirely; `MCP_CONFIRM_FALLBACK` (default `deny`) controls clients that cannot prompt (no
-  elicitation capability, or stateless HTTP mode) — `deny` refuses such destructive calls
-  (fail-closed), `allow` executes them with a warning and a `confirmation.bypassed` audit entry.
-  **Note for stdio/simple clients without elicitation support:** set `MCP_CONFIRM_FALLBACK=allow`
-  or `MCP_CONFIRM_DESTRUCTIVE=false` to keep destructive tools usable.
-- **Per-resource permission pre-checks on all resource-scoped tools**: authenticated requests now
-  verify the user's Komodo permission on the target resource (Read/Execute/Write) *before* the API
-  call runs, failing fast with a clear `AuthorizationError` and a `permission.denied` audit entry
-  instead of a raw Komodo error. A short-lived cache (30s) avoids an extra round-trip per tool
-  call. A backstop in the shared API-call wrapper also reclassifies any Komodo 403 (or a 500
-  carrying a permission message) into the same clean error/audit path as a fallback. Wired into
-  every resource domain (server, stack, deployment, build, repo, procedure, action, alerter,
-  resource sync, swarm, container, exec): info/stats reads require Read, lifecycle actions require
-  Execute, deletes require Write. Container and terminal-exec tools have no dedicated `Container`
-  resource type in Komodo, so they gate on the parent server instead. `komodo_update_info` and
-  `komodo_build_logs` only learn their target resource from the fetched payload itself, so their
-  check runs immediately after the read and before any content is returned. List and apply
-  (create/update) tools are intentionally left unchecked — Komodo's own backend is the authority
-  for those.
-- **MCP authentication now defaults to enabled**: when neither `[auth].enabled` nor `MCP_AUTH_ENABLED`
-  is set, HTTP/HTTPS mode now defaults to auth ON (previously OFF unless an OAuth provider was
-  configured) — Komodo always offers local username/password login whenever `KOMODO_URL` is set, so
-  there's no reason to run open by default. **Upgrade note:** existing deployments that rely on the
-  old implicit "no `[auth]` section = anonymous" default will start requiring login on next restart;
-  set `MCP_AUTH_ENABLED=false` or `[auth].enabled = false` to keep the old behavior. `MCP_AUTH_ENABLED`
-  is now also honoured from a `.env` file, not just a real exported environment variable.
-- **An open network server is now read-only** (defense-in-depth for advisory GHSA-gf32-w3f6-crx6): if
-  you deliberately turn authentication off (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the
-  server no longer exposes write access to anonymous callers. Every operate/exec/delete tool —
-  including `komodo_exec` and all `*_delete`/`destroy` tools — is hidden from the tool list and
-  rejected if called; only read/list tools work, so a misconfigured open server can look but not
-  touch. This is an invariant, not a toggle: the only way to get write access over the network is to
-  enable authentication (per-user login), which is on by default. Local **stdio** mode is unaffected —
-  it stays fully capable, since it isn't network-reachable and runs as your own single trusted user.
-  Startup logs a clear notice and writes a `restricted_anonymous` audit entry when this mode is active.
+- **Authentication is on by default** for HTTP/HTTPS - clients must sign in (see Upgrade notes). To
+  run without it, set `MCP_AUTH_ENABLED=false`.
+- **An open network server is read-only.** If you turn authentication off on HTTP/HTTPS, anonymous
+  callers get read/list tools only - write, delete and terminal tools (including `komodo_exec`) are
+  hidden and refused. Local `stdio` stays fully capable. Hardens advisory GHSA-gf32-w3f6-crx6.
+- **Secrets are hidden from tool output.** API keys, tokens, secret variables, webhook URLs and
+  similar values are automatically removed from results before they reach the assistant or the chat
+  transcript - including terminal and log output. On by default (`MCP_SECRET_SCRUB_ENABLED`);
+  best-effort, so don't treat it as your only safeguard. (The create-API-key tool still returns its
+  key on purpose.)
+- **Destructive actions ask first.** Deletes, `destroy`, prune, terminal commands, and
+  procedure/action/sync runs now require your confirmation before running. On by default; tune with
+  `MCP_CONFIRM_DESTRUCTIVE` and `MCP_CONFIRM_FALLBACK` (clients that can't show a prompt may need
+  `MCP_CONFIRM_FALLBACK=allow`).
+- **Per-user permissions are enforced.** A signed-in user can only act on the Komodo resources their
+  account allows; anything else fails fast with a clear error instead of a raw Komodo failure.
 
 ### Changed
 
-- **Configuration consolidated and unified**: every setting is now configurable via **both**
-  environment variables and the config file (`[komodo]`, `[auth]`, `[tools]`, `[redaction]`,
-  `[resources]`, …), resolved env > file > default. Naming is now principled — `KOMODO_*` for the
-  Komodo Core connection, `MCP_*` for this server's own behavior. Renamed keys (1.5.0 is the first
-  release to carry them, so no prior deployments are affected): `API_TIMEOUT_MS` → `KOMODO_API_TIMEOUT_MS`;
-  `KOMODO_CONFIRM_*` → `MCP_CONFIRM_*`; `KOMODO_SECRET_SCRUB_*` → `MCP_SECRET_SCRUB_*`;
-  `KOMODO_ALLOWED_CATEGORIES`/`KOMODO_EXCLUDED_*` → `MCP_TOOLS_ALLOWED_CATEGORIES`/`MCP_TOOLS_EXCLUDED_*`;
-  `KOMODO_RESOURCE_*` → `MCP_RESOURCE_*`. The example configs (`config/example.config.{toml,yaml,env}`)
-  and the [configuration reference](config/README.md) document the full, current surface.
-- **Reusable auth code moved into MCP-Server-Framework**: The browser OAuth/OIDC login flow now uses
-  the framework's generic `createBrowserOAuthLogin()` (callback routes mounted via the new
-  `configureHttpApp` hook); per-session credentials use the framework's typed `defineAuthExtra`
-  binding instead of ad-hoc `auth.extra` casts. Komodo retains only Komodo-specific glue
-  (credential exchange, provider config resolution).
+- **Unified configuration.** Every setting now works both as an environment variable and in the
+  config file (TOML/YAML/JSON), with consistent naming - `KOMODO_*` for the Komodo connection, `MCP_*`
+  for the server's own behavior. Some keys were renamed (see Upgrade notes). The example configs and
+  the [configuration reference](config/README.md) document the full, current set of settings.
 
 ### Fixed
 
-- **List tools no longer silently truncate against Komodo Core ≥ 2.3**
-  ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): Komodo Core 2.3 added
-  server-side pagination to the resource list APIs (default page size), so a `List*` read with an
-  empty body returned only the first page — the list tools would then paginate that already-truncated
-  array client-side and report a plausible-but-wrong total, with no error. The 10 affected reads
-  (stacks, servers, deployments, builds, repos, procedures, actions, alerters, resource-syncs, swarms)
-  now pass `limit: 0` to fetch the complete set before paginating locally. Safe on every Core version:
-  the read requests are not `deny_unknown_fields`, so cores older than 2.3 simply ignore the field.
-  Also bumps `komodo_client` to 2.3.1 and uses Core 2.3's renamed container reads while keeping the
-  pre-2.3 wire names (kept as serde aliases in 2.3), so `komodo_container_list`/`_inspect` keep working
-  across Core 2.0–2.3+.
-- **Komodo-version guards on version-sensitive tools** (generalizes
-  [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay): several tools
-  use Komodo APIs that only exist from core 2.0 on and otherwise fail with a cryptic
-  deserialization error. A shared `requireMinimalVersion(current, minimum, feature)` guard
-  (`src/utils/version.ts`) compares the connected core's version — semver-style over
-  `major.minor.patch`, with any leading `v` or pre-release/build suffix (e.g. `-dev102`) ignored and
-  an unparseable version never blocking — against a minimum and fails fast with an actionable
-  "upgrade" message. `komodo_exec` and all Docker Swarm tools
-  (`komodo_swarm_*`) require core ≥ 2.0 (the unified `target`-based terminal request body, which
-  older cores reject with `missing field "server"`, and the Swarm resources, which don't exist on
-  1.x cores at all); for `komodo_exec` the check runs before the permission round-trip and the
-  confirmation prompt. The core version is read through a short-TTL per-URL cache (`readCoreVersion`),
-  so the guard adds at most one `GetVersion` round-trip per core per minute. The reusable
-  `parseVersion` / `compareVersions` / `isVersionGreater` helpers let any tool be gated on the
-  specific Komodo version its features need.
-- **`komodo_exec` on containers, deployments, and stack services returned the echoed command
-  scaffold with a `null` exit code instead of the real output**
-  ([#159](https://github.com/MP-Tool/komodo-mcp-server/pull/159), thanks @jjsmackay): the server
-  branch already suppressed PTY echo (`stty -echo`) so Komodo Periphery's sentinel-matching fires
-  on real output, but the other three targets went through `komodo_client`'s legacy
-  `execute_*_exec` helpers with a bare-shell init. All four targets now share the same
-  echo-suppressing terminal init.
-- **`komodo_action_list` / `komodo_procedure_list` failed with an output validation error**
-  ([#158](https://github.com/MP-Tool/komodo-mcp-server/pull/158), thanks @sai-roda): Komodo Core
-  returns JSON `null` (not a missing key) for `last_run_at` / `next_scheduled_run` on actions and
-  procedures that never ran or have no schedule — the upstream `komodo_client` TypeScript types
-  don't reflect this. The projection let `null` into the payload and output validation rejected
-  the whole response, so listing failed as soon as any unrun action existed. Null fields are now
-  omitted from the output (and the schemas tolerate `null` as defense-in-depth).
-- **Same `null`-vs-`undefined` class fixed in two more places** (audit follow-up to #158):
-  `komodo_update_info` failed with the same validation error for **in-progress** updates
-  (`end_ts` is `null` while an update is still running), and `komodo_update_list` emitted a bogus
-  `next_cursor: "null"` on the **last** page (`next_page` is `null` there), advertising a
-  non-existent next page that led paginating clients back to page 0 in an endless loop. The swarm
-  service list's `replicas` projection got the same defensive treatment.
+- **Lists no longer cut off at the first page** on Komodo Core 2.3+
+  ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): list tools now fetch the complete
+  set instead of silently returning only the first ~50 items. Also updated for Core 2.3's renamed
+  container APIs while staying compatible with Core 2.0-2.3+.
+- **Clear "please upgrade" message** when a tool needs a newer Komodo core, instead of a cryptic error
+  (generalizes [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay).
+  Terminal exec and Docker Swarm tools require Core 2.0+.
+- **`komodo_exec` returns the real output** on containers, deployments and stack services - it
+  previously returned the echoed command with no exit code
+  ([#159](https://github.com/MP-Tool/komodo-mcp-server/pull/159), thanks @jjsmackay).
+- **Listing and update tools handle "not set yet" values**
+  ([#158](https://github.com/MP-Tool/komodo-mcp-server/pull/158), thanks @sai-roda): actions and
+  procedures that never ran, in-progress updates, and swarm service replicas no longer cause an error,
+  and update pagination no longer loops on the last page.
 
 ### Removed
 
-- **`komodo_configure` tool**: The global Komodo connection can no longer be set or changed at
-  runtime via a tool call. Going forward it comes only from startup config (`[komodo]` in
-  `config.toml` / `KOMODO_*` env vars, stdio or auth-disabled HTTP mode) or from each user's own
-  login — never from an in-chat tool. This closes the gap where the tool's runtime reconfiguration
-  wasn't covered by the startup-time "insecure global login" security warning, by removing the
-  reconfiguration path entirely rather than adding a second warning call site.
-  `komodo_health_check` is unaffected and remains the way to check connection status.
-- **Dead auth scaffolding** left over from an earlier browser-client design: the self-signed
-  `jwt-token-exchange` MCP bearer module, the unused `session-auth` bridge, the legacy
-  `integration/oidc-bearer-auth` middleware, and a duplicate `extractBearerToken` (the framework
-  provides the canonical one).
+- **`komodo_configure` tool.** The Komodo connection is now set only at startup (config file or
+  `KOMODO_*` env vars) or via per-user login - it can no longer be changed from a chat tool. Use
+  `komodo_health_check` to check the connection status.
 
 ## [1.4.1] - Fixes tools and update dependencies
 

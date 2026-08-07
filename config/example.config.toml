@@ -122,12 +122,9 @@ port = 8000
 ## Default: "127.0.0.1"
 host = "127.0.0.1"
 
-## Public base URL the server is reached at, e.g. behind a reverse proxy or on a
-## domain. Set this so OAuth redirects, the login URL and the RFC 9728 metadata URL
-## use the externally reachable address instead of the internal bind host/port. The
-## host is also trusted automatically for DNS-rebinding protection.
-## Env: MCP_BASE_URL
-## Default: derived from mode + host + port (e.g. http://127.0.0.1:8000)
+## Public URL behind a reverse proxy/domain — drives OAuth redirects, the login + RFC 9728
+## metadata URLs, and is trusted for DNS-rebinding. Env: MCP_BASE_URL. 
+## Default: derived from host+port.
 # base_url = "https://mcp.example.com"
 
 ## Enable the legacy SSE transport (MCP protocol version 2024-11-05).
@@ -177,14 +174,10 @@ ca_path = "/certs/ca.crt"
 
 [auth]
 
-## Master switch for MCP-server authentication.
-## When enabled (default), clients must sign in: Komodo offers a browser username/password
-## login and each user gets an isolated, per-user Komodo session with their own permissions.
-## When DISABLED on a network transport, the server is READ-ONLY for anonymous callers -
-## write/exec/delete tools are hidden and rejected; enable auth to allow write access.
-## stdio ignores this (always local, full access).
-## Env: MCP_AUTH_ENABLED
-## Default: true
+## Require clients to sign in (each user gets an isolated per-user Komodo session). When DISABLED
+## on a network transport the server is READ-ONLY for anonymous callers. stdio is always local.
+## Env: MCP_AUTH_ENABLED. 
+## Default: true.
 enabled = true
 
 ## Required OAuth scopes for the /mcp endpoint (advanced; gateway/token setups).
@@ -192,8 +185,6 @@ enabled = true
 ## Optional, no default.
 # required_scopes = ["mcp"]
 
-## The RFC 9728 Protected Resource Metadata URL advertised to clients is derived
-## automatically from the public base URL (see [transport].base_url) as
 
 ## External OAuth providers ([auth.providers.<name>]) for Google/GitHub/OIDC federation
 ## are reserved for upcoming work and NOT wired in yet. Today, enabling auth offers local
@@ -297,8 +288,8 @@ helmet_frame_options = "DENY"
 [tools]
 
 ## Allow only these tool categories. Leave unset to allow all.
-## Categories: config, container, server, stack, deployment, build, repo, procedure,
-##   action, alerter, swarm, resource_sync, variable, update, terminal, user
+## Categories: config, container, server, stack, deployment, build, repo, procedure, action,
+##   alerter, swarm, resource_sync, variable, update, terminal, user, docker, builder, tag, toml
 ## Env: MCP_TOOLS_ALLOWED_CATEGORIES
 ## Optional, no default (all categories allowed).
 # allowed_categories = ["server", "stack", "deployment"]
@@ -326,10 +317,8 @@ confirm_destructive = true
 ## Default: "deny"
 confirm_fallback = "deny"
 
-## How long to wait for the user to answer the confirmation prompt before giving up.
-## Accepts a duration ("30s", "5m", "1h") or plain milliseconds.
-## Env: MCP_CONFIRM_TIMEOUT_MS
-## Default: "5m"
+## How long to wait for a confirmation answer — duration ("30s"/"5m"/"1h") or ms.
+## Env: MCP_CONFIRM_TIMEOUT_MS. Default: "5m".
 confirm_timeout = "5m"
 
 
@@ -465,10 +454,9 @@ max_files = 3
 ## Default: 0 (disabled)
 retention_days = 0
 
-## Path to the dedicated audit-log file (JSON Lines), written in parallel to the normal
-## logs and always on. Each line records who did what to which resource, and the outcome.
-## Env: LOG_AUDIT_FILE
-## Default: "<log dir or ./logs>/audit.log"
+## Dedicated JSON-Lines audit-log file (always on; records who did what to which resource + outcome).
+## Env: LOG_AUDIT_FILE. 
+## Default: "<log dir or ./logs>/audit.log".
 # audit_file = "/var/log/komodo-mcp/audit.log"
 
 ## How much request/result detail the audit log records for each tool call (always

@@ -137,6 +137,12 @@ export const inspectContainerTool = defineTool({
       () => komodo.client.read(INSPECT_CONTAINER_READ, { server: args.server, container: args.container }),
       abortSignal,
     );
+    // Key facts as the default minimum — the full inspect payload stays in the resource.
+    const summary = {
+      name: args.container,
+      ...(result.State?.Status && { state: result.State.Status }),
+      ...(result.Config?.Image && { image: result.Config.Image }),
+    };
     const link = tryRegisterResource({
       ctx: { sessionId },
       category: "inspect",
@@ -147,9 +153,7 @@ export const inspectContainerTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
-    const payload = link
-      ? { summary: { name: args.container }, resourceLink: link }
-      : { summary: { name: args.container }, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
     return structured(payload, {
       text: renderContainerInspect(payload),
       ...(link ? { links: [link] } : {}),
@@ -310,9 +314,8 @@ export const searchContainerLogsTool = defineTool({
           })
         : null;
 
-    const payload = link
-      ? { summary: { name: args.container }, matches: [], resourceLink: link }
-      : { summary: { name: args.container }, matches };
+    const summary = { name: args.container, matched: matches.length };
+    const payload = link ? { summary, matches: [], resourceLink: link } : { summary, matches };
     return structured(payload, {
       text: renderContainerSearchLogs({
         summary: payload.summary,

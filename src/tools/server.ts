@@ -42,6 +42,7 @@ import {
   buildApplyResult,
   buildDeleteResult,
   buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -132,7 +133,7 @@ export const getServerInfoTool = defineTool({
       () => komodo.client.read("GetServer", { server: args.server }),
       abortSignal,
     );
-    const summary = { id: args.server, name: args.server };
+    const summary = { id: args.server, ...summarizeResource(result, args.server) };
     return buildInfoResult({
       result,
       summary,

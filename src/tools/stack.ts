@@ -33,6 +33,7 @@ import {
   buildApplyResult,
   buildDeleteResult,
   buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 import {
   stackApplyInputSchema,
@@ -106,7 +107,7 @@ export const getStackInfoTool = defineTool({
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
-    const summary = { id: args.stack, name: args.stack };
+    const summary = { id: args.stack, ...summarizeResource(result, args.stack) };
     return buildInfoResult({
       result,
       summary,

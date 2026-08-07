@@ -33,6 +33,7 @@ import {
   buildApplyResult,
   buildDeleteResult,
   buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 import {
   deploymentApplyInputSchema,
@@ -107,7 +108,7 @@ export const getDeploymentInfoTool = defineTool({
       () => komodo.client.read("GetDeployment", { deployment: args.deployment }),
       abortSignal,
     );
-    const summary = { id: args.deployment, name: args.deployment };
+    const summary = { id: args.deployment, ...summarizeResource(result, args.deployment) };
     return buildInfoResult({
       result,
       summary,

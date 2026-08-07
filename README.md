@@ -22,7 +22,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 
 ### 🛠️ Complete Infrastructure Control
 
-- **69 Tools, 16 Categories** — Full lifecycle management for containers, stacks, deployments, servers, builds, repos, procedures, actions, alerters, Docker Swarms (Komodo v2), variables, resource syncs and update history — from listing and inspecting to deploying, building, scaling and destroying.
+- **88 Tools, 20 Categories** — Full lifecycle management for containers, stacks, deployments, servers, builds, repos, procedures, actions, alerters, Docker Swarms (Komodo v2), variables, resource syncs, update history, Docker image/network/volume introspection, builders, tags and TOML export — from listing and inspecting to deploying, building, scaling and destroying.
 - **Remote Terminal Access** — Execute commands on servers, containers, deployments, and stack services with real-time output streaming, exit codes, and progress reporting.
 - **Log Search & Analysis** — Pattern-based log search across containers with configurable tail limits and match counting.
 
@@ -68,8 +68,12 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 | **Updates** | `komodo_update_list` *(filterable, paginated)*, `komodo_update_info` |
 | **Terminal** | `komodo_exec` *(target: server / container / deployment / stack_service)* |
 | **API Keys** | `komodo_user_list_api_keys`, `komodo_user_create_api_key`, `komodo_user_delete_api_key` |
+| **Docker** | `komodo_docker_image_list`, `komodo_docker_image_inspect`, `komodo_docker_image_history`, `komodo_docker_network_list`, `komodo_docker_network_inspect`, `komodo_docker_volume_list`, `komodo_docker_volume_inspect` |
+| **Builders** | `komodo_builder_list`, `komodo_builder_info`, `komodo_builder_apply` *(create/update)*, `komodo_builder_copy`, `komodo_builder_rename`, `komodo_builder_delete` |
+| **Tags** | `komodo_tag_list`, `komodo_tag_info`, `komodo_tag_apply` *(create/update)*, `komodo_tag_delete` |
+| **TOML Export** | `komodo_toml_export_all`, `komodo_toml_export_resources` |
 
-> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource_sync`, `variable`, `update`, `terminal`, `user`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
+> **Tip:** Every tool carries `_meta.category` (one of `config`, `container`, `server`, `stack`, `deployment`, `build`, `repo`, `procedure`, `action`, `alerter`, `swarm`, `resource_sync`, `variable`, `update`, `terminal`, `user`, `docker`, `builder`, `tag`, `toml`) and a `requiredScopes` array (`komodo:read` / `komodo:operate` / `komodo:admin`), so MCP clients and gateways can filter or gate tools by category and three-tier RBAC.
 >
 > **Limit the tool surface (server-side).** To keep a client's tool list - and its token cost - small, prune what the server registers with three optional env vars: `MCP_TOOLS_ALLOWED_CATEGORIES` (category allowlist; unset -> all), `MCP_TOOLS_EXCLUDED_CATEGORIES` (drop whole categories), and `MCP_TOOLS_EXCLUDED_TOOLS` (drop tools by name, e.g. `komodo_exec`). Use the exact category strings above. Pruned tools are absent from `tools/list` and not callable. This is purely subtractive - it never exposes more and never bypasses authentication or the read-only-when-open behavior.
 >

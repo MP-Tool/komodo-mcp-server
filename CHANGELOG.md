@@ -22,6 +22,12 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
 
 ### Added
 
+- **More tools: Docker introspection, builders, tags, and TOML export.** 19 new tools —
+  inspect Docker images/networks/volumes per server (`komodo_docker_*`), manage Builders
+  (`komodo_builder_*`, so you can attach one to a build), manage Tags (`komodo_tag_*`), and export your
+  resources as sync TOML (`komodo_toml_export_*`). Adapted from **ATreemanDork**'s
+  `komodo-mcp-server_extended` fork — thank you! Read tools respect the read-only-when-open rule;
+  writes require the appropriate permission and confirm before deleting.
 - **Sign in with your own Komodo account.** Over HTTP/HTTPS each person logs in with their own Komodo
   username and password and gets their own session with their own permissions, instead of everyone
   sharing a single connection. (External Google/GitHub/OIDC login is planned, not in this release.)
@@ -61,6 +67,10 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
 
 ### Changed
 
+- **Read tools return a useful summary by default.** Large results (inspect, logs, full resources) are
+  offloaded to a session resource and the tool returns a concise summary of the key facts - for example
+  a container inspect now shows its state and image, not just its name. Pass `inline_full: true` to get
+  the entire result inline instead.
 - **Unified configuration.** Every setting now works both as an environment variable and in the
   config file (TOML/YAML/JSON), with consistent naming - `KOMODO_*` for the Komodo connection, `MCP_*`
   for the server's own behavior. Time settings accept plain-language durations (`30s`, `5m`, `1h`) as

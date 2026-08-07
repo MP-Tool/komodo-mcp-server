@@ -8,7 +8,7 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { pageOutputSchema, resourceLinkSchema, maintenanceWindowSchema } from "./shared.js";
+import { pageOutputSchema, resourceLinkSchema, maintenanceWindowSchema, resourceTargetSchema } from "./shared.js";
 
 /** Alerter identifier (id or name) accepted by the Komodo API. */
 export const alerterIdSchema = z.string().min(1);
@@ -70,13 +70,13 @@ export const alerterConfigSchema = z
       .optional()
       .describe("Only send these alert types (empty = all). E.g. 'ServerUnreachable', 'ContainerStateChange', ..."),
     resources: z
-      .array(z.record(z.string(), z.unknown()))
+      .array(resourceTargetSchema)
       .optional()
-      .describe("Only send alerts for these resources (`ResourceTarget` shape). Empty = all resources."),
+      .describe("Only send alerts for these resources ({ type, id }). Empty = all resources."),
     except_resources: z
-      .array(z.record(z.string(), z.unknown()))
+      .array(resourceTargetSchema)
       .optional()
-      .describe("Suppress alerts for these resources (`ResourceTarget` shape)"),
+      .describe("Suppress alerts for these resources ({ type, id })."),
     maintenance_windows: z
       .array(maintenanceWindowSchema)
       .optional()

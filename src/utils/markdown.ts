@@ -980,3 +980,172 @@ export function renderUpdateInfo(payload: UpdateInfoPayload): string {
   }
   return `${header}\n\n${meta}\n\n${jsonBlock(payload.info)}`;
 }
+
+// ============================================================================
+// Docker Introspection (image / network / volume)
+// ============================================================================
+
+interface DockerImageListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly tags?: readonly string[];
+  readonly size?: number;
+  readonly in_use?: boolean;
+}
+export function renderImageList(payload: { items: readonly DockerImageListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.CONTAINER} Docker images (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo images found.`;
+  const rows = items
+    .map((i) => `• ${i.name}${i.in_use ? " (in use)" : ""}${i.size ? ` — ${formatBytes(i.size)}` : ""}`)
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface InspectPayload {
+  readonly summary: { readonly name: string } & Record<string, unknown>;
+  readonly inspect?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+function renderInspect(label: string, payload: InspectPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} ${label} "${payload.summary.name}"`;
+  const facts = Object.entries(payload.summary)
+    .filter(([k, v]) => k !== "name" && v !== undefined)
+    .map(([k, v]) => `• ${k}: ${typeof v === "string" ? v : JSON.stringify(v)}`)
+    .join("\n");
+  const body = facts ? `\n\n${facts}` : "";
+  if (payload.resourceLink) {
+    return `${header}${body}\n\nFull inspect payload available as resource: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}${body}\n\n${jsonBlock(payload.inspect)}`;
+}
+export function renderImageInspect(payload: InspectPayload): string {
+  return renderInspect("Image", payload);
+}
+export function renderNetworkInspect(payload: InspectPayload): string {
+  return renderInspect("Network", payload);
+}
+export function renderVolumeInspect(payload: InspectPayload): string {
+  return renderInspect("Volume", payload);
+}
+
+interface DockerImageHistoryPayload {
+  readonly summary: { readonly name: string; readonly layers?: number };
+  readonly items: readonly { readonly created_by: string; readonly size: number }[];
+  readonly resourceLink?: { readonly uri: string };
+}
+export function renderImageHistory(payload: DockerImageHistoryPayload): string {
+  const header = `${RESPONSE_ICONS.LIST} Layer history for "${payload.summary.name}" (${payload.summary.layers ?? payload.items.length} layers)`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull layer history available as resource: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  const rows = payload.items.map((l) => `• ${formatBytes(l.size)} — ${l.created_by}`).join("\n");
+  return `${header}\n\n${rows}`;
+}
+
+interface DockerNetworkListItem {
+  readonly name?: string;
+  readonly id?: string;
+  readonly driver?: string;
+  readonly scope?: string;
+}
+export function renderNetworkList(payload: { items: readonly DockerNetworkListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.LIST} Docker networks (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo networks found.`;
+  const rows = items.map((n) => `• ${n.name ?? n.id ?? "?"} (${n.driver ?? "?"}, ${n.scope ?? "?"})`).join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface DockerVolumeListItem {
+  readonly name: string;
+  readonly driver?: string;
+  readonly mountpoint?: string;
+  readonly in_use?: boolean;
+}
+export function renderVolumeList(payload: { items: readonly DockerVolumeListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.LIST} Docker volumes (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo volumes found.`;
+  const rows = items.map((v) => `• ${v.name} (${v.driver ?? "?"})${v.in_use ? " — in use" : ""}`).join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+/** Human-readable byte size (compact, base-1024). */
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = n / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) {
+    v /= 1024;
+    i++;
+  }
+  return `${v.toFixed(1)} ${units[i]}`;
+}
+
+// ============================================================================
+// Builder / Tag / Toml
+// ============================================================================
+
+interface BuilderListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly builder_type?: string;
+  readonly instance_type?: string;
+}
+export function renderBuilderList(payload: { items: readonly BuilderListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.BUILD} Builders (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo builders found.`;
+  const rows = items
+    .map((b) => `• ${b.name} (${b.builder_type ?? "?"}${b.instance_type ? `: ${b.instance_type}` : ""})`)
+    .join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+
+interface BuilderInfoPayload {
+  readonly summary: { readonly name: string; readonly builder_type?: string };
+  readonly info?: unknown;
+  readonly resourceLink?: { readonly uri: string };
+}
+export function renderBuilderInfo(payload: BuilderInfoPayload): string {
+  const header = `${RESPONSE_ICONS.INFO} Builder "${payload.summary.name}"${payload.summary.builder_type ? ` (${payload.summary.builder_type})` : ""}`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull builder resource available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n${jsonBlock(payload.info)}`;
+}
+
+interface TagListItem {
+  readonly id: string;
+  readonly name: string;
+  readonly color?: string;
+}
+export function renderTagList(payload: { items: readonly TagListItem[]; page?: PageInfo }): string {
+  const { items, page } = payload;
+  const header = `${RESPONSE_ICONS.LIST} Tags (${items.length})`;
+  if (items.length === 0) return `${header}\n\nNo tags found.`;
+  const rows = items.map((t) => `• ${t.name}${t.color ? ` (${t.color})` : ""}`).join("\n");
+  return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
+}
+export function renderTagInfo(payload: { tag: { name: string; color?: string; owner?: string } }): string {
+  const { tag } = payload;
+  const meta = [tag.color ? `• Color: ${tag.color}` : null, tag.owner ? `• Owner: ${tag.owner}` : null]
+    .filter((v): v is string => v !== null)
+    .join("\n");
+  return `${RESPONSE_ICONS.INFO} Tag "${tag.name}"${meta ? `\n\n${meta}` : ""}`;
+}
+
+interface TomlExportPayload {
+  readonly summary: { readonly bytes: number; readonly secrets_masked: boolean };
+  readonly toml?: string;
+  readonly resourceLink?: { readonly uri: string };
+}
+export function renderTomlExport(payload: TomlExportPayload): string {
+  const header = `${RESPONSE_ICONS.SYNC} Exported sync TOML (${payload.summary.bytes} bytes, secrets masked as [[VAR]])`;
+  if (payload.resourceLink) {
+    return `${header}\n\nFull TOML available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
+  }
+  return `${header}\n\n\`\`\`toml\n${payload.toml ?? ""}\n\`\`\``;
+}

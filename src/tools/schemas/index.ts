@@ -24,3 +24,7 @@ export * from "./user.js";
 export * from "./variable.js";
 export * from "./update.js";
 export * from "./resource-sync.js";
+export * from "./docker.js";
+export * from "./builder.js";
+export * from "./tag.js";
+export * from "./toml.js";

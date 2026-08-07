@@ -39,7 +39,9 @@ export type ResourceType =
   | "swarm"
   | "variable"
   | "resource_sync"
-  | "api_key";
+  | "api_key"
+  | "builder"
+  | "tag";
 
 const ACTION_ICONS: Record<ActionType, string> = {
   deploy: RESPONSE_ICONS.DEPLOY,
@@ -156,6 +158,22 @@ export function buildDeleteResult(
     },
     text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
   };
+}
+
+/**
+ * Extract a meaningful default summary from a full Komodo resource result — so the
+ * non-`inline_full` response carries the key facts (name + runtime state) instead of just
+ * the id. Komodo resources share a common shape (`.name`, `.info.state`); fields the
+ * per-tool output schema doesn't declare are simply stripped, so this is safe for every
+ * resource type. Full detail always remains in the offloaded resource.
+ */
+export function summarizeResource(result: unknown, fallbackName: string): { name: string; state?: string } {
+  const obj = result && typeof result === "object" ? (result as Record<string, unknown>) : undefined;
+  const name = typeof obj?.["name"] === "string" ? obj["name"] : fallbackName;
+  const info = obj?.["info"];
+  const rawState = info && typeof info === "object" ? (info as Record<string, unknown>)["state"] : undefined;
+  const state = typeof rawState === "string" ? rawState : undefined;
+  return { name, ...(state && { state }) };
 }
 
 /**

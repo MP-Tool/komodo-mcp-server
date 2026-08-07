@@ -79,6 +79,14 @@ test("policy: allowlisted public-key/flag fields survive, generic secrets stay r
   assert.notEqual(out.config.passkey, "periphery-pass-1");
 });
 
+test("policy: the boolean `secrets_masked` flag survives (not masked into a string)", () => {
+  // Regression: the substring "secret" would redact this flag, turning `true` into a
+  // placeholder string and breaking the toml-export tools' boolean output validation.
+  const out = scrubber.scrubObject({ summary: { bytes: 1234, secrets_masked: true }, api_secret: "shh" }) as any;
+  assert.equal(out.summary.secrets_masked, true);
+  assert.notEqual(out.api_secret, "shh");
+});
+
 test("policy: env-block strings and Config.Env arrays are scrubbed by the heuristics", () => {
   const out = scrubber.scrubObject({
     config: { environment: "HOST=h\nAPI_KEY=abc123\nDB_PASSWORD=hunter2" },

@@ -37,6 +37,9 @@ export const KOMODO_SCRUB_ALLOW_KEYS: readonly string[] = [
   "skip_secret_interp",
   "auto_rotate_keys",
   "is_secret",
+  // A boolean flag stating that secrets ARE masked — the substring "secret" would otherwise
+  // redact it, turning `true` into a placeholder string and breaking output validation.
+  "secrets_masked",
 ];
 
 /**

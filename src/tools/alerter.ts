@@ -153,6 +153,7 @@ export const applyAlerterTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.alerter) throw AppErrorFactory.validation.fieldRequired("alerter");
+    await requireKomodoPermission({ type: "Alerter", id: args.alerter }, Types.PermissionLevel.Write);
     const alerterId = args.alerter;
     const result = await wrapApiCall(
       "updateAlerter",

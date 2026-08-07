@@ -180,6 +180,7 @@ export const applyServerTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Write);
     const server = args.server;
     const result = await wrapApiCall(
       "updateServer",

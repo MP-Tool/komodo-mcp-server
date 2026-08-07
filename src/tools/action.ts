@@ -207,6 +207,7 @@ export const applyActionTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.action_id) throw AppErrorFactory.validation.fieldRequired("action_id");
+    await requireKomodoPermission({ type: "Action", id: args.action_id }, Types.PermissionLevel.Write);
     const actionId = args.action_id;
     const result = await wrapApiCall(
       "updateAction",

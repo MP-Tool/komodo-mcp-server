@@ -157,6 +157,7 @@ export const applyDeploymentTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.deployment) throw AppErrorFactory.validation.fieldRequired("deployment");
+    await requireKomodoPermission({ type: "Deployment", id: args.deployment }, Types.PermissionLevel.Write);
     const deploymentId = args.deployment;
     const result = await wrapApiCall(
       "updateDeployment",

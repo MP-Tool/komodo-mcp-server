@@ -152,6 +152,7 @@ export const applyStackTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.stack) throw AppErrorFactory.validation.fieldRequired("stack");
+    await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Write);
     const stackId = args.stack;
     const result = await wrapApiCall(
       "updateStack",

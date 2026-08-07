@@ -200,6 +200,7 @@ export const applyRepoTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.repo) throw AppErrorFactory.validation.fieldRequired("repo");
+    await requireKomodoPermission({ type: "Repo", id: args.repo }, Types.PermissionLevel.Write);
     const repoId = args.repo;
     const result = await wrapApiCall(
       "updateRepo",

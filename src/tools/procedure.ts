@@ -201,6 +201,7 @@ export const applyProcedureTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.procedure) throw AppErrorFactory.validation.fieldRequired("procedure");
+    await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Write);
     const procedureId = args.procedure;
     const result = await wrapApiCall(
       "updateProcedure",

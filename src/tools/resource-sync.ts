@@ -220,6 +220,7 @@ export const applyResourceSyncTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.resource_sync) throw AppErrorFactory.validation.fieldRequired("resource_sync");
+    await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Write);
     const syncId = args.resource_sync;
     const result = await wrapApiCall(
       "updateResourceSync",

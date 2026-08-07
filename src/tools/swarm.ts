@@ -341,6 +341,7 @@ export const applySwarmTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.swarm) throw AppErrorFactory.validation.fieldRequired("swarm");
+    await requireKomodoPermission({ type: "Swarm", id: args.swarm }, Types.PermissionLevel.Write);
     const swarmId = args.swarm;
     const result = await wrapApiCall(
       "updateSwarm",

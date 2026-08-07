@@ -321,6 +321,7 @@ export const applyBuildTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.build) throw AppErrorFactory.validation.fieldRequired("build");
+    await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Write);
     const buildId = args.build;
     const result = await wrapApiCall(
       "updateBuild",

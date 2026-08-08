@@ -334,6 +334,15 @@ tools:
 
 ## Best-effort secret redaction of tool output at the framework's central, fail-closed
 ## boundary (key-name + value-shape heuristics). Defence-in-depth, not a guarantee.
+##
+## This section is the EXTENSION layer: the framework's generic MCP_SCRUB_ENABLED /
+## MCP_SCRUB_ADDITIONAL_KEYS / MCP_SCRUB_ALLOW_KEYS form the base, and the settings here
+## override the switch and add to the key lists.
+##
+## Covers the sync-TOML export too, so komodo_toml_export_* is meant for reading and
+## diffing rather than re-applying via ResourceSync. Komodo Core itself masks only
+## variable values, and only for non-admins - switching this off means server passkeys
+## and alerter webhook URLs leave the server in plaintext.
 
 redaction:
 

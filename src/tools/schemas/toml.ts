@@ -43,7 +43,14 @@ export const tomlOutputSchema = z
   .object({
     summary: z.object({
       bytes: z.number().int().describe("Size of the exported TOML in bytes"),
-      secrets_masked: z.boolean().describe("Secret values are rendered as [[VAR]] placeholders, never raw"),
+      secrets_masked: z
+        .boolean()
+        .describe(
+          "Whether secret redaction was applied to this export. True (the default) means secret values — " +
+            "variable values, server passkeys, alerter webhook URLs — are masked, so the TOML is for inspection " +
+            "rather than re-applying verbatim. False means redaction is switched off server-side and the export " +
+            "may contain plaintext secrets.",
+        ),
     }),
     toml: z.string().optional().describe("The exported sync TOML (inline when small or inline_full is set)"),
     resourceLink: resourceLinkSchema.optional(),

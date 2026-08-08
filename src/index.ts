@@ -38,7 +38,7 @@ import { configureKomodoConnections, stopKomodoConnections, resolveAuth, KomodoC
 import { AuthenticationError } from "./errors/index.js";
 import { buildKomodoContext, komodoAuthInfo } from "./auth/komodo-identity.js";
 import { komodoLoginPage } from "./auth/login.js";
-import { KOMODO_SCRUB_ALLOW_KEYS, KOMODO_SCRUB_RULES } from "./utils/redact.js";
+import { resolveScrubOptions } from "./utils/redact.js";
 
 // Side-effect imports — register all tools in the global registry
 import "./tools/index.js";
@@ -67,13 +67,9 @@ resolveKomodoConfig();
 // framework implementation, applied at every choke point — the tool-result
 // boundary (createServer.scrubToolResults), offloaded-resource registration
 // (DynamicResourceRegistry.scrub), and forwarded log notifications.
-const scrubOptions: ScrubToolResultsConfig = config.MCP_SECRET_SCRUB_ENABLED
-  ? {
-      ...KOMODO_SCRUB_RULES,
-      additionalKeys: config.MCP_SECRET_SCRUB_KEYS ?? [],
-      allowKeys: [...KOMODO_SCRUB_ALLOW_KEYS, ...(config.MCP_SECRET_SCRUB_ALLOW_KEYS ?? [])],
-    }
-  : false;
+// Composed as framework base (MCP_SCRUB_*) ← Komodo extension (MCP_SECRET_SCRUB_*);
+// resolved ONCE here so both choke points below get byte-identical policy.
+const scrubOptions: ScrubToolResultsConfig = resolveScrubOptions();
 
 // Configure ephemeral resource registry and register the canonical template
 configureDynamicResourceRegistry({

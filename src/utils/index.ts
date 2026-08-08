@@ -34,7 +34,14 @@ export {
 } from "./version.js";
 
 // --- Secret Redaction (declarative Komodo policy; the framework implements it) ---
-export { REDACTED, KOMODO_SCRUB_ALLOW_KEYS, KOMODO_SCRUB_RULES } from "./redact.js";
+export {
+  REDACTED,
+  KOMODO_SCRUB_ALLOW_KEYS,
+  KOMODO_SCRUB_RULES,
+  resolveRedactionSwitch,
+  isSecretRedactionEnabled,
+  resolveScrubOptions,
+} from "./redact.js";
 
 // --- Resource Links (ephemeral session-bound payloads) ---
 export { tryRegisterResource } from "./resource-link.js";

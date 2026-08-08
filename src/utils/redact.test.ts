@@ -1,6 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { SecretScrubber } from "mcp-server-framework/logger";
+import { parse as tomlParse } from "smol-toml";
+import { SecretScrubber, scrubByMimeType } from "mcp-server-framework/logger";
 import { REDACTED, KOMODO_SCRUB_ALLOW_KEYS, KOMODO_SCRUB_RULES } from "./redact.js";
 
 // ============================================================================
@@ -95,4 +96,65 @@ test("policy: env-block strings and Config.Env arrays are scrubbed by the heuris
   assert.doesNotMatch(out.config.environment, /abc123|hunter2/);
   assert.match(out.config.environment, /HOST=h/);
   assert.doesNotMatch(out.Config.Env.join("\n"), /abc123/);
+});
+
+// --- Sync-TOML export (structural scrub via mimeType) -------------------------
+//
+// The export is a STRUCTURED document delivered as a string. Declaring it
+// `application/toml` is what makes the policy above apply; under `text/plain`
+// the framework falls back to regex redaction, which misses every rule here.
+// Komodo Core does NOT protect this payload — it masks only variable values,
+// and only for non-admin callers.
+
+const KOMODO_EXPORT_TOML = `[[variable]]
+name = "DB_PASSWORD"
+value = "hunter2-actual-production-password"
+is_secret = true
+
+[[variable]]
+name = "PUBLIC_HOST"
+value = "example.com"
+is_secret = false
+
+[[server]]
+name = "prod-1"
+
+[server.config]
+address = "https://periphery.internal:8120"
+passkey = "example-passkey-must-be-masked"
+
+[[alerter]]
+name = "slack-prod"
+
+[alerter.endpoint.params]
+url = "https://hooks.slack.com/services/T00/B00/SECRETWEBHOOK"
+`;
+
+test("policy(toml): secret variable values, passkeys and webhook urls are all masked", () => {
+  const out = scrubByMimeType(KOMODO_EXPORT_TOML, "application/toml", scrubber);
+  assert.doesNotMatch(out, /hunter2-actual-production-password/);
+  assert.doesNotMatch(out, /example-passkey-must-be-masked/);
+  assert.doesNotMatch(out, /SECRETWEBHOOK/);
+});
+
+test("policy(toml): non-secret values and identifying fields stay readable", () => {
+  const out = scrubByMimeType(KOMODO_EXPORT_TOML, "application/toml", scrubber);
+  assert.match(out, /example\.com/);
+  assert.match(out, /prod-1/);
+  assert.match(out, /periphery\.internal/);
+});
+
+test("policy(toml): the is_secret flag stays a boolean and the document still parses", () => {
+  const out = scrubByMimeType(KOMODO_EXPORT_TOML, "application/toml", scrubber);
+  const parsed = tomlParse(out) as any;
+  assert.equal(parsed.variable[0].is_secret, true);
+  assert.equal(parsed.variable[1].is_secret, false);
+  assert.equal(parsed.variable[0].value, REDACTED);
+});
+
+test("policy(toml): text/plain is NOT equivalent — guards the mimeType contract", () => {
+  // Pins the reason `tools/toml.ts` must declare application/toml. If this ever
+  // stops leaking, the text path gained structure and the tool can be revisited.
+  const asText = scrubByMimeType(KOMODO_EXPORT_TOML, "text/plain", scrubber);
+  assert.match(asText, /hunter2-actual-production-password/);
 });

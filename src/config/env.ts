@@ -22,6 +22,7 @@ import {
   getFrameworkConfig,
   durationSchema,
   booleanFromEnv,
+  optionalBooleanFromEnv,
 } from "mcp-server-framework";
 
 // ============================================================================
@@ -113,22 +114,32 @@ export const appEnvSchema = z.object({
   MCP_CONFIRM_TIMEOUT_MS: durationSchema("5m").pipe(z.number().int().positive()),
 
   // ── Secret redaction (MCP-server output security) ──────────────────────────
+  //
+  // Layered on top of the framework's generic `MCP_SCRUB_*` settings: the
+  // framework provides the BASE, these Komodo keys are the EXTENSION and win.
+  // See `resolveScrubOptions()` in `src/index.ts` for the exact composition.
 
   /**
    * Master switch for secret redaction of tool output. Applied centrally by the
    * framework at the tool-result boundary and on offloaded-resource
-   * registration (best-effort key-name + value-shape heuristics). Only the
-   * string "true" enables. Default: true
+   * registration (best-effort key-name + value-shape heuristics).
+   *
+   * Tri-state on purpose: when set it OVERRIDES the framework's
+   * `MCP_SCRUB_ENABLED`; when unset that framework value applies, and if that is
+   * unset too the default is on. Only the string "true" is truthy.
    */
-  MCP_SECRET_SCRUB_ENABLED: booleanFromEnv(true),
+  MCP_SECRET_SCRUB_ENABLED: optionalBooleanFromEnv(),
 
-  /** Comma-separated extra key-name fragments always redacted (case-insensitive). */
+  /**
+   * Comma-separated extra key-name fragments always redacted (case-insensitive).
+   * Unioned with the framework's `MCP_SCRUB_ADDITIONAL_KEYS`.
+   */
   MCP_SECRET_SCRUB_KEYS: csvList(),
 
   /**
    * Comma-separated exact key names never redacted by key-based matching
    * (case-insensitive), merged with the built-in Komodo allowlist
-   * (`public_key`, `is_secret`, …).
+   * (`public_key`, `is_secret`, …) and the framework's `MCP_SCRUB_ALLOW_KEYS`.
    */
   MCP_SECRET_SCRUB_ALLOW_KEYS: csvList(),
 

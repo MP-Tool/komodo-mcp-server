@@ -264,14 +264,33 @@ heuristics, not a guarantee.
 | `MCP_SECRET_SCRUB_KEYS` | `redaction.keys` | - | Comma-separated extra key-name fragments to always redact (case-insensitive) |
 | `MCP_SECRET_SCRUB_ALLOW_KEYS` | `redaction.allow_keys` | - | Comma-separated exact key names to never redact by key-matching (case-insensitive), merged with the built-in allowlist (`public_key`, `is_secret`, ...) |
 
+The underlying server framework brings its own generic equivalents. They work here too, as the
+**base layer** that the `MCP_SECRET_SCRUB_*` settings above extend:
+
+| Variable | Relationship to the Komodo setting |
+|----------|-----------------------------------|
+| `MCP_SCRUB_ENABLED` | Base switch. `MCP_SECRET_SCRUB_ENABLED` overrides it when set; with neither set, redaction is **on**. |
+| `MCP_SCRUB_ADDITIONAL_KEYS` | Combined with `MCP_SECRET_SCRUB_KEYS` - a key listed in either is redacted. |
+| `MCP_SCRUB_ALLOW_KEYS` | Combined with `MCP_SECRET_SCRUB_ALLOW_KEYS` and the built-in allowlist. |
+
+You only need one set. Use the `MCP_SECRET_SCRUB_*` names unless you are configuring several
+framework-based servers from one shared environment.
+
 **Coverage:** every tool result - structured resource config (env var blocks, `webhook_secret`,
 `passkey`), alerter webhook URLs/emails, container inspect `Config.Env`, `komodo_exec` output,
-and container/build/update logs - inline payloads AND offloaded resource links. Fail-closed: if
-scrubbing itself fails, the result is withheld rather than returned unscrubbed. Komodo's domain
-rules are declared as policy and enforced by the same engine: secret variables (`is_secret`)
-always have their value masked, alerter endpoint URLs/emails are masked by path, and stacks'
-post-interpolation `deployed_config`/`deployed_contents` are removed entirely - in structured
-payloads, rendered text, and offloaded JSON alike.
+container/build/update logs, and the sync-TOML export - inline payloads AND offloaded resource
+links. Fail-closed: if scrubbing itself fails, the result is withheld rather than returned
+unscrubbed. Komodo's domain rules are declared as policy and enforced by the same engine: secret
+variables (`is_secret`) always have their value masked, alerter endpoint URLs/emails are masked by
+path, and stacks' post-interpolation `deployed_config`/`deployed_contents` are removed entirely -
+in structured payloads, rendered text, offloaded JSON and exported TOML alike.
+
+> **The TOML export is redacted, so it is not directly re-appliable.** `komodo_toml_export_*`
+> masks secret values, which means the exported file is meant for reading and diffing rather than
+> for feeding straight back through ResourceSync. The `secrets_masked` field in the result reports
+> whether redaction actually ran. Note that Komodo Core itself only masks variable values, and only
+> for non-admin callers - server passkeys and alerter webhook URLs are never masked upstream, so
+> switching redaction off means those leave the server in plaintext.
 
 **Intended exception:** `komodo_user_create_api_key` returns its one-time secret unredacted -
 that is the tool's purpose. The secret persists in the client transcript; rotate the key if the

@@ -27,6 +27,9 @@ import {
 const SDK = readFileSync("node_modules/komodo_client/dist/types.d.ts", "utf8");
 
 function sdkInterfaceFields(name: string): Set<string> {
+  // `name` is a hard-coded SDK interface name from the table below, never external
+  // input, and carries no regex metacharacters.
+  // eslint-disable-next-line security/detect-non-literal-regexp
   const m = new RegExp(`export interface ${name}\\s*\\{([\\s\\S]*?)\\n\\}`).exec(SDK);
   const body = m?.[1];
   if (body === undefined) throw new Error(`SDK interface '${name}' not found in types.d.ts`);

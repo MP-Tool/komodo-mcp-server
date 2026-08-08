@@ -9,6 +9,10 @@
  * delete requires destructive confirmation. On update, rename (`RenameTag`) and recolor
  * (`UpdateTagColor`) are separate API calls dispatched by which of name/color is provided.
  *
+ * No admin pre-check here on purpose: Komodo Core permits non-admins to manage Tags unless the
+ * operator sets `disable_non_admin_create`, so demanding admin would refuse users Komodo allows.
+ * Core stays the authority; the tools only make sure the touched tag reaches the audit trail.
+ *
  * @module tools/tag
  */
 
@@ -18,6 +22,7 @@ import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  recordAffected,
   requireDestructiveConfirmation,
   wrapApiCall,
   buildApplyResult,
@@ -125,6 +130,7 @@ export const applyTagTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("Tag", args.tag ?? args.name ?? "<new>");
     if (args.action === "create") {
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
@@ -173,6 +179,7 @@ export const deleteTagTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("Tag", args.tag);
     await requireDestructiveConfirmation({ action: "delete", resourceType: "tag", resourceId: args.tag });
     const tagId = await resolveTagObjectId(args.tag, abortSignal);
     const result = await wrapApiCall("deleteTag", () => komodo.client.write("DeleteTag", { id: tagId }), abortSignal);

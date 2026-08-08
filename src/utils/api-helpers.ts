@@ -26,7 +26,8 @@ import {
   elicitConfirmation,
 } from "mcp-server-framework";
 import { connectUserClient, getGlobalClient } from "../client.js";
-import { komodoIdentity, meetsPermissionLevel } from "../auth/komodo-identity.js";
+import { komodoIdentity, meetsPermissionLevel, canCreateResource } from "../auth/komodo-identity.js";
+import type { CreatableResourceType } from "../auth/komodo-identity.js";
 import { config } from "../config/index.js";
 
 // ============================================================================
@@ -129,6 +130,78 @@ const PERMISSION_CACHE_TTL_MS = 30_000;
 const PERMISSION_CACHE_MAX = 5_000;
 
 /**
+ * Record "what this call touched" on the `tool.call` audit entry.
+ *
+ * Independent of identity — the affected resource is a fact about the call, not
+ * about whether it was per-user or global mode. Tools without a per-resource
+ * permission target (tags, variables, API keys) call this directly so they still
+ * show up in the audit trail.
+ *
+ * @param type - Komodo resource kind, or a domain label for non-resource objects
+ * @param id - Resource id or name as the caller supplied it
+ */
+export function recordAffected(type: string, id: string): void {
+  getCurrentToolContext()?.recordAuditDetail({ affected: [{ type, id }] });
+}
+
+/**
+ * Enforce that the caller is a Komodo admin, **before** the API call.
+ *
+ * For operations Komodo Core itself hard-gates to admins and that have no
+ * per-resource permission target to check — currently the Variable writes
+ * (`bin/core/src/api/write/variable.rs` rejects every non-admin). Turns an
+ * opaque Komodo 403 into a clear, audited refusal.
+ *
+ * No-op for anonymous/global-connection requests, matching
+ * {@link requireKomodoPermission}: there is no per-user identity, and the
+ * service account's own rights govern.
+ *
+ * @param operation - Human-readable action for the error and audit entry, e.g. "manage Komodo Variables"
+ */
+export function requireKomodoAdmin(operation: string): void {
+  const identity = komodoIdentity.read(getCurrentToolContext()?.auth);
+  if (!identity || identity.isAdmin) return;
+
+  logAuditEvent({
+    category: "permission",
+    action: "permission.denied",
+    outcome: "denied",
+    requestId: currentRequestId(),
+    actor: { userId: identity.komodoUserId, username: identity.username },
+    detail: { required: "admin", operation, phase: "pre-check" },
+  });
+  throw new AuthorizationError(`Only Komodo admins can ${operation}.`);
+}
+
+/**
+ * Enforce, **before** the create call, that the caller may create `resourceType`.
+ *
+ * Delegates the policy to {@link canCreateResource}, which mirrors Komodo Core's
+ * `user_can_create`. A `defer` verdict passes through untouched — Core owns the
+ * rest of the decision (it depends on `disable_non_admin_create`, which the MCP
+ * server cannot read), so this never rejects a create Komodo would allow.
+ *
+ * @param resourceType - The Komodo resource kind being created
+ */
+export function requireKomodoCreatePermission(resourceType: CreatableResourceType): void {
+  const identity = komodoIdentity.read(getCurrentToolContext()?.auth);
+  if (canCreateResource(identity, resourceType) !== "deny") return;
+
+  logAuditEvent({
+    category: "permission",
+    action: "permission.denied",
+    outcome: "denied",
+    requestId: currentRequestId(),
+    ...(identity && { actor: { userId: identity.komodoUserId, username: identity.username } }),
+    target: `${resourceType}:<new>`,
+    detail: { required: "create", resourceType, phase: "pre-check-create" },
+  });
+  throw new AuthorizationError(
+    `Insufficient Komodo permission: creating a ${resourceType} requires admin rights in Komodo.`,
+  );
+}
+
+/**
  * Enforce, **before** the actual API call, that the current authenticated user holds at
  * least `required` permission on `target` in Komodo. Throws a clear {@link AuthorizationError}
  * and writes a `permission.denied` audit entry when they don't.
@@ -143,9 +216,7 @@ export async function requireKomodoPermission(
   target: Types.ResourceTarget,
   required: Types.PermissionLevel,
 ): Promise<void> {
-  // Record the affected resource on the tool.call audit entry regardless of identity —
-  // "what was touched" is independent of whether this is per-user or global mode.
-  getCurrentToolContext()?.recordAuditDetail({ affected: [{ type: target.type, id: target.id }] });
+  recordAffected(target.type, target.id);
 
   const identity = komodoIdentity.read(getCurrentToolContext()?.auth);
   if (!identity) return; // anonymous / global mode — not per-user gated here

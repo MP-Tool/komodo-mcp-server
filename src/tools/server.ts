@@ -28,6 +28,7 @@ import {
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
@@ -164,6 +165,7 @@ export const applyServerTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Server");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(

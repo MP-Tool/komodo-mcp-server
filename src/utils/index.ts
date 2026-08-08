@@ -16,6 +16,9 @@
 export {
   requireClient,
   requireKomodoPermission,
+  requireKomodoAdmin,
+  requireKomodoCreatePermission,
+  recordAffected,
   requireDestructiveConfirmation,
   readCoreVersion,
   checkCancelled,

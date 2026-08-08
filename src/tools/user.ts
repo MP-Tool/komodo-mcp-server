@@ -5,6 +5,10 @@
  * Supports listing, creating, and deleting API keys for the
  * currently authenticated user.
  *
+ * These act on the CALLER'S OWN keys, which Komodo permits any user to manage, so there is
+ * no admin pre-check — it would refuse users Komodo allows. The `ADMIN` scope gate is the
+ * deliberate, conservative choice; Core remains the authority on the operation itself.
+ *
  * @module tools/user
  */
 
@@ -14,6 +18,7 @@ import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  recordAffected,
   requireDestructiveConfirmation,
   wrapApiCall,
   renderApiKeyList,
@@ -84,6 +89,7 @@ export const createApiKeyTool = defineTool({
   scrubResult: false,
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("ApiKey", args.name);
 
     const expires = args.expires_in_days > 0 ? Date.now() + args.expires_in_days * 24 * 60 * 60 * 1000 : 0;
 
@@ -122,6 +128,7 @@ export const deleteApiKeyTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("ApiKey", args.name_or_key);
     const input = args.name_or_key;
 
     // If the input already looks like a raw key string, use it directly.

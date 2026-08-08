@@ -20,6 +20,7 @@ import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
@@ -139,6 +140,7 @@ export const applyStackTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Stack");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const stackConfig: Record<string, unknown> = { ...args.config };

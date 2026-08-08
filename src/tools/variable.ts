@@ -20,6 +20,8 @@ import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoAdmin,
+  recordAffected,
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
@@ -125,6 +127,10 @@ export const applyVariableTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    // Komodo Core rejects every non-admin Variable write with a bare 403; check up front
+    // so the caller gets a clear reason instead. Covers both create and update below.
+    requireKomodoAdmin("manage Komodo Variables");
+    recordAffected("Variable", args.name);
     if (args.action === "create") {
       const params: Types.CreateVariable = {
         name: args.name,
@@ -187,6 +193,9 @@ export const deleteVariableTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    // Authorize before prompting — never ask a user to confirm an action Komodo will refuse.
+    requireKomodoAdmin("manage Komodo Variables");
+    recordAffected("Variable", args.name);
     await requireDestructiveConfirmation({
       action: "delete",
       resourceType: "variable",

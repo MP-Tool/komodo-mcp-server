@@ -20,6 +20,7 @@ import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
@@ -188,6 +189,7 @@ export const applyRepoTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Repo");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const repoConfig: Record<string, unknown> = { ...args.config };

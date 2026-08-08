@@ -20,6 +20,7 @@ import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
@@ -185,6 +186,7 @@ export const applyProcedureTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Procedure");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(

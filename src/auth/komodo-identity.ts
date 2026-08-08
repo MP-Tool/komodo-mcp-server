@@ -43,6 +43,14 @@ export interface KomodoIdentity extends Record<string, unknown> {
   readonly komodoJwt: string;
   /** Whether the user holds global admin / super-admin in Komodo. */
   readonly isAdmin: boolean;
+  /**
+   * Komodo's `User.create_server_permissions` — may this non-admin create Servers?
+   * One of the two flags Komodo Core actually consults in `user_can_create`, so it
+   * is carried here to let create pre-checks fail early instead of round-tripping.
+   */
+  readonly canCreateServers: boolean;
+  /** Komodo's `User.create_build_permissions` — may this non-admin create Builds? */
+  readonly canCreateBuilds: boolean;
   /** User email / handle, when available. */
   readonly email?: string | undefined;
   /**
@@ -134,6 +142,59 @@ export function komodoUserId(user: Types.User): string {
   return user._id?.$oid ?? user.username;
 }
 
+// ============================================================================
+// Create-capability derivation (mirrors Komodo Core's `user_can_create`)
+// ============================================================================
+
+/** Komodo resource kinds a `*_apply` tool can create. */
+export type CreatableResourceType = Exclude<Types.ResourceTarget["type"], "System">;
+
+/**
+ * Verdict of a create pre-check.
+ *
+ * `defer` exists because Komodo gates some kinds on the Core-side setting
+ * `disable_non_admin_create`, which the MCP server cannot read. Deferring hands
+ * the decision to Core rather than guessing — Core can only be stricter than we
+ * are, never more permissive, so deferring never opens anything up.
+ */
+export type CreateVerdict = "allow" | "deny" | "defer";
+
+/**
+ * Resource kinds Komodo Core hard-gates to admins in `user_can_create`
+ * (`bin/core/src/resource/{action,alerter,builder,sync}.rs`). Everything else is
+ * either flag-gated (Server/Build) or `admin || !disable_non_admin_create`.
+ */
+const ADMIN_ONLY_CREATE: ReadonlySet<CreatableResourceType> = new Set<CreatableResourceType>([
+  "Action",
+  "Alerter",
+  "Builder",
+  "ResourceSync",
+]);
+
+/**
+ * Can this identity create `resourceType`?
+ *
+ * Deliberately derived from the fields Komodo Core itself consults — `user.admin`
+ * and the two `create_*_permissions` flags — NOT from `User.all`. Core does not
+ * look at `User.all` when creating, so gating on it would reject users Komodo
+ * would happily let through (e.g. creating a Stack without Write on Stacks).
+ *
+ * @param identity - The per-user Komodo identity, or `undefined` in anonymous/global mode
+ * @returns `allow` / `deny`, or `defer` when only Komodo Core can decide
+ */
+export function canCreateResource(
+  identity: KomodoIdentity | undefined,
+  resourceType: CreatableResourceType,
+): CreateVerdict {
+  if (!identity) return "defer"; // anonymous / global mode — the service account governs
+  if (identity.isAdmin) return "allow";
+  if (ADMIN_ONLY_CREATE.has(resourceType)) return "deny";
+  if (resourceType === "Server") return identity.canCreateServers ? "defer" : "deny";
+  if (resourceType === "Build") return identity.canCreateBuilds ? "defer" : "deny";
+  // Stack / Deployment / Repo / Procedure / Swarm — `admin || !disable_non_admin_create`.
+  return "defer";
+}
+
 /** Whether a held permission level satisfies a required level (Write ⊃ Execute ⊃ Read ⊃ None). */
 export function meetsPermissionLevel(have: Types.PermissionLevel, required: Types.PermissionLevel): boolean {
   return levelRank(have) >= levelRank(required);
@@ -200,6 +261,8 @@ export async function buildKomodoContext(
     username: user.username,
     komodoJwt: jwt,
     isAdmin: Boolean(user.admin || user.super_admin),
+    canCreateServers: Boolean(user.create_server_permissions),
+    canCreateBuilds: Boolean(user.create_build_permissions),
     ...(resourcePermissions && { resourcePermissions }),
   };
 

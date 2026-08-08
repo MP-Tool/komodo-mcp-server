@@ -50,16 +50,27 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   hidden and refused. Local `stdio` stays fully capable. Hardens advisory GHSA-gf32-w3f6-crx6.
 - **Secrets are hidden from tool output.** API keys, tokens, secret variables, webhook URLs and
   similar values are automatically removed from results before they reach the assistant or the chat
-  transcript - including terminal and log output. On by default (`MCP_SECRET_SCRUB_ENABLED`);
-  best-effort, so don't treat it as your only safeguard. (The create-API-key tool still returns its
-  key on purpose.)
+  transcript - including terminal and log output, and the TOML export. On by default
+  (`MCP_SECRET_SCRUB_ENABLED`); best-effort, so don't treat it as your only safeguard. (The
+  create-API-key tool still returns its key on purpose.)
+- **The TOML export no longer hands out secrets.** `komodo_toml_export_all` and
+  `komodo_toml_export_resources` are read tools, so they are available even on an open, read-only
+  server - but their output was only being redacted with plain text matching, which missed secret
+  variable values, server passkeys and alerter webhook URLs, and which mangled the `is_secret` flag
+  so the exported file no longer parsed. Komodo itself only masks variable values, and only for
+  non-admins, so nothing else was catching this. The export is now redacted properly and stays valid
+  TOML. Because the values are masked, treat the export as something to read and diff rather than to
+  re-apply as-is, and the `secrets_masked` field now tells you truthfully whether redaction ran.
 - **Destructive actions ask first.** Deletes, `destroy`, prune, terminal commands, and
   procedure/action/sync runs now require your confirmation before running - a single approve click, no
   extra checkbox. On by default; tune with `MCP_CONFIRM_DESTRUCTIVE` and `MCP_CONFIRM_FALLBACK` (clients
   that can't show a prompt may need `MCP_CONFIRM_FALLBACK=allow`). The prompt now waits up to 5 minutes
   for your answer, adjustable with `MCP_CONFIRM_TIMEOUT_MS` (e.g. `30s`, `5m`, `1h`).
 - **Per-user permissions are enforced.** A signed-in user can only act on the Komodo resources their
-  account allows; anything else fails fast with a clear error instead of a raw Komodo failure.
+  account allows; anything else fails fast with a clear error instead of a raw Komodo failure. This
+  now also covers **creating** resources and **managing variables** - previously those were sent
+  straight to Komodo, so you got a bare "forbidden" back instead of a useful message. The checks
+  mirror Komodo's own rules and never refuse something Komodo would have allowed.
 - **A complete audit trail.** The audit log now records, for each tool call, what was requested, which
   resources were affected, and the outcome - with a shared request id linking an action to its
   permission and confirmation entries. Secrets are stripped first. Tune how much request/result detail
@@ -76,6 +87,11 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   for the server's own behavior. Time settings accept plain-language durations (`30s`, `5m`, `1h`) as
   well as milliseconds. Some keys were renamed (see Upgrade notes). The example configs and the
   [configuration reference](config/README.md) document the full, current set of settings.
+- **The generic redaction settings now work too.** The underlying server framework has its own
+  `MCP_SCRUB_ENABLED`, `MCP_SCRUB_ADDITIONAL_KEYS` and `MCP_SCRUB_ALLOW_KEYS`, which previously had no
+  effect here. They now act as the base layer, and Komodo's `MCP_SECRET_SCRUB_*` settings extend it -
+  extra key names from both are combined, and if you set the Komodo switch it wins. Setting nothing
+  keeps redaction on, as before.
 
 ### Fixed
 

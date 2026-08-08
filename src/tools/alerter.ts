@@ -19,6 +19,7 @@ import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
@@ -137,6 +138,7 @@ export const applyAlerterTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Alerter");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(

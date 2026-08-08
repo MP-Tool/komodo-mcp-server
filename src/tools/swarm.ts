@@ -25,6 +25,7 @@ import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
+  requireKomodoCreatePermission,
   requireDestructiveConfirmation,
   requireMinimalVersion,
   readCoreVersion,
@@ -325,6 +326,7 @@ export const applySwarmTool = defineTool({
     const komodo = requireClient();
     await requireSwarmSupport();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Swarm");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(

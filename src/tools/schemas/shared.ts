@@ -30,7 +30,7 @@ export const paginationInputSchema = z.object({
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of items to return (1-100). Default: server-defined."),
+    .describe("Maximum number of items to return (1-100). Default: 25."),
 });
 
 /**

@@ -130,6 +130,22 @@ const PERMISSION_CACHE_TTL_MS = 30_000;
 const PERMISSION_CACHE_MAX = 5_000;
 
 /**
+ * Store a permission, evicting the oldest entry once the cache is full.
+ *
+ * FIFO rather than wiping the whole map: a flush would cost every signed-in user
+ * a fresh `GetPermission` round-trip on their next tool call at the same moment —
+ * one busy user could stall everyone else. `Map` preserves insertion order, so
+ * the first key is the oldest.
+ */
+function cachePermission(key: string, entry: CachedPermission): void {
+  if (permissionCache.size >= PERMISSION_CACHE_MAX && !permissionCache.has(key)) {
+    const oldest = permissionCache.keys().next();
+    if (!oldest.done) permissionCache.delete(oldest.value);
+  }
+  permissionCache.set(key, entry);
+}
+
+/**
  * Record "what this call touched" on the `tool.call` audit entry.
  *
  * Independent of identity — the affected resource is a fact about the call, not
@@ -234,8 +250,7 @@ export async function requireKomodoPermission(
       client.client.read("GetPermission", { target }),
     );
     level = result.level;
-    if (permissionCache.size >= PERMISSION_CACHE_MAX) permissionCache.clear();
-    permissionCache.set(cacheKey, { level, expiresAt: now + PERMISSION_CACHE_TTL_MS });
+    cachePermission(cacheKey, { level, expiresAt: now + PERMISSION_CACHE_TTL_MS });
   }
 
   if (!meetsPermissionLevel(level, required)) {

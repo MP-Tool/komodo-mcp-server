@@ -365,12 +365,21 @@ class KomodoConnection {
         this.scheduleReconnect();
       }
     } catch (error) {
+      // healthCheck() reports every other failure as `{ healthy: false }`; an
+      // AuthenticationError is the only thing it throws. Re-throwing anything else
+      // would escape through the `void` in scheduleHealthCheck() as an unhandled
+      // rejection AND leave the monitor dead, so treat it like any other outage.
       if (error instanceof AuthenticationError) {
         logger.warn("Authentication failed during health check — stopping monitor (credentials may be invalid)");
         this.client = null;
         return;
       }
-      throw error;
+      logger.warn(
+        "Unexpected error during Komodo health check: %s — initiating reconnect",
+        error instanceof Error ? error.message : String(error),
+      );
+      this.client = null;
+      this.scheduleReconnect();
     }
   }
 

@@ -156,6 +156,13 @@ if (authActive) {
         callbackHandler,
         ...(localLoginHandler && { localLoginHandler }),
         issuerUrl: new URL(mcpServerUrl),
+        // Show each signed-in user only the tools their Komodo permissions actually
+        // allow. Scopes are derived from real Komodo permissions, so without this a
+        // read-only user is offered every write tool and gets a refusal on each —
+        // wasted context and a misleading tool list. Anonymous callers are already
+        // filtered this way via `anonymousScopes`; this closes the gap for
+        // authenticated ones. Call-time enforcement is unaffected either way.
+        scopeFilterCapabilities: true,
       };
 
       logger.info("MCP authentication enabled — local login");

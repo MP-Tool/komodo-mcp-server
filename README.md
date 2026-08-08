@@ -77,7 +77,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 >
 > **Limit the tool surface (server-side).** To keep a client's tool list - and its token cost - small, prune what the server registers with three optional env vars: `MCP_TOOLS_ALLOWED_CATEGORIES` (category allowlist; unset -> all), `MCP_TOOLS_EXCLUDED_CATEGORIES` (drop whole categories), and `MCP_TOOLS_EXCLUDED_TOOLS` (drop tools by name, e.g. `komodo_exec`). Use the exact category strings above. Pruned tools are absent from `tools/list` and not callable. This is purely subtractive - it never exposes more and never bypasses authentication or the read-only-when-open behavior.
 >
-> List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 50) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://...` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
+> List/info/logs tools support **cursor pagination** via `{ cursor, page_size }` (1–100, default 25) and emit `_meta.page.next_cursor` when more items are available. `inspect`, `info`, `logs`, and `search_logs` responses also include a session-scoped `ephemeral://...` resource link so large payloads can be fetched out-of-band via `resources/read`; pass `inline_full: true` to force inlining.
 
 
 ## Quick Start

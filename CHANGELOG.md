@@ -81,7 +81,15 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
 - **Read tools return a useful summary by default.** Large results (inspect, logs, full resources) are
   offloaded to a session resource and the tool returns a concise summary of the key facts - for example
   a container inspect now shows its state and image, not just its name. Pass `inline_full: true` to get
-  the entire result inline instead.
+  the entire result inline instead. This now works over **local `stdio` too** - previously the full
+  payload was still dumped inline there, which is exactly where most clients (Claude Desktop, Cursor)
+  connect. A container inspect went from ~9,700 characters of chat context down to ~160 plus a link
+  the client fetches only if it needs the detail.
+- **You only see the tools you may actually use.** When signed in, the tool list is now filtered by your
+  own Komodo permissions - a read-only account no longer sees the write, delete and terminal tools it
+  would only ever get refused on. Fewer irrelevant tools also means a smaller, cheaper prompt for the
+  assistant. Local `stdio` is unchanged (one local user, full list), and an open server without
+  authentication keeps showing exactly the read-only set it already did.
 - **Unified configuration.** Every setting now works both as an environment variable and in the
   config file (TOML/YAML/JSON), with consistent naming - `KOMODO_*` for the Komodo connection, `MCP_*`
   for the server's own behavior. Time settings accept plain-language durations (`30s`, `5m`, `1h`) as
@@ -102,6 +110,11 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
   ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): list tools now fetch the complete
   set instead of silently returning only the first ~50 items. Also updated for Core 2.3's renamed
   container APIs while staying compatible with Core 2.0-2.3+.
+- **Paging through the update history no longer skips entries.** `komodo_update_list` handed out your
+  requested page size but then jumped a whole Komodo page forward, so most of every page was
+  unreachable - asking for 25 at a time silently skipped 75 of every 100 entries. Paging now walks the
+  history completely and in order. Its default page size is also 25 now, matching every other list
+  tool. Cursors from an older version keep working.
 - **Clear "please upgrade" message** when a tool needs a newer Komodo core, instead of a cryptic error
   (generalizes [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay).
   Terminal exec and Docker Swarm tools require Core 2.0+.

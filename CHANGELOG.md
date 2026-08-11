@@ -15,9 +15,10 @@ The main themes: **sign in with your own Komodo account**, **secure by default**
 > - **Login is now required by default** over HTTP/HTTPS - clients must sign in with a Komodo
 >   username and password. To keep the old open behavior, set `MCP_AUTH_ENABLED=false` (an open
 >   network server then runs **read-only**). Local `stdio` is unaffected.
-> - **Two settings from earlier releases were renamed** - update them if you use them:
->   `API_TIMEOUT_MS` -> `KOMODO_API_TIMEOUT_MS` and `KOMODO_RESOURCE_*` -> `MCP_RESOURCE_*`. See the
->   [configuration reference](config/README.md).
+> - **Some settings from earlier releases were renamed** - update them if you use them:
+>   the env vars `API_TIMEOUT_MS` -> `KOMODO_API_TIMEOUT_MS` and `KOMODO_RESOURCE_*` -> `MCP_RESOURCE_*`,
+>   and in the **config file** the `[logging].dir` key is now `[logging].log_dir` (the `LOG_DIR`
+>   environment variable is unchanged). See the [configuration reference](config/README.md).
 > - The `komodo_configure` tool was removed (see Removed).
 
 ### Added

@@ -18,7 +18,7 @@
     "test": "tsc -p tsconfig.test.json && node --test \"build-test/**/*.test.js\"",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf build build-test coverage test-results *.tsbuildinfo",
-    "clean:all": "rm -rf build build-test node_modules coverage test-results *.tsbuildinfo",
+    "clean:all": "rm -rf build build-test node_modules logs coverage test-results *.tsbuildinfo",
     "lint": "eslint 'src/**/*.ts'",
     "lint:fix": "eslint 'src/**/*.ts' --fix",
     "format": "prettier --write 'src/**/*.ts'",

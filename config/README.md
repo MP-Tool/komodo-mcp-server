@@ -206,6 +206,7 @@ Controls how the MCP server communicates with clients.
 | `MCP_BASE_URL` | `transport.base_url` | *(derived)* | Public URL behind a proxy/domain (OAuth redirects, metadata URL, trusted host) |
 | `MCP_LEGACY_SSE_ENABLED` | `transport.sse_enabled` | `false` | Enable legacy SSE transport (protocol 2024-11-05) |
 | `MCP_JSON_RESPONSE` | `transport.json_response` | `false` | Prefer JSON over SSE for non-streaming responses |
+| `MCP_STATELESS` | `transport.stateless` | `false` | Stateless HTTP mode (no session IDs; `GET`/`DELETE` return 405) — for load-balanced/serverless setups |
 
 ### Transport Modes
 
@@ -344,7 +345,7 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | `LOG_FORMAT` | `logging.format` | `text` | Output format: `text` or `json` (ECS-compatible) |
 | `LOG_TIMESTAMP` | `logging.timestamp` | `false` | Include timestamps in text output |
 | `LOG_COMPONENT` | `logging.component` | `false` | Include component name in text output |
-| `LOG_DIR` | `logging.dir` | - | Directory for file logging (disabled if unset) |
+| `LOG_DIR` | `logging.log_dir` | - | Directory for file logging (disabled if unset) |
 | `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation |
 | `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep |
 | `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled) |

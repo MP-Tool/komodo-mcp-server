@@ -142,6 +142,12 @@ sse_enabled = false
 ## Default: false
 json_response = false
 
+## Stateless HTTP mode — no session IDs; each request is independent (GET/DELETE return 405).
+## For load-balanced or serverless deployments where sessions can't be pinned.
+## Env: MCP_STATELESS
+## Default: false
+stateless = false
+
 
 ## TLS configuration (required when mode = "https").
 ## Certificate files are read from the filesystem at server startup.
@@ -442,7 +448,7 @@ component = false
 ## in addition to console output.
 ## Env: LOG_DIR
 ## Optional, no default (file logging disabled).
-# dir = "/var/log/komodo-mcp"
+# log_dir = "/var/log/komodo-mcp"
 
 ## Maximum size of a single log file before rotation.
 ## Accepts human-readable sizes ("10mb", "500kb", "1gb") or byte counts.

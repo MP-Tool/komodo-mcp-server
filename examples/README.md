@@ -24,7 +24,7 @@ GitHub Copilot Chat integration for VS Code. Access Komodo tools directly from y
 
 ### [Node.js / npx](./node/)
 
-Run directly with Node.js — no Docker required. Works on Windows, macOS, and Linux.
+Run directly with Node.js - no Docker required. Works on Windows, macOS, and Linux.
 
 - Instant setup via `npx komodo-mcp-server`
 - Also works as a globally installed package
@@ -45,20 +45,20 @@ Run directly with Node.js — no Docker required. Works on Windows, macOS, and L
 
 ## Which Should I Choose?
 
-**I want to chat with an AI about my containers →** [Claude Desktop](./claude/)
+**I want to chat with an AI about my containers ->** [Claude Desktop](./claude/)
 
-**I want Komodo tools in my IDE →** [VS Code](./vscode/)
+**I want Komodo tools in my IDE ->** [VS Code](./vscode/)
 
-**I want to run without Docker →** [Node.js / npx](./node/)
+**I want to run without Docker ->** [Node.js / npx](./node/)
 
-**I want a persistent server for multiple clients →** [Docker Compose](../docker/README.md)
+**I want a persistent server for multiple clients ->** [Docker Compose](../docker/README.md)
 
 ## Prerequisites
 
 All integrations require:
 
 1. **Komodo** v2.0.0+ running and accessible
-2. **Credentials** — one of:
+2. **Credentials** - one of:
    - API Key + Secret (recommended)
    - Username + Password
    - JWT Token (from browser SSO)

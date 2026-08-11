@@ -19,17 +19,22 @@ import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../confi
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   renderDeploymentList,
   renderDeploymentInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 import {
   deploymentApplyInputSchema,
@@ -64,7 +69,7 @@ export const listDeploymentsTool = defineTool({
     const komodo = requireClient();
     const deployments = await wrapApiCall(
       "list deployments",
-      () => komodo.client.read("ListDeployments", {}),
+      () => komodo.client.read("ListDeployments", LIST_ALL),
       abortSignal,
     );
     const allItems = deployments.map((d: DeploymentListItem) => ({
@@ -98,26 +103,24 @@ export const getDeploymentInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Deployment", id: args.deployment }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getDeployment",
       () => komodo.client.read("GetDeployment", { deployment: args.deployment }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.deployment} (deployment info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full deployment resource for ${args.deployment}`,
-    });
-    const summary = { id: args.deployment, name: args.deployment };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderDeploymentInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    const summary = { id: args.deployment, ...summarizeResource(result, args.deployment) };
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.deployment} (deployment info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full deployment resource for ${args.deployment}`,
+      },
+      render: (payload) => renderDeploymentInfo(payload),
     });
   },
 });
@@ -138,6 +141,7 @@ export const applyDeploymentTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Deployment");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const deploymentConfig: Record<string, unknown> = { ...args.config };
@@ -155,6 +159,7 @@ export const applyDeploymentTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.deployment) throw AppErrorFactory.validation.fieldRequired("deployment");
+    await requireKomodoPermission({ type: "Deployment", id: args.deployment }, Types.PermissionLevel.Write);
     const deploymentId = args.deployment;
     const result = await wrapApiCall(
       "updateDeployment",
@@ -184,6 +189,13 @@ export const deleteDeploymentTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Deployment", id: args.deployment }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({
+      action: "delete",
+      resourceType: "deployment",
+      resourceId: args.deployment,
+      detail: "Also stops and removes the associated container.",
+    });
     const result = await wrapApiCall(
       "deleteDeployment",
       () => komodo.client.write("DeleteDeployment", { id: args.deployment }),
@@ -231,6 +243,15 @@ export const deploymentActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Deployment", id: args.deployment }, Types.PermissionLevel.Execute);
+    if (args.action === "destroy") {
+      await requireDestructiveConfirmation({
+        action: "destroy",
+        resourceType: "deployment",
+        resourceId: args.deployment,
+        detail: "Removes the deployment's container; the Komodo config is preserved.",
+      });
+    }
     const apiAction = DEPLOYMENT_ACTION_API_MAP[args.action];
     const update = await wrapExecuteAndPoll(
       `${args.action} deployment`,

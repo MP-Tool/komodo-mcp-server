@@ -13,7 +13,7 @@ Komodo MCP Server is a consumer of the `mcp-server-framework` package. The frame
 
 ```
 src/
-├── index.ts              # Entry point — createServer() + lifecycle hooks
+├── index.ts              # Entry point - createServer() + lifecycle hooks
 ├── client.ts             # KomodoClient wrapper + connection monitoring
 ├── config/
 │   ├── index.ts          # Barrel export
@@ -29,7 +29,7 @@ src/
 │   └── extraction.ts     # Error parsing from komodo_client responses
 ├── tools/
 │   ├── index.ts          # Side-effect imports (auto-registration)
-│   ├── config.ts         # komodo_configure, komodo_health_check
+│   ├── config.ts         # komodo_health_check
 │   ├── container.ts      # Container operations (list, inspect, start, stop, ...)
 │   ├── server.ts         # Server operations (list, stats, create, ...)
 │   ├── stack.ts          # Stack lifecycle (list, deploy, start, stop, ...)
@@ -56,11 +56,11 @@ src/
 ```
 Entry Point (index.ts)
   └─ createServer() from mcp-server-framework
-       ├─ Config (config/) — env vars, descriptions, defaults
-       ├─ Tools (tools/) — defineTool() with auto-registration
-       │    └─ Utils (utils/) — requireClient(), wrapApiCall(), formatters
-       │         └─ API Client (client.ts) — KomodoClient wrapping komodo_client
-       └─ Errors (errors/) — AppErrorFactory, AppMessages, error classes
+       ├─ Config (config/) - env vars, descriptions, defaults
+       ├─ Tools (tools/) - defineTool() with auto-registration
+       │    └─ Utils (utils/) - requireClient(), wrapApiCall(), formatters
+       │         └─ API Client (client.ts) - KomodoClient wrapping komodo_client
+       └─ Errors (errors/) - AppErrorFactory, AppMessages, error classes
 ```
 
 ## Framework Dependency
@@ -78,7 +78,7 @@ The `mcp-server-framework` package provides:
 | Error base classes | `FrameworkErrorFactory`, `AppError`, `OperationCancelledError` |
 | Message interpolation | `interpolate` |
 
-All framework features are imported from `mcp-server-framework` — no deep imports into framework internals.
+All framework features are imported from `mcp-server-framework` - no deep imports into framework internals.
 
 ## Barrel Files
 
@@ -92,13 +92,13 @@ Every directory exports through `index.ts`:
 Tools are registered via module side-effects:
 
 ```typescript
-// tools/index.ts — importing registers all tools in the global registry
+// tools/index.ts - importing registers all tools in the global registry
 import "./config.js";
 import "./container.js";
 import "./server.js";
 // ...
 
-// index.ts — side-effect import triggers registration before createServer()
+// index.ts - side-effect import triggers registration before createServer()
 import "./tools/index.js";
 ```
 

@@ -6,10 +6,9 @@
  * authenticated session's `AuthContext.permissions` using a subset check
  * (`hasAllRequiredScopes`).
  *
- * TODO: **Passive today**: Komodo does not yet ship OIDC. Until tokens carry
- * scopes, `auth.method === 'anonymous'` and the framework filter is a
- * no-op — all tools remain visible. Once Komodo OIDC ships, these scopes
- * become enforced automatically without any code changes.
+ * **Active**: When MCP OAuth 2.1 is configured, `mapUserInfo` in `src/index.ts`
+ * grants all three scopes to every authenticated user. Komodo enforces
+ * fine-grained permissions server-side; these scopes act as a coarse pre-screen.
  *
  * **Tier semantics** (lowest sufficient tier per tool):
  * - `komodo:read`     — read-only operations (list, info, inspect, logs, stats, health)

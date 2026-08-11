@@ -5,6 +5,10 @@
  * Supports listing, creating, and deleting API keys for the
  * currently authenticated user.
  *
+ * These act on the CALLER'S OWN keys, which Komodo permits any user to manage, so there is
+ * no admin pre-check — it would refuse users Komodo allows. The `ADMIN` scope gate is the
+ * deliberate, conservative choice; Core remains the authority on the operation itself.
+ *
  * @module tools/user
  */
 
@@ -12,7 +16,15 @@ import { defineTool, structured } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
-import { requireClient, wrapApiCall, renderApiKeyList, renderApiKeyCreated, paginate } from "../utils/index.js";
+import {
+  requireClient,
+  recordAffected,
+  requireDestructiveConfirmation,
+  wrapApiCall,
+  renderApiKeyList,
+  renderApiKeyCreated,
+  paginate,
+} from "../utils/index.js";
 import {
   listApiKeysOutputSchema,
   createApiKeyOutputSchema,
@@ -64,14 +76,20 @@ export const createApiKeyTool = defineTool({
   description:
     "Create a new API key for the currently authenticated Komodo user. " +
     "Returns the key and secret — the secret is shown only once and cannot be retrieved later. " +
+    "NOTE: the one-time secret is intentionally NOT redacted from this result and persists in the " +
+    "client transcript — rotate the key if the transcript is untrusted. " +
     "Optionally set an expiry time.",
   input: createApiKeyInputSchema,
   output: createApiKeyOutputSchema,
   annotations: { readOnlyHint: false },
   _meta: { category: ToolCategories.USER },
   requiredScopes: [ToolScopes.ADMIN],
+  // The tool's entire purpose is returning the one-time secret — the central
+  // redaction boundary would destroy it (documented exposure, issue #160).
+  scrubResult: false,
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("ApiKey", args.name);
 
     const expires = args.expires_in_days > 0 ? Date.now() + args.expires_in_days * 24 * 60 * 60 * 1000 : 0;
 
@@ -110,6 +128,7 @@ export const deleteApiKeyTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    recordAffected("ApiKey", args.name_or_key);
     const input = args.name_or_key;
 
     // If the input already looks like a raw key string, use it directly.
@@ -136,6 +155,13 @@ export const deleteApiKeyTool = defineTool({
       resolvedKey = match.key;
       resolvedName = match.name;
     }
+
+    await requireDestructiveConfirmation({
+      action: "delete",
+      resourceType: "API key",
+      resourceId: resolvedName ?? resolvedKey,
+      detail: "Clients authenticating with this key will lose access immediately.",
+    });
 
     await wrapApiCall(
       "deleteApiKey",

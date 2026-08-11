@@ -1,5 +1,5 @@
 #############################################
-# 🦎 KOMODO MCP SERVER — REFERENCE CONFIG 🦎 #
+# 🦎 KOMODO MCP SERVER - REFERENCE CONFIG 🦎 #
 #############################################
 
 ## This is the official reference configuration for the Komodo MCP Server.
@@ -9,7 +9,7 @@
 ## All fields are optional. If omitted, the default value is used.
 ##
 ## Priority (highest wins):
-##   process.env → Config File → .env file → Defaults
+##   process.env -> Config File -> .env file -> Defaults
 ##
 ## Supported formats: TOML, YAML, JSON
 ## Auto-discovery filenames: config.toml, config.yaml, config.yml, config.json
@@ -30,9 +30,16 @@
 ## KOMODO ##
 ############
 
-## Komodo Core connection settings.
-## These can also be set via KOMODO_* environment variables.
-## Env vars take priority over config file values.
+## How the MCP server connects to Komodo Core.
+##
+## This is a single shared connection, used for:
+##   - stdio mode (local, one user), and
+##   - open HTTP mode (authentication turned off).
+## When authentication is on (the default for http/https), each person signs in with their
+## own Komodo account instead, and this shared connection is not used for them.
+##
+## Set via KOMODO_* environment variables or here (env wins). Keep secrets (keys, passwords)
+## in the environment, not in a committed config file.
 
 [komodo]
 
@@ -82,9 +89,9 @@ password = "password"
 ##   KOMODO_PASSWORD_FILE=/run/secrets/komodo_password
 ## Priority: env var > secret file > config file value
 
-## API request timeout.
+## Komodo API request timeout.
 ## Accepts a duration string ("30s", "1m") or milliseconds (number).
-## Env: API_TIMEOUT_MS
+## Env: KOMODO_API_TIMEOUT_MS
 ## Default: "30s" (30000ms)
 api_timeout_ms = "30s"
 
@@ -96,9 +103,9 @@ api_timeout_ms = "30s"
 [transport]
 
 ## Transport mode for the MCP server.
-## - "stdio"  — Single-client CLI mode (stdin/stdout). For Claude Desktop, VS Code, etc.
-## - "http"   — Multi-client HTTP mode. Standard for network deployments.
-## - "https"  — Multi-client HTTPS mode with TLS termination.
+## - "stdio"  - Single-client CLI mode (stdin/stdout). For Claude Desktop, VS Code, etc.
+## - "http"   - Multi-client HTTP mode. Standard for network deployments.
+## - "https"  - Multi-client HTTPS mode with TLS termination.
 ## Env: MCP_TRANSPORT
 ## Default: "http"
 mode = "http"
@@ -115,6 +122,11 @@ port = 8000
 ## Default: "127.0.0.1"
 host = "127.0.0.1"
 
+## Public URL behind a reverse proxy/domain — drives OAuth redirects, the login + RFC 9728
+## metadata URLs, and is trusted for DNS-rebinding. Env: MCP_BASE_URL. 
+## Default: derived from host+port.
+# base_url = "https://mcp.example.com"
+
 ## Enable the legacy SSE transport (MCP protocol version 2024-11-05).
 ## Only needed for backwards compatibility with older MCP clients that
 ## don't support Streamable HTTP (protocol 2025-03-26).
@@ -129,6 +141,12 @@ sse_enabled = false
 ## Env: MCP_JSON_RESPONSE
 ## Default: false
 json_response = false
+
+## Stateless HTTP mode — no session IDs; each request is independent (GET/DELETE return 405).
+## For load-balanced or serverless deployments where sessions can't be pinned.
+## Env: MCP_STATELESS
+## Default: false
+stateless = false
 
 
 ## TLS configuration (required when mode = "https").
@@ -146,10 +164,37 @@ cert_path = "/certs/server.crt"
 key_path = "/certs/server.key"
 
 ## Path to the CA certificate file (PEM format).
-## Optional — use for custom CA chains or mutual TLS.
+## Optional - use for custom CA chains or mutual TLS.
 ## Env: MCP_TLS_CA_PATH
 ## Optional, no default.
 ca_path = "/certs/ca.crt"
+
+
+####################
+## AUTHENTICATION ##
+####################
+
+## Authentication of clients to THIS MCP server (distinct from the [komodo] connection
+## credentials). Applies only to http/https transports - stdio is local and never
+## authenticated.
+
+[auth]
+
+## Require clients to sign in (each user gets an isolated per-user Komodo session). When DISABLED
+## on a network transport the server is READ-ONLY for anonymous callers. stdio is always local.
+## Env: MCP_AUTH_ENABLED. 
+## Default: true.
+enabled = true
+
+## Required OAuth scopes for the /mcp endpoint (advanced; gateway/token setups).
+## Env: MCP_AUTH_REQUIRED_SCOPES
+## Optional, no default.
+# required_scopes = ["mcp"]
+
+
+## External OAuth providers ([auth.providers.<name>]) for Google/GitHub/OIDC federation
+## are reserved for upcoming work and NOT wired in yet. Today, enabling auth offers local
+## Komodo username/password login automatically.
 
 
 ##############
@@ -191,7 +236,7 @@ body_size_limit = "1mb"
 ## Allowed hosts for DNS rebinding protection.
 ## When set, requests with a Host header not in this list are rejected (403).
 ## Important for servers exposed to the network.
-## Env: MCP_ALLOWED_HOSTS (comma-separated)
+## Env: MCP_ALLOWED_HOSTS
 ## Optional, no default (all hosts allowed).
 # allowed_hosts = ["mcp.example.com", "localhost"]
 
@@ -201,7 +246,7 @@ body_size_limit = "1mb"
 ## from the listed origins. When omitted, CORS is completely disabled
 ## (no Access-Control-* headers are sent).
 ## Use ["*"] to allow all origins (not recommended for production).
-## Env: MCP_CORS_ORIGIN (comma-separated)
+## Env: MCP_CORS_ORIGIN
 ## Optional, no default (CORS disabled).
 cors_origin = ["*"]
 
@@ -238,6 +283,111 @@ helmet_csp = "default-src 'self'"
 helmet_frame_options = "DENY"
 
 
+###########
+## TOOLS ##
+###########
+
+## Limit which tools clients can use: to restrict what the assistant is allowed to do
+## (e.g. read-only, or no terminal access) and to keep the tool list small (fewer tokens).
+## These settings only REMOVE tools - they never add tools or bypass authentication.
+
+[tools]
+
+## Allow only these tool categories. Leave unset to allow all.
+## Categories: config, container, server, stack, deployment, build, repo, procedure, action,
+##   alerter, swarm, resource_sync, variable, update, terminal, user, docker, builder, tag, toml
+## Env: MCP_TOOLS_ALLOWED_CATEGORIES
+## Optional, no default (all categories allowed).
+# allowed_categories = ["server", "stack", "deployment"]
+
+## Remove whole categories.
+## Env: MCP_TOOLS_EXCLUDED_CATEGORIES
+## Optional, no default.
+# excluded_categories = ["swarm"]
+
+## Remove individual tools by name.
+## Env: MCP_TOOLS_EXCLUDED_TOOLS
+## Optional, no default.
+# excluded_tools = ["komodo_exec"]
+
+## Ask for confirmation before a destructive tool runs (delete, destroy, prune, exec,
+## and procedure/action/sync runs).
+## Env: MCP_CONFIRM_DESTRUCTIVE
+## Default: true
+confirm_destructive = true
+
+## What to do when the client cannot show a confirmation prompt:
+## - "deny":  refuse the action (safe default)
+## - "allow": run it anyway, with a warning
+## Env: MCP_CONFIRM_FALLBACK
+## Default: "deny"
+confirm_fallback = "deny"
+
+## How long to wait for a confirmation answer — duration ("30s"/"5m"/"1h") or ms.
+## Env: MCP_CONFIRM_TIMEOUT_MS. Default: "5m".
+confirm_timeout = "5m"
+
+
+###############
+## REDACTION ##
+###############
+
+## Best-effort secret redaction of tool output at the framework's central, fail-closed
+## boundary (key-name + value-shape heuristics). Defence-in-depth, not a guarantee.
+##
+## This section is the EXTENSION layer: the framework's generic MCP_SCRUB_ENABLED /
+## MCP_SCRUB_ADDITIONAL_KEYS / MCP_SCRUB_ALLOW_KEYS form the base, and the settings here
+## override the switch and add to the key lists.
+##
+## Covers the sync-TOML export too, so komodo_toml_export_* is meant for reading and
+## diffing rather than re-applying via ResourceSync. Komodo Core itself masks only
+## variable values, and only for non-admins - switching this off means server passkeys
+## and alerter webhook URLs leave the server in plaintext.
+
+[redaction]
+
+## Master switch for secret redaction of tool results and offloaded resources.
+## Env: MCP_SECRET_SCRUB_ENABLED
+## Default: true
+enabled = true
+
+## Extra key-name fragments to always redact (case-insensitive).
+## Env: MCP_SECRET_SCRUB_KEYS
+## Optional, no default.
+# keys = ["internal_token"]
+
+## Exact key names to NEVER redact by key-matching (case-insensitive), merged with the
+## built-in allowlist (public_key, is_secret, ...).
+## Env: MCP_SECRET_SCRUB_ALLOW_KEYS
+## Optional, no default.
+# allow_keys = ["public_cert"]
+
+
+###############
+## RESOURCES ##
+###############
+
+## Ephemeral resource registry - large tool outputs (logs, inspect) are offloaded to
+## `ephemeral://...` resource links, fetched out-of-band via resources/read.
+
+[resources]
+
+## TTL for info/inspect resources. Duration ("15m") or milliseconds.
+## Env: MCP_RESOURCE_TTL_INFO
+## Default: "15m"
+ttl_info = "15m"
+
+## TTL for log resources. Duration ("2m") or milliseconds.
+## Env: MCP_RESOURCE_TTL_LOGS
+## Default: "2m"
+ttl_logs = "2m"
+
+## Maximum ephemeral entries kept in memory (oldest evicted first).
+## Env: MCP_RESOURCE_MAX_ENTRIES
+## Default: 1000
+max_entries = 1000
+
+
 ##############
 ## SESSIONS ##
 ##############
@@ -251,13 +401,13 @@ helmet_frame_options = "DENY"
 max_sessions = 200
 
 ## Maximum concurrent Streamable HTTP sessions.
-## Must be ≤ max_sessions.
+## Must be <= max_sessions.
 ## Env: MCP_MAX_STREAMABLE_HTTP_SESSIONS
 ## Default: 100
 max_streamable_http_sessions = 100
 
 ## Maximum concurrent SSE sessions (legacy transport).
-## Must be ≤ max_sessions.
+## Must be <= max_sessions.
 ## Env: MCP_MAX_SSE_SESSIONS
 ## Default: 50
 max_sse_sessions = 50
@@ -298,7 +448,7 @@ component = false
 ## in addition to console output.
 ## Env: LOG_DIR
 ## Optional, no default (file logging disabled).
-# dir = "/var/log/komodo-mcp"
+# log_dir = "/var/log/komodo-mcp"
 
 ## Maximum size of a single log file before rotation.
 ## Accepts human-readable sizes ("10mb", "500kb", "1gb") or byte counts.
@@ -318,6 +468,21 @@ max_files = 3
 ## Env: LOG_RETENTION_DAYS
 ## Default: 0 (disabled)
 retention_days = 0
+
+## Dedicated JSON-Lines audit-log file (always on; records who did what to which resource + outcome).
+## Env: LOG_AUDIT_FILE. 
+## Default: "<log dir or ./logs>/audit.log".
+# audit_file = "/var/log/komodo-mcp/audit.log"
+
+## How much request/result detail the audit log records for each tool call (always
+## secret-scrubbed). The audit trail lets you reconstruct what was requested and which
+## resources were affected.
+## - "off":     outcome + affected resources only (no request args, no result body)
+## - "summary": request args + a result summary (recommended)
+## - "full":    also the result's structured content (larger logs)
+## Env: LOG_AUDIT_TOOL_IO
+## Default: "summary"
+audit_tool_io = "summary"
 
 
 ###############

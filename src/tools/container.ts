@@ -27,6 +27,7 @@ import {
 } from "../config/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
@@ -56,6 +57,18 @@ type ContainerListItem = Types.ContainerListItem;
 type Log = Types.Log;
 
 // ============================================================================
+// Backward-compatible container read names
+// ============================================================================
+
+// Komodo Core v2.3 renamed the container read APIs (dropping the "Docker" prefix):
+// `ListDockerContainers` → `ListContainers`, `InspectDockerContainer` → `InspectContainer`.
+// Core ≥ 2.3 keeps the old names as serde aliases; Core ≤ 2.2 only knows the old names. We
+// send the legacy names so container tools work on every Komodo v2 core (2.0–2.3+), typed via
+// the current names because the 2.3.x client dropped the old aliases from its generated types.
+const LIST_CONTAINERS_READ = "ListDockerContainers" as unknown as "ListContainers";
+const INSPECT_CONTAINER_READ = "InspectDockerContainer" as unknown as "InspectContainer";
+
+// ============================================================================
 // List
 // ============================================================================
 
@@ -74,9 +87,11 @@ export const listContainersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
     const containers = await wrapApiCall(
       "listContainers",
-      () => komodo.client.read("ListDockerContainers", { server: args.server }),
+      // Per-server container list — unpaginated in Core (no server-side page limit to bypass).
+      () => komodo.client.read(LIST_CONTAINERS_READ, { server: args.server }),
       abortSignal,
     );
 
@@ -112,24 +127,33 @@ export const inspectContainerTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
+    // Config.Env is the resolved runtime environment, so a secret stored as a
+    // Komodo Variable surfaces here as plaintext — covered centrally: the
+    // framework scrubs the tool result at the boundary and the offloaded
+    // resource on register (KEY=value entries in the Env array included).
     const result = await wrapApiCall(
       "inspectContainer",
-      () => komodo.client.read("InspectDockerContainer", { server: args.server, container: args.container }),
+      () => komodo.client.read(INSPECT_CONTAINER_READ, { server: args.server, container: args.container }),
       abortSignal,
     );
+    // Key facts as the default minimum — the full inspect payload stays in the resource.
+    const summary = {
+      name: args.container,
+      ...(result.State?.Status && { state: result.State.Status }),
+      ...(result.Config?.Image && { image: result.Config.Image }),
+    };
     const link = tryRegisterResource({
       ctx: { sessionId },
       category: "inspect",
       name: `${args.container} (inspect)`,
       mimeType: "application/json",
       content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
-    const payload = link
-      ? { summary: { name: args.container }, resourceLink: link }
-      : { summary: { name: args.container }, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
     return structured(payload, {
       text: renderContainerInspect(payload),
       ...(link ? { links: [link] } : {}),
@@ -169,6 +193,7 @@ export const getContainerLogsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
 
     const result: Log = await wrapApiCall(
       "getContainerLogs",
@@ -195,7 +220,7 @@ export const getContainerLogsTool = defineTool({
           name: `${args.container} (logs)`,
           mimeType: "text/plain",
           content: fullLogs,
-          ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
           inlineFull: args.inline_full,
           description: `Container logs for ${args.container} on ${args.server}`,
         })
@@ -248,6 +273,7 @@ export const searchContainerLogsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
 
     const result: Log = await wrapApiCall(
       "searchContainerLogs",
@@ -282,15 +308,14 @@ export const searchContainerLogsTool = defineTool({
             name: `${args.container} (search: ${args.query})`,
             mimeType: "text/plain",
             content: matches.map((m) => `[${m.stream}] ${m.line}`).join("\n"),
-            ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+            ttlMs: config.MCP_RESOURCE_TTL_LOGS,
             inlineFull: args.inline_full,
             description: `${matches.length} matching log line(s) for query "${args.query}" in ${args.container}`,
           })
         : null;
 
-    const payload = link
-      ? { summary: { name: args.container }, matches: [], resourceLink: link }
-      : { summary: { name: args.container }, matches };
+    const summary = { name: args.container, matched: matches.length };
+    const payload = link ? { summary, matches: [], resourceLink: link } : { summary, matches };
     return structured(payload, {
       text: renderContainerSearchLogs({
         summary: payload.summary,
@@ -331,6 +356,7 @@ export const containerActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Execute);
     const apiAction = CONTAINER_ACTION_API_MAP[args.action];
     const update = await wrapExecuteAndPoll(
       `${args.action}Container`,

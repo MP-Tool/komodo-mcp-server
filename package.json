@@ -1,6 +1,6 @@
 {
   "name": "komodo-mcp-server",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "mcpName": "io.github.MP-Tool/komodo-mcp-server",
   "description": "Model Context Protocol Server for Komodo (Container Manager)",
   "type": "module",
@@ -10,13 +10,15 @@
   },
   "types": "build/index.d.ts",
   "scripts": {
-    "build": "tsc",
-    "build:prod": "tsc --project tsconfig.prod.json",
+    "build": "tsc && npm run copy-assets",
+    "build:prod": "tsc --project tsconfig.prod.json && npm run copy-assets",
+    "copy-assets": "cp -r src/auth/assets build/auth/assets",
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
+    "test": "tsc -p tsconfig.test.json && node --test \"build-test/**/*.test.js\"",
     "typecheck": "tsc --noEmit",
-    "clean": "rm -rf build coverage test-results *.tsbuildinfo",
-    "clean:all": "rm -rf build node_modules coverage test-results *.tsbuildinfo",
+    "clean": "rm -rf build build-test coverage test-results *.tsbuildinfo",
+    "clean:all": "rm -rf build build-test node_modules logs coverage test-results *.tsbuildinfo",
     "lint": "eslint 'src/**/*.ts'",
     "lint:fix": "eslint 'src/**/*.ts' --fix",
     "format": "prettier --write 'src/**/*.ts'",
@@ -45,20 +47,22 @@
   "bugs": {
     "url": "https://github.com/MP-Tool/komodo-mcp-server/issues"
   },
+  "homepage": "https://github.com/MP-Tool/komodo-mcp-server#readme",
   "engines": {
-    "node": ">=20.0.0"
+    "node": ">=22.0.0"
   },
   "files": [
     "build/**/*.js",
     "build/**/*.d.ts",
+    "build/auth/assets/**/*",
     "build/VERSION",
     "README.md",
     "LICENSE.txt",
     "CHANGELOG.md"
   ],
   "dependencies": {
-    "komodo_client": "^2.0.0",
-    "mcp-server-framework": "^1.1.2"
+    "komodo_client": "^2.3.1",
+    "mcp-server-framework": "^1.2.0"
   },
   "overrides": {
     "zod": "$zod"

@@ -19,18 +19,22 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderResourceSyncList,
   renderResourceSyncInfo,
   renderActionResult,
-  tryRegisterResource,
   formatActionResponse,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   resourceSyncIdSchema,
@@ -64,7 +68,7 @@ export const listResourceSyncsTool = defineTool({
     const komodo = requireClient();
     const syncs = await wrapApiCall(
       "listResourceSyncs",
-      () => komodo.client.read("ListResourceSyncs", {}),
+      () => komodo.client.read("ListResourceSyncs", LIST_ALL),
       abortSignal,
     );
 
@@ -106,29 +110,27 @@ export const getResourceSyncInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getResourceSync",
       () => komodo.client.read("GetResourceSync", { sync: args.resource_sync }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (resource sync info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full resource sync payload for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.resource_sync,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderResourceSyncInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (resource sync info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full resource sync payload for ${result.name}`,
+      },
+      render: (payload) => renderResourceSyncInfo(payload),
     });
   },
 });
@@ -148,7 +150,19 @@ export const resourceSyncActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Execute);
     if (args.action === "run") {
+      // Note: 'run' applies the sync's pending diff, which can create/update/delete arbitrary
+      // other Komodo resources (stacks, deployments, builds, ...) described in the synced
+      // files. This check gates only the ResourceSync resource itself — it does not verify
+      // Write on every resource the sync will touch; Komodo's own backend is the authority
+      // for those individual writes.
+      await requireDestructiveConfirmation({
+        action: "run",
+        resourceType: "resource sync",
+        resourceId: args.resource_sync,
+        detail: "Applies the sync's pending diff — this may create, update, or DELETE other Komodo resources.",
+      });
       const update = await wrapExecuteAndPoll(
         `run resource sync '${args.resource_sync}'`,
         () => komodo.client.execute("RunSync", { sync: args.resource_sync }),
@@ -194,6 +208,7 @@ export const applyResourceSyncTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("ResourceSync");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -207,6 +222,7 @@ export const applyResourceSyncTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.resource_sync) throw AppErrorFactory.validation.fieldRequired("resource_sync");
+    await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Write);
     const syncId = args.resource_sync;
     const result = await wrapApiCall(
       "updateResourceSync",
@@ -235,6 +251,12 @@ export const deleteResourceSyncTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({
+      action: "delete",
+      resourceType: "resource sync",
+      resourceId: args.resource_sync,
+    });
     const result = await wrapApiCall(
       "deleteResourceSync",
       () => komodo.client.write("DeleteResourceSync", { id: args.resource_sync }),

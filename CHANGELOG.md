@@ -6,8 +6,132 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+## [1.5.0]
 
-## [Unreleased]
+The main themes: **sign in with your own Komodo account**, **secure by default** over the network,
+**safer** destructive actions, and a **cleaner, unified configuration**.
+
+> **Upgrade notes**
+> - **Login is now required by default** over HTTP/HTTPS - clients must sign in with a Komodo
+>   username and password. To keep the old open behavior, set `MCP_AUTH_ENABLED=false` (an open
+>   network server then runs **read-only**). Local `stdio` is unaffected.
+> - **Some settings from earlier releases were renamed** - update them if you use them:
+>   the env vars `API_TIMEOUT_MS` -> `KOMODO_API_TIMEOUT_MS` and `KOMODO_RESOURCE_*` -> `MCP_RESOURCE_*`,
+>   and in the **config file** the `[logging].dir` key is now `[logging].log_dir` (the `LOG_DIR`
+>   environment variable is unchanged). See the [configuration reference](config/README.md).
+> - The `komodo_configure` tool was removed (see Removed).
+
+### Added
+
+- **More tools: Docker introspection, builders, tags, and TOML export.** 19 new tools —
+  inspect Docker images/networks/volumes per server (`komodo_docker_*`), manage Builders
+  (`komodo_builder_*`, so you can attach one to a build), manage Tags (`komodo_tag_*`), and export your
+  resources as sync TOML (`komodo_toml_export_*`). Adapted from **ATreemanDork**'s
+  `komodo-mcp-server_extended` fork — thank you! Read tools respect the read-only-when-open rule;
+  writes require the appropriate permission and confirm before deleting.
+- **Sign in with your own Komodo account.** Over HTTP/HTTPS each person logs in with their own Komodo
+  username and password and gets their own session with their own permissions, instead of everyone
+  sharing a single connection. (External Google/GitHub/OIDC login is planned, not in this release.)
+- **Choose which tools are available.** Limit the tool list to restrict what the assistant can do
+  (for example read-only, or no terminal access) and to keep the list small:
+  `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_TOOLS`. See the
+  [configuration reference](config/README.md).
+- **Server branding.** MCP clients that support it now show the server's name and the Komodo logo.
+- **Public URL setting for reverse-proxy/domain setups.** Set `MCP_BASE_URL` (for example
+  `https://mcp.example.com`) so sign-in links and OAuth redirects use the address clients actually
+  reach - not the internal bind host/port. That host is also trusted automatically, so you don't have
+  to repeat it in the allowed-hosts list.
+
+### Security
+
+- **Authentication is on by default** for HTTP/HTTPS - clients must sign in (see Upgrade notes). To
+  run without it, set `MCP_AUTH_ENABLED=false`.
+- **An open network server is read-only.** If you turn authentication off on HTTP/HTTPS, anonymous
+  callers get read/list tools only - write, delete and terminal tools (including `komodo_exec`) are
+  hidden and refused. Local `stdio` stays fully capable. Hardens advisory GHSA-gf32-w3f6-crx6.
+- **Secrets are hidden from tool output.** API keys, tokens, secret variables, webhook URLs and
+  similar values are automatically removed from results before they reach the assistant or the chat
+  transcript - including terminal and log output, and the TOML export. On by default
+  (`MCP_SECRET_SCRUB_ENABLED`); best-effort, so don't treat it as your only safeguard. (The
+  create-API-key tool still returns its key on purpose.)
+- **The TOML export no longer hands out secrets.** `komodo_toml_export_all` and
+  `komodo_toml_export_resources` are read tools, so they are available even on an open, read-only
+  server - but their output was only being redacted with plain text matching, which missed secret
+  variable values, server passkeys and alerter webhook URLs, and which mangled the `is_secret` flag
+  so the exported file no longer parsed. Komodo itself only masks variable values, and only for
+  non-admins, so nothing else was catching this. The export is now redacted properly and stays valid
+  TOML. Because the values are masked, treat the export as something to read and diff rather than to
+  re-apply as-is, and the `secrets_masked` field now tells you truthfully whether redaction ran.
+- **Destructive actions ask first.** Deletes, `destroy`, prune, terminal commands, and
+  procedure/action/sync runs now require your confirmation before running - a single approve click, no
+  extra checkbox. On by default; tune with `MCP_CONFIRM_DESTRUCTIVE` and `MCP_CONFIRM_FALLBACK` (clients
+  that can't show a prompt may need `MCP_CONFIRM_FALLBACK=allow`). The prompt now waits up to 5 minutes
+  for your answer, adjustable with `MCP_CONFIRM_TIMEOUT_MS` (e.g. `30s`, `5m`, `1h`).
+- **Per-user permissions are enforced.** A signed-in user can only act on the Komodo resources their
+  account allows; anything else fails fast with a clear error instead of a raw Komodo failure. This
+  now also covers **creating** resources and **managing variables** - previously those were sent
+  straight to Komodo, so you got a bare "forbidden" back instead of a useful message. The checks
+  mirror Komodo's own rules and never refuse something Komodo would have allowed.
+- **A complete audit trail.** The audit log now records, for each tool call, what was requested, which
+  resources were affected, and the outcome - with a shared request id linking an action to its
+  permission and confirmation entries. Secrets are stripped first. Tune how much request/result detail
+  is kept with `LOG_AUDIT_TOOL_IO` (`off` / `summary` / `full`; default `summary`).
+
+### Changed
+
+- **Read tools return a useful summary by default.** Large results (inspect, logs, full resources) are
+  offloaded to a session resource and the tool returns a concise summary of the key facts - for example
+  a container inspect now shows its state and image, not just its name. Pass `inline_full: true` to get
+  the entire result inline instead. This now works over **local `stdio` too** - previously the full
+  payload was still dumped inline there, which is exactly where most clients (Claude Desktop, Cursor)
+  connect. A container inspect went from ~9,700 characters of chat context down to ~160 plus a link
+  the client fetches only if it needs the detail.
+- **You only see the tools you may actually use.** When signed in, the tool list is now filtered by your
+  own Komodo permissions - a read-only account no longer sees the write, delete and terminal tools it
+  would only ever get refused on. Fewer irrelevant tools also means a smaller, cheaper prompt for the
+  assistant. Local `stdio` is unchanged (one local user, full list), and an open server without
+  authentication keeps showing exactly the read-only set it already did.
+- **Unified configuration.** Every setting now works both as an environment variable and in the
+  config file (TOML/YAML/JSON), with consistent naming - `KOMODO_*` for the Komodo connection, `MCP_*`
+  for the server's own behavior. Time settings accept plain-language durations (`30s`, `5m`, `1h`) as
+  well as milliseconds. Some keys were renamed (see Upgrade notes). The example configs and the
+  [configuration reference](config/README.md) document the full, current set of settings.
+- **The generic redaction settings now work too.** The underlying server framework has its own
+  `MCP_SCRUB_ENABLED`, `MCP_SCRUB_ADDITIONAL_KEYS` and `MCP_SCRUB_ALLOW_KEYS`, which previously had no
+  effect here. They now act as the base layer, and Komodo's `MCP_SECRET_SCRUB_*` settings extend it -
+  extra key names from both are combined, and if you set the Komodo switch it wins. Setting nothing
+  keeps redaction on, as before.
+
+### Fixed
+
+- **Better compatibility with MCP clients** during connection setup: the server now negotiates the
+  MCP protocol version the way the spec intends, so newer clients (e.g. MCP Inspector v2) connect
+  cleanly instead of failing the handshake.
+- **Lists no longer cut off at the first page** on Komodo Core 2.3+
+  ([#174](https://github.com/MP-Tool/komodo-mcp-server/issues/174)): list tools now fetch the complete
+  set instead of silently returning only the first ~50 items. Also updated for Core 2.3's renamed
+  container APIs while staying compatible with Core 2.0-2.3+.
+- **Paging through the update history no longer skips entries.** `komodo_update_list` handed out your
+  requested page size but then jumped a whole Komodo page forward, so most of every page was
+  unreachable - asking for 25 at a time silently skipped 75 of every 100 entries. Paging now walks the
+  history completely and in order. Its default page size is also 25 now, matching every other list
+  tool. Cursors from an older version keep working.
+- **Clear "please upgrade" message** when a tool needs a newer Komodo core, instead of a cryptic error
+  (generalizes [#151](https://github.com/MP-Tool/komodo-mcp-server/pull/151), thanks @jjsmackay).
+  Terminal exec and Docker Swarm tools require Core 2.0+.
+- **`komodo_exec` returns the real output** on containers, deployments and stack services - it
+  previously returned the echoed command with no exit code
+  ([#159](https://github.com/MP-Tool/komodo-mcp-server/pull/159), thanks @jjsmackay).
+- **Listing and update tools handle "not set yet" values**
+  ([#158](https://github.com/MP-Tool/komodo-mcp-server/pull/158), thanks @sai-roda): actions and
+  procedures that never ran, in-progress updates, and swarm service replicas no longer cause an error,
+  and update pagination no longer loops on the last page.
+
+### Removed
+
+- **`komodo_configure` tool.** The Komodo connection is now set only at startup (config file or
+  `KOMODO_*` env vars) or via per-user login - it can no longer be changed from a chat tool. Use
+  `komodo_health_check` to check the connection status.
 
 ## [1.4.1] - Fixes tools and update dependencies
 

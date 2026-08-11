@@ -82,7 +82,9 @@ export const logSearchMatchSchema = z.object({
 /** Output of `komodo_container_search_logs`. */
 export const containerSearchLogsOutputSchema = z
   .object({
-    summary: containerSummarySchema,
+    summary: containerSummarySchema.extend({
+      matched: z.number().int().optional().describe("Number of matching lines (kept even when matches are offloaded)"),
+    }),
     matches: z.array(logSearchMatchSchema).describe("Matched log lines"),
     truncated: z.boolean().optional().describe("True when the search window was truncated by the tail limit"),
     resourceLink: resourceLinkSchema.optional(),

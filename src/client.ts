@@ -11,6 +11,7 @@ import { KomodoClient as createKomodoClient } from "komodo_client";
 import { logger as baseLogger } from "mcp-server-framework";
 import {
   AuthenticationError,
+  ClientNotConfiguredError,
   ConnectionError,
   extractKomodoError,
   formatError,
@@ -65,7 +66,7 @@ export class KomodoClient {
     const normalized = KomodoClient.normalizeUrl(url);
     try {
       const response = await fetch(`${normalized}/version`, {
-        signal: AbortSignal.timeout(config.API_TIMEOUT_MS),
+        signal: AbortSignal.timeout(config.KOMODO_API_TIMEOUT_MS),
       });
       if (response.ok) {
         const version = await response.text();
@@ -80,14 +81,18 @@ export class KomodoClient {
   }
 
   /**
-   * Login with username/password via komodo_client auth API.
+   * Login with username/password via komodo_client auth API, returning the Komodo JWT.
    *
-   * Creates an unauthenticated temporary client (empty JWT → no Authorization header),
-   * calls LoginLocalUser, then constructs an authenticated client with the returned JWT.
+   * Creates an unauthenticated temporary client (empty JWT → no Authorization header) and
+   * calls LoginLocalUser. Used both for the global username/password connection and for the
+   * per-user local-login flow (where the JWT is bound to the user's MCP session).
+   *
+   * @throws {AuthenticationError} on invalid credentials / unsupported 2FA
+   * @throws {ConnectionError} on network failure / timeout
    */
-  static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
+  static async loginForJwt(baseUrl: string, username: string, password: string): Promise<string> {
     const url = KomodoClient.normalizeUrl(baseUrl);
-    const timeoutMs = config.API_TIMEOUT_MS;
+    const timeoutMs = config.KOMODO_API_TIMEOUT_MS;
 
     logger.trace('Authenticating as "%s" at %s', username, url);
 
@@ -116,9 +121,8 @@ export class KomodoClient {
 
       if (!result.data.jwt) throw AuthenticationError.noToken();
 
-      const client = createKomodoClient(url, { type: "jwt", params: { jwt: result.data.jwt } });
       logger.info("Successfully authenticated to %s", url);
-      return new KomodoClient(url, client);
+      return result.data.jwt;
     } catch (error) {
       if (error instanceof AuthenticationError || error instanceof ConnectionError) throw error;
       // Detect auth failures from komodo_client plain object rejections
@@ -129,6 +133,15 @@ export class KomodoClient {
     } finally {
       if (timeoutHandle) clearTimeout(timeoutHandle);
     }
+  }
+
+  /**
+   * Login with username/password, returning a ready-to-use authenticated client.
+   * Thin wrapper over {@link loginForJwt} + {@link connectWithJwt}.
+   */
+  static async login(baseUrl: string, username: string, password: string): Promise<KomodoClient> {
+    const jwt = await KomodoClient.loginForJwt(baseUrl, username, password);
+    return KomodoClient.connectWithJwt(baseUrl, jwt);
   }
 
   /**
@@ -153,18 +166,6 @@ export class KomodoClient {
     logger.trace("Creating JWT client for %s", url);
     const client = createKomodoClient(url, { type: "jwt", params: { jwt } });
     return new KomodoClient(url, client);
-  }
-
-  /**
-   * Query available login options from the Komodo server.
-   * Useful for displaying which auth methods are enabled (local, GitHub, Google, OIDC).
-   */
-  static async getLoginOptions(
-    baseUrl: string,
-  ): Promise<{ local: boolean; github: boolean; google: boolean; oidc: boolean; registration_disabled: boolean }> {
-    const url = KomodoClient.normalizeUrl(baseUrl);
-    const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
-    return tempClient.auth.login("GetLoginOptions", {});
   }
 
   /**
@@ -229,7 +230,14 @@ export class JwtAuth implements KomodoAuth {
   }
 }
 
-/** Resolves credentials to an auth strategy, or null if insufficient */
+/**
+ * Resolve global connection credentials to an auth strategy, or `null` if insufficient.
+ *
+ * Used only for the **global** Komodo connection — the service-account fallback active
+ * in stdio mode and in HTTP mode with auth disabled. Per-user (OAuth) sessions never go
+ * through here; they connect with the user's own minted JWT. Precedence:
+ * API key/secret → JWT → username/password.
+ */
 export function resolveAuth(creds: {
   apiKey?: string | undefined;
   apiSecret?: string | undefined;
@@ -357,12 +365,21 @@ class KomodoConnection {
         this.scheduleReconnect();
       }
     } catch (error) {
+      // healthCheck() reports every other failure as `{ healthy: false }`; an
+      // AuthenticationError is the only thing it throws. Re-throwing anything else
+      // would escape through the `void` in scheduleHealthCheck() as an unhandled
+      // rejection AND leave the monitor dead, so treat it like any other outage.
       if (error instanceof AuthenticationError) {
         logger.warn("Authentication failed during health check — stopping monitor (credentials may be invalid)");
         this.client = null;
         return;
       }
-      throw error;
+      logger.warn(
+        "Unexpected error during Komodo health check: %s — initiating reconnect",
+        error instanceof Error ? error.message : String(error),
+      );
+      this.client = null;
+      this.scheduleReconnect();
     }
   }
 
@@ -407,50 +424,102 @@ class KomodoConnection {
   }
 }
 
-export const komodoConnection = new KomodoConnection();
-
 // ============================================================================
-// Auto-Init from Environment
+// Connection Resolution (mode-aware)
 // ============================================================================
 
 /**
- * Attempts to initialize the Komodo client from environment variables.
- * Called as onStarting lifecycle hook.
+ * The server's downstream Komodo base URL, captured at startup.
+ * Set by {@link configureKomodoConnections}; read when building per-user clients.
  */
-export async function initializeKomodoClientFromEnv(): Promise<void> {
+let komodoBaseUrl: string | undefined;
+
+/**
+ * The global service connection — the credential fallback used ONLY when no per-user
+ * identity is present (stdio, or HTTP with auth disabled). It owns the health-check +
+ * reconnect monitor. Authenticated per-user sessions never touch it.
+ */
+let globalConnection: KomodoConnection | null = null;
+
+/**
+ * Configure the Komodo connection layer at startup, per operating mode.
+ *
+ * - **Anonymous mode** (stdio, or HTTP with auth disabled): establish a single global
+ *   connection from the `[komodo]` credentials and keep it healthy via its monitor.
+ * - **Authenticated mode** (HTTP + auth): create nothing here — every request resolves a
+ *   per-user client from its own minted Komodo JWT (see {@link connectUserClient}).
+ *
+ * @param opts.anonymousMode - true for stdio / auth-disabled HTTP
+ */
+export async function configureKomodoConnections(opts: { anonymousMode: boolean }): Promise<void> {
   const creds = getKomodoCredentials();
+  komodoBaseUrl = creds.url;
+
+  if (!opts.anonymousMode) {
+    logger.info("Per-user authentication active — global Komodo credentials are not used");
+    return;
+  }
 
   if (!creds.url) {
-    logger.info("No KOMODO_URL configured - use komodo_configure tool to connect");
+    logger.warn("Anonymous mode but KOMODO_URL is not configured — Komodo tools will be unavailable");
     return;
   }
 
   const auth = resolveAuth(creds);
   if (!auth) {
-    logger.info("No Komodo credentials configured - use komodo_configure tool to connect");
+    logger.warn("Anonymous mode but no global Komodo credentials configured — Komodo tools will be unavailable");
     return;
   }
 
+  const connection = new KomodoConnection();
+  globalConnection = connection;
   try {
-    logger.debug("Connecting to Komodo at %s (%s)...", creds.url, auth.method);
-    const { success } = await komodoConnection.connect(auth, creds.url);
-
+    const { success, error } = await connection.connect(auth, creds.url);
     if (success) {
-      logger.info("Komodo connection established");
+      logger.info("Global Komodo connection established (%s)", auth.method);
     } else {
-      logger.warn("Komodo health check failed — will keep retrying in the background");
-      komodoConnection.startReconnecting(auth, creds.url);
+      logger.warn("Global Komodo health check failed (%s) — reconnect will continue in background", error);
+      connection.startReconnecting(auth, creds.url);
     }
   } catch (error) {
-    // Auth errors = bad credentials — don't retry, would fail forever
     if (isAuthRejection(error)) {
-      logger.warn("Komodo authentication failed: %s", error instanceof Error ? error.message : String(error));
+      logger.error(
+        "Global Komodo authentication failed — check credentials: %s",
+        error instanceof Error ? error.message : String(error),
+      );
+      globalConnection = null;
       return;
     }
     logger.warn(
-      "Komodo connection failed: %s — will keep retrying in the background",
+      "Global Komodo connection failed: %s — reconnect will continue in background",
       error instanceof Error ? error.message : String(error),
     );
-    komodoConnection.startReconnecting(auth, creds.url);
+    connection.startReconnecting(auth, creds.url);
   }
+}
+
+/**
+ * Build the Komodo client for an authenticated user from their minted JWT.
+ *
+ * The client is a thin, stateless wrapper over the JWT (no socket/timer), built fresh per
+ * call so it always carries the current request's token — and so one user's call can never
+ * resolve another user's connection.
+ *
+ * @param jwt - The user's Komodo JWT (from `auth.extra`)
+ * @throws {ClientNotConfiguredError} when no Komodo URL is configured
+ */
+export function connectUserClient(jwt: string): KomodoClient {
+  if (!komodoBaseUrl) throw ClientNotConfiguredError.notConfigured();
+  return KomodoClient.connectWithJwt(komodoBaseUrl, jwt);
+}
+
+/** The global service client (anonymous mode), or `null` when none is connected. */
+export function getGlobalClient(): KomodoClient | null {
+  return globalConnection?.getClient() ?? null;
+}
+
+/** Stop the global connection monitor. Called on server shutdown. */
+export function stopKomodoConnections(): void {
+  globalConnection?.stopMonitoring();
+  globalConnection = null;
 }

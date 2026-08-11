@@ -20,6 +20,9 @@ import { ToolCategories, ToolScopes } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoAdmin,
+  recordAffected,
+  requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
   renderVariableList,
@@ -47,6 +50,10 @@ function projectVariable(v: Variable): {
 } {
   return {
     name: v.name,
+    // Secret values are masked centrally: the declarative `maskWhenSibling`
+    // policy (utils/redact.ts) redacts `value` whenever `is_secret` is true —
+    // applied at the framework's scrub boundary, so the projection keeps the
+    // flag alongside the value and never handles the secret itself.
     value: v.value ?? "",
     ...(v.description !== undefined && v.description !== "" ? { description: v.description } : {}),
     ...(v.is_secret ? { is_secret: true } : {}),
@@ -120,6 +127,10 @@ export const applyVariableTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    // Komodo Core rejects every non-admin Variable write with a bare 403; check up front
+    // so the caller gets a clear reason instead. Covers both create and update below.
+    requireKomodoAdmin("manage Komodo Variables");
+    recordAffected("Variable", args.name);
     if (args.action === "create") {
       const params: Types.CreateVariable = {
         name: args.name,
@@ -182,11 +193,22 @@ export const deleteVariableTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    // Authorize before prompting — never ask a user to confirm an action Komodo will refuse.
+    requireKomodoAdmin("manage Komodo Variables");
+    recordAffected("Variable", args.name);
+    await requireDestructiveConfirmation({
+      action: "delete",
+      resourceType: "variable",
+      resourceId: args.name,
+      detail: "Stacks/Deployments referencing it via [[variable]] interpolation will fail afterwards.",
+    });
     const result = await wrapApiCall(
       "deleteVariable",
       () => komodo.client.write("DeleteVariable", { name: args.name }),
       abortSignal,
     );
+    // The deleted-resource snapshot echoes the variable verbatim — redact a
+    // secret value before it reaches the client transcript.
     const built = buildDeleteResult("variable", args.name, result);
     return structured(built.payload, { text: built.text });
   },

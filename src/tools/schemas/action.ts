@@ -26,8 +26,8 @@ export const actionSummarySchema = z.object({
   id: z.string().describe("Action ID"),
   name: z.string().describe("Action name"),
   state: z.string().optional().describe("Action state (Running, Ok, Failed, Unknown) when known"),
-  last_run_at: z.number().int().optional().describe("Unix timestamp (ms) of the last successful run"),
-  next_scheduled_run: z.number().int().optional().describe("Unix timestamp (ms) of the next scheduled run"),
+  last_run_at: z.number().int().nullable().optional().describe("Unix timestamp (ms) of the last successful run"),
+  next_scheduled_run: z.number().int().nullable().optional().describe("Unix timestamp (ms) of the next scheduled run"),
   schedule_error: z.string().optional().describe("Error parsing the schedule expression, if any"),
 });
 

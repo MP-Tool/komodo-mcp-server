@@ -19,17 +19,21 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderRepoList,
   renderRepoInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   repoIdSchema,
@@ -61,7 +65,7 @@ export const listReposTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const repos = await wrapApiCall("listRepos", () => komodo.client.read("ListRepos", {}), abortSignal);
+    const repos = await wrapApiCall("listRepos", () => komodo.client.read("ListRepos", LIST_ALL), abortSignal);
 
     const allItems = repos.map((r: RepoListItem) => ({
       id: r.id,
@@ -102,17 +106,8 @@ export const getRepoInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Repo", id: args.repo }, Types.PermissionLevel.Read);
     const result = await wrapApiCall("getRepo", () => komodo.client.read("GetRepo", { repo: args.repo }), abortSignal);
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (repo info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full repo resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.repo,
       name: result.name,
@@ -121,10 +116,17 @@ export const getRepoInfoTool = defineTool({
       ...(result.config?.repo ? { repo: result.config.repo } : {}),
       ...(result.config?.branch ? { branch: result.config.branch } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderRepoInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (repo info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full repo resource for ${result.name}`,
+      },
+      render: (payload) => renderRepoInfo(payload),
     });
   },
 });
@@ -152,6 +154,7 @@ export const repoActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Repo", id: args.repo }, Types.PermissionLevel.Execute);
     const apiAction = REPO_ACTION_API_MAP[args.action];
     const update = await wrapExecuteAndPoll(
       `${args.action} repo '${args.repo}'`,
@@ -186,6 +189,7 @@ export const applyRepoTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Repo");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const repoConfig: Record<string, unknown> = { ...args.config };
@@ -198,6 +202,7 @@ export const applyRepoTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.repo) throw AppErrorFactory.validation.fieldRequired("repo");
+    await requireKomodoPermission({ type: "Repo", id: args.repo }, Types.PermissionLevel.Write);
     const repoId = args.repo;
     const result = await wrapApiCall(
       "updateRepo",
@@ -222,6 +227,8 @@ export const deleteRepoTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Repo", id: args.repo }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "repo", resourceId: args.repo });
     const result = await wrapApiCall(
       "deleteRepo",
       () => komodo.client.write("DeleteRepo", { id: args.repo }),

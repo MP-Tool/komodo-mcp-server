@@ -18,13 +18,17 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   renderAlerterList,
   renderAlerterInfo,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   alerterIdSchema,
@@ -54,7 +58,7 @@ export const listAlertersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const alerters = await wrapApiCall("listAlerters", () => komodo.client.read("ListAlerters", {}), abortSignal);
+    const alerters = await wrapApiCall("listAlerters", () => komodo.client.read("ListAlerters", LIST_ALL), abortSignal);
 
     const allItems = alerters.map((a: AlerterListItem) => ({
       id: a.id,
@@ -88,31 +92,29 @@ export const getAlerterInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Alerter", id: args.alerter }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getAlerter",
       () => komodo.client.read("GetAlerter", { alerter: args.alerter }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (alerter info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full alerter resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.alerter,
       name: result.name,
       ...(result.config?.enabled !== undefined ? { enabled: result.config.enabled } : {}),
       ...(result.config?.endpoint?.type ? { endpoint_type: result.config.endpoint.type } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderAlerterInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (alerter info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full alerter resource for ${result.name}`,
+      },
+      render: (payload) => renderAlerterInfo(payload),
     });
   },
 });
@@ -136,6 +138,7 @@ export const applyAlerterTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Alerter");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -152,6 +155,7 @@ export const applyAlerterTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.alerter) throw AppErrorFactory.validation.fieldRequired("alerter");
+    await requireKomodoPermission({ type: "Alerter", id: args.alerter }, Types.PermissionLevel.Write);
     const alerterId = args.alerter;
     const result = await wrapApiCall(
       "updateAlerter",
@@ -180,6 +184,8 @@ export const deleteAlerterTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Alerter", id: args.alerter }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "alerter", resourceId: args.alerter });
     const result = await wrapApiCall(
       "deleteAlerter",
       () => komodo.client.write("DeleteAlerter", { id: args.alerter }),

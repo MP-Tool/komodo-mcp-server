@@ -8,6 +8,16 @@
 
 import { z } from "mcp-server-framework";
 
+/**
+ * A Komodo `ResourceTarget` — `{ type, id }`. `type` is a resource-type string
+ * (Server, Stack, Deployment, …), validated server-side by Komodo. Typed here
+ * instead of a loose `z.record` so callers get the shape and light validation.
+ */
+export const resourceTargetSchema = z.object({
+  type: z.string().describe("Resource type (Server, Stack, Deployment, Build, Repo, Procedure, Action, ...)"),
+  id: z.string().describe("Resource id or name"),
+});
+
 /** Cursor-based pagination input for list tools. */
 export const paginationInputSchema = z.object({
   cursor: z
@@ -20,7 +30,7 @@ export const paginationInputSchema = z.object({
     .min(1)
     .max(100)
     .optional()
-    .describe("Maximum number of items to return (1-100). Default: server-defined."),
+    .describe("Maximum number of items to return (1-100). Default: 25."),
 });
 
 /**

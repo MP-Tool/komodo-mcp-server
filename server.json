@@ -9,13 +9,13 @@
     "source": "github",
     "id": "1082088566"
   },
-  "version": "1.4.1",
+  "version": "1.5.0",
   "packages": [
     {
       "registryType": "npm",
       "registryBaseUrl": "https://registry.npmjs.org",
       "identifier": "komodo-mcp-server",
-      "version": "1.4.1",
+      "version": "1.5.0",
       "runtimeHint": "npx",
       "transport": {
         "type": "stdio"
@@ -56,7 +56,7 @@
     },
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.4.1",
+      "identifier": "ghcr.io/mp-tool/komodo-mcp-server:1.5.0",
       "runtimeHint": "docker",
       "transport": {
         "type": "stdio"

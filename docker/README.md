@@ -51,8 +51,8 @@ KOMODO_API_KEY=api-key
 KOMODO_API_SECRET=api-secret
 
 ## Option B: Username/Password
-# KOMODO_USERNAME=mcp-user
-# KOMODO_PASSWORD=your-password
+# KOMODO_USERNAME=username
+# KOMODO_PASSWORD=password
 ```
 
 ### 3. Start the Server

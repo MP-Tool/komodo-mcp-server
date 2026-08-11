@@ -8,7 +8,14 @@
 export { AppMessages, getAppMessage, type AppMessageKey, type MessageParams } from "./messages.js";
 
 // Error classes
-export { ApiError, ConnectionError, AuthenticationError, NotFoundError, ClientNotConfiguredError } from "./classes.js";
+export {
+  ApiError,
+  ConnectionError,
+  AuthenticationError,
+  NotFoundError,
+  ClientNotConfiguredError,
+  ConfirmationRequiredError,
+} from "./classes.js";
 
 // Error extraction
 export { formatError, extractKomodoError, isAuthRejection } from "./extraction.js";

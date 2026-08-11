@@ -24,7 +24,7 @@ Choose one of the following configurations:
 
 #### Option A: Docker with Stdio Transport
 
-Runs the server as a Docker container using stdio transport — no network ports needed.
+Runs the server as a Docker container using stdio transport - no network ports needed.
 
 ```json
 {

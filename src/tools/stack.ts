@@ -19,17 +19,22 @@ import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../confi
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   renderStackList,
   renderStackInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 import {
   stackApplyInputSchema,
@@ -46,6 +51,11 @@ import {
 
 type StackListItem = Types.StackListItem;
 
+// NOTE: The post-interpolation deploy artifacts (`deployed_config`,
+// `deployed_contents` — `[[variable.x]]` already expanded to real values) are
+// removed centrally by the declarative `dropKeys` policy in `utils/redact.ts`,
+// applied at the framework's scrub boundary and on resource-link offload.
+
 // ============================================================================
 // List
 // ============================================================================
@@ -60,7 +70,7 @@ export const listStacksTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", {}), abortSignal);
+    const stacks = await wrapApiCall("list stacks", () => komodo.client.read("ListStacks", LIST_ALL), abortSignal);
     const allItems = stacks.map((s: StackListItem) => ({
       id: s.id,
       name: s.name,
@@ -92,26 +102,24 @@ export const getStackInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getStackInfo",
       () => komodo.client.read("GetStack", { stack: args.stack }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.stack} (stack info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full stack resource for ${args.stack}`,
-    });
-    const summary = { id: args.stack, name: args.stack };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderStackInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    const summary = { id: args.stack, ...summarizeResource(result, args.stack) };
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.stack} (stack info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full stack resource for ${args.stack}`,
+      },
+      render: (payload) => renderStackInfo(payload),
     });
   },
 });
@@ -132,6 +140,7 @@ export const applyStackTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Stack");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const stackConfig: Record<string, unknown> = { ...args.config };
@@ -145,6 +154,7 @@ export const applyStackTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.stack) throw AppErrorFactory.validation.fieldRequired("stack");
+    await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Write);
     const stackId = args.stack;
     const result = await wrapApiCall(
       "updateStack",
@@ -174,6 +184,8 @@ export const deleteStackTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "stack", resourceId: args.stack });
     const result = await wrapApiCall(
       "deleteStack",
       () => komodo.client.write("DeleteStack", { id: args.stack }),
@@ -221,6 +233,15 @@ export const stackActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Execute);
+    if (args.action === "destroy") {
+      await requireDestructiveConfirmation({
+        action: "destroy",
+        resourceType: "stack",
+        resourceId: args.stack,
+        detail: "Removes the stack's containers (docker compose down); the Komodo config is preserved.",
+      });
+    }
     const apiAction = STACK_ACTION_API_MAP[args.action];
     const update = await wrapExecuteAndPoll(
       `${args.action} stack`,

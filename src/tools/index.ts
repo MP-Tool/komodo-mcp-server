@@ -21,3 +21,7 @@ import "./user.js";
 import "./variable.js";
 import "./resource-sync.js";
 import "./update.js";
+import "./docker.js";
+import "./builder.js";
+import "./tag.js";
+import "./toml.js";

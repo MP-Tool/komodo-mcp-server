@@ -19,17 +19,21 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderProcedureList,
   renderProcedureInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   procedureIdSchema,
@@ -61,15 +65,19 @@ export const listProceduresTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const procedures = await wrapApiCall("listProcedures", () => komodo.client.read("ListProcedures", {}), abortSignal);
+    const procedures = await wrapApiCall(
+      "listProcedures",
+      () => komodo.client.read("ListProcedures", LIST_ALL),
+      abortSignal,
+    );
 
     const allItems = procedures.map((p: ProcedureListItem) => ({
       id: p.id,
       name: p.name,
       state: p.info.state,
       stages: p.info.stages,
-      ...(p.info.last_run_at !== undefined ? { last_run_at: p.info.last_run_at } : {}),
-      ...(p.info.next_scheduled_run !== undefined ? { next_scheduled_run: p.info.next_scheduled_run } : {}),
+      ...(p.info.last_run_at != null ? { last_run_at: p.info.last_run_at } : {}),
+      ...(p.info.next_scheduled_run != null ? { next_scheduled_run: p.info.next_scheduled_run } : {}),
       ...(p.info.schedule_error ? { schedule_error: p.info.schedule_error } : {}),
     }));
 
@@ -97,29 +105,27 @@ export const getProcedureInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getProcedure",
       () => komodo.client.read("GetProcedure", { procedure: args.procedure }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (procedure info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full procedure resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.procedure,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderProcedureInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (procedure info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full procedure resource for ${result.name}`,
+      },
+      render: (payload) => renderProcedureInfo(payload),
     });
   },
 });
@@ -139,6 +145,15 @@ export const procedureActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Execute);
+    // 'run' is currently the only verb; if a non-mutating verb (e.g. cancel) is added
+    // later, scope this confirmation to the run branch.
+    await requireDestructiveConfirmation({
+      action: "run",
+      resourceType: "procedure",
+      resourceId: args.procedure,
+      detail: "A procedure is a composite workflow — its stages may deploy, build, or destroy other resources.",
+    });
     const update = await wrapExecuteAndPoll(
       `${args.action} procedure '${args.procedure}'`,
       () => komodo.client.execute("RunProcedure", { procedure: args.procedure }),
@@ -171,6 +186,7 @@ export const applyProcedureTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Procedure");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -187,6 +203,7 @@ export const applyProcedureTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.procedure) throw AppErrorFactory.validation.fieldRequired("procedure");
+    await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Write);
     const procedureId = args.procedure;
     const result = await wrapApiCall(
       "updateProcedure",
@@ -215,6 +232,8 @@ export const deleteProcedureTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "procedure", resourceId: args.procedure });
     const result = await wrapApiCall(
       "deleteProcedure",
       () => komodo.client.write("DeleteProcedure", { id: args.procedure }),

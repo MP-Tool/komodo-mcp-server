@@ -196,7 +196,7 @@ export class AuthenticationError extends AppError {
 
   static tokenMissing(): AuthenticationError {
     return new AuthenticationError(getAppMessage("AUTH_TOKEN_MISSING"), {
-      recoveryHint: "Authentication token is missing. Use komodo_configure to authenticate first.",
+      recoveryHint: "Authentication token is missing. Sign in via OAuth to authenticate.",
     });
   }
 }
@@ -257,6 +257,53 @@ export class NotFoundError extends AppError {
 }
 
 // ============================================================================
+// Confirmation Required Error
+// ============================================================================
+
+/**
+ * A destructive action was not confirmed by the user — either the confirmation
+ * prompt was declined/cancelled/timed out, or the client cannot prompt at all
+ * (no MCP elicitation support) and `MCP_CONFIRM_FALLBACK` is `"deny"`.
+ */
+export class ConfirmationRequiredError extends AppError {
+  constructor(message: string, options: Omit<BaseErrorOptions, "code"> = {}) {
+    super(message, {
+      code: "CONFIRMATION_REQUIRED",
+      statusCode: HttpStatus.PRECONDITION_REQUIRED,
+      mcpCode: ErrorCode.InvalidRequest,
+      cause: options.cause,
+      recoveryHint: options.recoveryHint,
+      context: options.context,
+    });
+  }
+
+  static declined(
+    action: string,
+    resourceType: string,
+    resourceId: string,
+    outcome: string,
+  ): ConfirmationRequiredError {
+    return new ConfirmationRequiredError(
+      getAppMessage("CONFIRM_DECLINED", { outcome, action, resourceType, resourceId }),
+      {
+        recoveryHint: "Retry the operation and approve the confirmation prompt (tick the confirm checkbox).",
+        context: { action, resourceType, resourceId, outcome },
+      },
+    );
+  }
+
+  static unavailable(action: string, resourceType: string, resourceId: string): ConfirmationRequiredError {
+    return new ConfirmationRequiredError(getAppMessage("CONFIRM_UNAVAILABLE", { action, resourceType, resourceId }), {
+      recoveryHint:
+        "Use an MCP client that supports elicitation, or set MCP_CONFIRM_FALLBACK=allow " +
+        "(execute without confirmation on such clients) or MCP_CONFIRM_DESTRUCTIVE=false " +
+        "(disable confirmations entirely).",
+      context: { action, resourceType, resourceId },
+    });
+  }
+}
+
+// ============================================================================
 // Client Not Configured Error
 // ============================================================================
 
@@ -267,14 +314,19 @@ export class ClientNotConfiguredError extends AppError {
       statusCode: HttpStatus.PRECONDITION_REQUIRED,
       mcpCode: ErrorCode.InvalidRequest,
       cause: options.cause,
-      recoveryHint: options.recoveryHint || "Use the komodo_configure tool to set up the Komodo client.",
+      recoveryHint:
+        options.recoveryHint ||
+        "Set [komodo] in config.toml (or KOMODO_URL/KOMODO_API_KEY etc. env vars) and restart the server, " +
+          "or sign in via OAuth if per-user authentication is enabled.",
       context: options.context,
     });
   }
 
   static notConfigured(): ClientNotConfiguredError {
     return new ClientNotConfiguredError(getAppMessage("CLIENT_NOT_CONFIGURED"), {
-      recoveryHint: "Use the komodo_configure tool to set up the connection with URL, username, and password.",
+      recoveryHint:
+        "Set [komodo] in config.toml (or KOMODO_URL/KOMODO_API_KEY etc. env vars) and restart the server, " +
+        "or sign in via OAuth if per-user authentication is enabled.",
     });
   }
 

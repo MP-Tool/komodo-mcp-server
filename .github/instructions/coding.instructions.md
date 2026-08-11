@@ -8,7 +8,7 @@ description: General coding standards and best practices
 ## General Principles
 
 - **Readable Code**: Self-documenting names for variables, functions, classes
-- **DRY Principle**: No code duplication — centralize constants, messages, schemas
+- **DRY Principle**: No code duplication - centralize constants, messages, schemas
 - **SOLID Principles**: SRP, DIP, OCP applied consistently
 - **Separation of Concerns**: Config / Tools / Utils / Errors / Client are distinct layers
 
@@ -41,10 +41,10 @@ Centralized messages with interpolation in `errors/messages.ts`:
 import { getAppMessage } from "../errors/index.js";
 
 getAppMessage("API_REQUEST_FAILED_REASON", { reason: "timeout" });
-// → "API request failed: timeout"
+// -> "API request failed: timeout"
 
 getAppMessage("RESOURCE_NOT_FOUND_TYPE", { resourceType: "Container", resourceId: "nginx" });
-// → "Container 'nginx' not found"
+// -> "Container 'nginx' not found"
 ```
 
 ### API Call Wrapping
@@ -117,7 +117,7 @@ import { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";
 |--------|---------|-------|
 | `registerConfigSection(name, schema)` | Register app config section for config file | `config/env.ts` |
 | `getAppConfig(name)` | Retrieve parsed config section at runtime | Access registered config |
-| `durationSchema(default)` | Zod schema for `"30s"`, `"1m"`, `5000` | `API_TIMEOUT_MS` |
+| `durationSchema(default)` | Zod schema for `"30s"`, `"1m"`, `5000` | `KOMODO_API_TIMEOUT_MS` |
 | `parseDuration(value)` | Parse duration string to ms | Utility |
 | `formatDuration(ms)` | Format ms to human string | Utility |
 
@@ -125,7 +125,7 @@ import { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";
 import { z, registerConfigSection, getAppConfig, durationSchema } from "mcp-server-framework";
 
 // Duration: accepts "30s", "1m", "500ms", or plain number (ms)
-API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
+KOMODO_API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
 ```
 
 ### Types
@@ -160,7 +160,7 @@ Only `mcp-server-framework/errors` is currently used in this project. The main e
 
 - Validate all external inputs via Zod schemas
 - Never log sensitive data (framework logger scrubs automatically)
-- Credentials never in code or commits — use env vars or Docker secrets (`_FILE` pattern)
+- Credentials never in code or commits - use env vars or Docker secrets (`_FILE` pattern)
 - Non-root container user in production
 
 ## Observability
@@ -177,7 +177,7 @@ OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318
 
 - Directory structure mirrors architecture (see `architecture.instructions.md`)
 - Config aggregation: central config files with barrel export (`config/index.ts`)
-- Constants: centralized in `config/descriptions.ts` — no magic strings
+- Constants: centralized in `config/descriptions.ts` - no magic strings
 - JSDoc for public APIs and module headers
 
 ## Naming Conventions

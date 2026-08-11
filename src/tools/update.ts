@@ -17,7 +17,16 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { requireClient, wrapApiCall, renderUpdateList, renderUpdateInfo, tryRegisterResource } from "../utils/index.js";
+import {
+  requireClient,
+  requireKomodoPermission,
+  wrapApiCall,
+  renderUpdateList,
+  renderUpdateInfo,
+  tryRegisterResource,
+  DEFAULT_PAGE_SIZE,
+  MAX_PAGE_SIZE,
+} from "../utils/index.js";
 import {
   updateIdSchema,
   updateListOutputSchema,
@@ -28,6 +37,52 @@ import { inlineFullInputSchema } from "./schemas/index.js";
 
 type UpdateListItem = Types.UpdateListItem;
 type UpdateFull = Types.Update;
+
+/**
+ * Position in Komodo's update log: which server-side page, and how far into it.
+ *
+ * Both coordinates are needed because Komodo pages in fixed blocks of 100 while
+ * this tool serves `page_size` items — see the handler for what goes wrong when
+ * only the page number is carried.
+ */
+interface UpdateCursor {
+  readonly page: number;
+  readonly offset: number;
+}
+
+/**
+ * Encode an {@link UpdateCursor} as an opaque string (base64 of `page:offset`).
+ *
+ * Exported for the round-trip test only — the format is opaque to callers and
+ * may change; nothing outside this module should construct or read one.
+ */
+export function encodeUpdateCursor(page: number, offset: number): string {
+  return Buffer.from(`${page}:${offset}`, "utf8").toString("base64");
+}
+
+/**
+ * Decode an opaque update cursor, tolerating anything malformed by starting over.
+ *
+ * Also accepts the bare page number this tool emitted before the offset existed,
+ * so cursors held by a client across an upgrade keep working (they resume at the
+ * start of that page rather than failing).
+ */
+export function decodeUpdateCursor(cursor: string | undefined): UpdateCursor {
+  if (cursor === undefined) return { page: 0, offset: 0 };
+
+  const legacyPage = Number(cursor);
+  if (Number.isInteger(legacyPage) && legacyPage >= 0) return { page: legacyPage, offset: 0 };
+
+  try {
+    const [rawPage, rawOffset] = Buffer.from(cursor, "base64").toString("utf8").split(":");
+    const page = Number(rawPage);
+    const offset = Number(rawOffset);
+    if (Number.isInteger(page) && page >= 0 && Number.isInteger(offset) && offset >= 0) return { page, offset };
+  } catch {
+    /* fall through to the first page */
+  }
+  return { page: 0, offset: 0 };
+}
 
 function projectListItem(u: UpdateListItem) {
   return {
@@ -49,7 +104,9 @@ function projectFullSummary(u: UpdateFull) {
     status: u.status,
     success: u.success,
     start_ts: u.start_ts,
-    ...(u.end_ts !== undefined ? { end_ts: u.end_ts } : {}),
+    // @sdk-constraint — Update.end_ts is Option<I64> in Komodo Core, serialized as JSON null
+    // while an update is still running; the komodo_client TS type (`end_ts?: I64`) hides that.
+    ...(u.end_ts != null ? { end_ts: u.end_ts } : {}),
     target_type: u.target.type,
     ...(u.target.id ? { target_id: u.target.id } : {}),
     ...(u.operator ? { username: u.operator } : {}),
@@ -72,12 +129,13 @@ export const listUpdatesTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
 
-    // Decode opaque cursor → page number (Komodo's pagination model is integer page index).
-    let page: number | undefined;
-    if (args.cursor !== undefined) {
-      const n = Number(args.cursor);
-      if (Number.isFinite(n) && n >= 0) page = Math.floor(n);
-    }
+    // Two pagination models meet here. Komodo serves whole pages of
+    // UPDATES_PER_PAGE (100, hard-coded in Core), while this tool hands out
+    // `page_size` items like every other list tool. The cursor therefore has to
+    // carry BOTH coordinates: which Komodo page, and how far into it we already
+    // are. Encoding only the page number silently skipped the remainder of each
+    // page — with page_size=25, 75 of every 100 audit entries were unreachable.
+    const { page, offset } = decodeUpdateCursor(args.cursor);
 
     // Build a Mongo-style query for the optional filters.
     const query: Record<string, unknown> = {};
@@ -87,20 +145,29 @@ export const listUpdatesTool = defineTool({
 
     // @type-variance — Komodo SDK types `query` as `MongoDocument`; a plain record is accepted at runtime.
     const params: Types.ListUpdates = {
-      ...(page !== undefined && { page }),
+      ...(page > 0 && { page }),
       ...(Object.keys(query).length > 0 && { query: query as Types.MongoDocument }),
     };
 
     const result = await wrapApiCall("listUpdates", () => komodo.client.read("ListUpdates", params), abortSignal);
 
-    const allItems = result.updates.map(projectListItem);
-    // Respect requested page_size by truncating; Komodo's server-side page size is fixed (~20).
-    const limit = args.page_size ?? allItems.length;
-    const items = allItems.slice(0, limit);
+    const pageItems = result.updates.map(projectListItem);
+    const size = Math.min(Math.max(args.page_size ?? DEFAULT_PAGE_SIZE, 1), MAX_PAGE_SIZE);
+    const end = offset + size;
+    const items = pageItems.slice(offset, end);
 
-    const pageInfo = result.next_page !== undefined ? { next_cursor: String(result.next_page) } : undefined;
+    // @sdk-constraint — next_page is Option<u32> in Komodo Core: JSON null on the last page
+    // (the TS type hides that). `!== undefined` would turn that into a bogus next page forever.
+    const hasNextKomodoPage = result.next_page != null;
+    // Stay on this Komodo page while it still has items; only then move on.
+    const nextCursor =
+      end < pageItems.length
+        ? encodeUpdateCursor(page, end)
+        : hasNextKomodoPage
+          ? encodeUpdateCursor(result.next_page as number, 0)
+          : undefined;
 
-    const payload = { items, ...(pageInfo && { page: pageInfo }) };
+    const payload = { items, ...(nextCursor !== undefined && { page: { next_cursor: nextCursor } }) };
     return structured(payload, { text: renderUpdateList(payload) });
   },
 });
@@ -124,6 +191,10 @@ export const getUpdateInfoTool = defineTool({
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
     const result = await wrapApiCall("getUpdate", () => komodo.client.read("GetUpdate", { id: args.id }), abortSignal);
+    // Post-fetch check: the target resource is only known once the Update is read (there's
+    // no way to know which resource an update id refers to beforehand). Defense-in-depth before
+    // returning log content — the wrapApiCall 403 backstop already covers the read above.
+    await requireKomodoPermission(result.target, Types.PermissionLevel.Read);
     const summary = projectFullSummary(result);
     const link = tryRegisterResource({
       ctx: { sessionId },
@@ -131,7 +202,7 @@ export const getUpdateInfoTool = defineTool({
       name: `Update ${summary.id || args.id} (${summary.operation})`,
       mimeType: "application/json",
       content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
+      ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Full update payload with per-stage logs`,
     });

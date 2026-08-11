@@ -10,7 +10,7 @@
 
 import { Types } from "komodo_client";
 import type { ProgressReporter } from "mcp-server-framework";
-import { OperationCancelledError } from "mcp-server-framework";
+import { OperationCancelledError, getCurrentToolContext } from "mcp-server-framework";
 import type { KomodoClient } from "../client.js";
 import { ApiError } from "../errors/index.js";
 import { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
@@ -133,6 +133,14 @@ async function pollUntilComplete(
           message: `${operation}: complete (${totalSec}s)`,
         });
       }
+      // Record the operation's effect on the tool.call audit entry (what was produced).
+      getCurrentToolContext()?.recordAuditDetail({
+        effect: {
+          updateId: extractUpdateId(update),
+          status: update.status,
+          success: update.success,
+        },
+      });
       return update;
     }
   }

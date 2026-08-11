@@ -25,17 +25,21 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderActionList,
   renderActionInfo,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   actionIdSchema,
@@ -67,14 +71,14 @@ export const listActionsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const actions = await wrapApiCall("listActions", () => komodo.client.read("ListActions", {}), abortSignal);
+    const actions = await wrapApiCall("listActions", () => komodo.client.read("ListActions", LIST_ALL), abortSignal);
 
     const allItems = actions.map((a: ActionListItem) => ({
       id: a.id,
       name: a.name,
       state: a.info.state,
-      ...(a.info.last_run_at !== undefined ? { last_run_at: a.info.last_run_at } : {}),
-      ...(a.info.next_scheduled_run !== undefined ? { next_scheduled_run: a.info.next_scheduled_run } : {}),
+      ...(a.info.last_run_at != null ? { last_run_at: a.info.last_run_at } : {}),
+      ...(a.info.next_scheduled_run != null ? { next_scheduled_run: a.info.next_scheduled_run } : {}),
       ...(a.info.schedule_error ? { schedule_error: a.info.schedule_error } : {}),
     }));
 
@@ -103,29 +107,27 @@ export const getActionInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Action", id: args.action_id }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getAction",
       () => komodo.client.read("GetAction", { action: args.action_id }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (action info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full Action resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.action_id,
       name: result.name,
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderActionInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (action info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full Action resource for ${result.name}`,
+      },
+      render: (payload) => renderActionInfo(payload),
     });
   },
 });
@@ -145,6 +147,15 @@ export const actionActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Action", id: args.action_id }, Types.PermissionLevel.Execute);
+    // 'run' is currently the only verb; if a non-mutating verb (e.g. cancel) is added
+    // later, scope this confirmation to the run branch.
+    await requireDestructiveConfirmation({
+      action: "run",
+      resourceType: "action",
+      resourceId: args.action_id,
+      detail: "A Komodo Action is an arbitrary script running against the Komodo API.",
+    });
     const update = await wrapExecuteAndPoll(
       `${args.action} action '${args.action_id}'`,
       () =>
@@ -181,6 +192,7 @@ export const applyActionTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Action");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -197,6 +209,7 @@ export const applyActionTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.action_id) throw AppErrorFactory.validation.fieldRequired("action_id");
+    await requireKomodoPermission({ type: "Action", id: args.action_id }, Types.PermissionLevel.Write);
     const actionId = args.action_id;
     const result = await wrapApiCall(
       "updateAction",
@@ -225,6 +238,8 @@ export const deleteActionTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Action", id: args.action_id }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "action", resourceId: args.action_id });
     const result = await wrapApiCall(
       "deleteAction",
       () => komodo.client.write("DeleteAction", { id: args.action_id }),

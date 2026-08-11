@@ -13,7 +13,38 @@
  */
 
 // --- API Helpers ---
-export { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
+export {
+  requireClient,
+  requireKomodoPermission,
+  requireKomodoAdmin,
+  requireKomodoCreatePermission,
+  recordAffected,
+  requireDestructiveConfirmation,
+  readCoreVersion,
+  checkCancelled,
+  wrapApiCall,
+  type DestructiveConfirmationRequest,
+} from "./api-helpers.js";
+
+// --- Version Compatibility ---
+export {
+  KOMODO_MINIMAL_API_VERSION,
+  parseVersion,
+  compareVersions,
+  isVersionGreater,
+  requireMinimalVersion,
+  type Version,
+} from "./version.js";
+
+// --- Secret Redaction (declarative Komodo policy; the framework implements it) ---
+export {
+  REDACTED,
+  KOMODO_SCRUB_ALLOW_KEYS,
+  KOMODO_SCRUB_RULES,
+  resolveRedactionSwitch,
+  isSecretRedactionEnabled,
+  resolveScrubOptions,
+} from "./redact.js";
 
 // --- Resource Links (ephemeral session-bound payloads) ---
 export { tryRegisterResource } from "./resource-link.js";
@@ -24,14 +55,16 @@ export { extractUpdateId, wrapExecuteAndPoll, buildActionResult } from "./pollin
 export type { ActionResult } from "./polling.js";
 
 // --- Pagination (client-side cursor-based slicing) ---
-export { paginate, encodeCursor, decodeCursor, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./pagination.js";
+export { paginate, encodeCursor, decodeCursor, DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE, LIST_ALL } from "./pagination.js";
 export type { PageEnvelope, PaginateResult } from "./pagination.js";
 
 // --- Response Formatting ---
 export {
   formatActionResponse,
   buildApplyResult,
+  summarizeResource,
   buildDeleteResult,
+  buildInfoResult,
   type ActionType,
   type ResourceType,
   type ActionResponseOptions,
@@ -76,4 +109,16 @@ export {
   renderResourceSyncInfo,
   renderUpdateList,
   renderUpdateInfo,
+  renderImageList,
+  renderImageInspect,
+  renderImageHistory,
+  renderNetworkList,
+  renderNetworkInspect,
+  renderVolumeList,
+  renderVolumeInspect,
+  renderBuilderList,
+  renderBuilderInfo,
+  renderTagList,
+  renderTagInfo,
+  renderTomlExport,
 } from "./markdown.js";

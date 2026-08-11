@@ -100,6 +100,14 @@ COPY --from=builder --chown=root:root /app/node_modules ./node_modules
 COPY --from=builder --chown=root:root /app/build ./build
 COPY --from=builder --chown=root:root /app/package.json ./package.json
 
+# Everything else under /app is root-owned and read-only for the runtime user (see
+# above) — logs (including the audit trail, on by default) need their own writable,
+# node-owned directory. Declared as a VOLUME so operators can mount persistent storage
+# at this exact path; without a mount it still works, just as part of the container's
+# writable layer (lost on container removal).
+RUN mkdir -p /app/logs && chown node:node /app/logs
+VOLUME /app/logs
+
 # Harden the built-in node user:
 # - Change shell to nologin (no interactive login possible)
 # - This is a service account only for running the application

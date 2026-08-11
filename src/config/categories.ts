@@ -27,6 +27,10 @@ export const ToolCategories = {
   VARIABLE: "variable",
   RESOURCE_SYNC: "resource_sync",
   UPDATE: "update",
+  DOCKER: "docker",
+  BUILDER: "builder",
+  TAG: "tag",
+  TOML: "toml",
 } as const;
 
 export type ToolCategory = (typeof ToolCategories)[keyof typeof ToolCategories];

@@ -12,7 +12,7 @@ export { APP_VERSION as SERVER_VERSION } from "./version.js";
 export { config, getKomodoCredentials, type KomodoCredentials, type AppEnvConfig } from "./env.js";
 
 // Config file section
-export { registerKomodoConfigSection, type KomodoFileConfig } from "./env.js";
+export { registerKomodoConfigSection, resolveKomodoConfig, type KomodoFileConfig } from "./env.js";
 
 // Tool defaults
 export { VALIDATION_LIMITS, CONTAINER_LOGS_DEFAULTS, LOG_SEARCH_DEFAULTS } from "./tools.config.js";

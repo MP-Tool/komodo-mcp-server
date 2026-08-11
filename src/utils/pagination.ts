@@ -1,10 +1,12 @@
 /**
  * Cursor-based pagination utilities for list tools.
  *
- * Komodo APIs return full lists; we paginate client-side. The cursor is a
- * base64-encoded JSON object `{ offset: number }`. Malformed cursors fall
- * back to offset 0 silently — callers should not be able to crash a list
- * tool by passing garbage.
+ * We paginate list results client-side. Komodo Core ≥ 2.3 paginates list reads
+ * server-side (default page size), so list tools must pass {@link LIST_ALL}
+ * (`limit: 0`) to fetch the complete set before slicing it here; older cores ignore
+ * the field. The cursor is a base64-encoded JSON object `{ offset: number }`.
+ * Malformed cursors fall back to offset 0 silently — callers should not be able to
+ * crash a list tool by passing garbage.
  *
  * @module utils/pagination
  */
@@ -14,6 +16,18 @@ export const DEFAULT_PAGE_SIZE = 25;
 
 /** Maximum allowed page size (mirrors `paginationInputSchema`). */
 export const MAX_PAGE_SIZE = 100;
+
+/**
+ * Request params that force a Komodo `List*` read to return EVERY result.
+ *
+ * Komodo Core ≥ 2.3 paginates list reads server-side (default page size). Since we
+ * paginate these lists client-side, we must fetch the full set first: `limit: 0`
+ * disables server-side pagination (returns all). Cores older than 2.3 don't have the
+ * field and ignore it (the read requests are not `deny_unknown_fields`), so passing
+ * it is safe on every Core version. Without this, list tools silently truncate to the
+ * server's default page size (see issue #174).
+ */
+export const LIST_ALL = { limit: 0 } as const;
 
 interface CursorPayload {
   readonly offset: number;

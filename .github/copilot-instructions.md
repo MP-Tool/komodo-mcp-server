@@ -35,7 +35,7 @@ src/
 │   └── extraction.ts     # Error parsing from komodo_client responses
 ├── tools/
 │   ├── index.ts          # Side-effect imports (auto-registration)
-│   ├── config.ts         # komodo_configure, komodo_health_check
+│   ├── config.ts         # komodo_health_check
 │   ├── container.ts      # Container operations (10 tools)
 │   ├── server.ts         # Server operations (6 tools)
 │   ├── stack.ts          # Stack lifecycle (13 tools)
@@ -174,7 +174,7 @@ Namenskonvention: `komodo_<domain>_<action>`. Lifecycle-Operationen mit ≥4 Ver
 
 | Category | Count | Tools |
 |----------|-------|-------|
-| Config | 2 | `komodo_configure`, `komodo_health_check` |
+| Config | 1 | `komodo_health_check` |
 | Container | 5 | `*_list`, `*_inspect`¹, `*_logs`¹, `*_search_logs`¹, `*_action` (start/stop/restart/pause/unpause) |
 | Server | 6 | `*_list`, `*_info`¹, `*_stats`, `*_apply` (create/update), `*_delete`, `*_action` (start_all/restart_all/pause_all/unpause_all/stop_all/prune_*/delete_*) |
 | Stack | 5 | `*_list`, `*_info`¹, `*_apply` (create/update), `*_delete`, `*_action` (deploy/pull/start/restart/pause/unpause/stop/destroy) |

@@ -20,11 +20,15 @@ import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
   paginate,
+  LIST_ALL,
   renderBuildList,
   renderBuildInfo,
   renderBuildLogs,
@@ -32,6 +36,7 @@ import {
   tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
 } from "../utils/index.js";
 import {
   buildIdSchema,
@@ -71,7 +76,7 @@ export const listBuildsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const builds = await wrapApiCall("listBuilds", () => komodo.client.read("ListBuilds", {}), abortSignal);
+    const builds = await wrapApiCall("listBuilds", () => komodo.client.read("ListBuilds", LIST_ALL), abortSignal);
 
     const allItems = builds.map((b: BuildListItem) => {
       const version = formatVersion(b.info.version);
@@ -112,21 +117,12 @@ export const getBuildInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getBuild",
       () => komodo.client.read("GetBuild", { build: args.build }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${result.name} (build info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full build resource for ${result.name}`,
-    });
     const summary = {
       id: result._id?.$oid ?? args.build,
       name: result.name,
@@ -136,10 +132,17 @@ export const getBuildInfoTool = defineTool({
       ...(result.config?.branch ? { branch: result.config.branch } : {}),
       ...(result.info?.last_built_at ? { last_built_at: result.info.last_built_at } : {}),
     };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderBuildInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${result.name} (build info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full build resource for ${result.name}`,
+      },
+      render: (payload) => renderBuildInfo(payload),
     });
   },
 });
@@ -165,6 +168,7 @@ export const buildActionTool = defineTool({
   requiredScopes: [ToolScopes.OPERATE],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Execute);
     const apiAction = BUILD_ACTION_API_MAP[args.action];
     if (args.action === "run") {
       const update = await wrapExecuteAndPoll(
@@ -215,6 +219,10 @@ export const getBuildLogsTool = defineTool({
       () => komodo.client.read("GetUpdate", { id: args.update_id }),
       abortSignal,
     );
+    // Post-fetch check: the target resource is only known once the Update is read (there's
+    // no way to know which build an update_id refers to beforehand). Defense-in-depth before
+    // returning log content — the wrapApiCall 403 backstop already covers the read above.
+    await requireKomodoPermission(update.target, Types.PermissionLevel.Read);
 
     const buildName = update.target.id || args.update_id;
 
@@ -238,7 +246,7 @@ export const getBuildLogsTool = defineTool({
           name: `${buildName} (build logs)`,
           mimeType: "text/plain",
           content: fullLogs,
-          ttlMs: config.KOMODO_RESOURCE_TTL_LOGS,
+          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
           inlineFull: args.inline_full,
           description: `Build logs for update ${args.update_id}`,
         })
@@ -298,6 +306,7 @@ export const applyBuildTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Build");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -314,6 +323,7 @@ export const applyBuildTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.build) throw AppErrorFactory.validation.fieldRequired("build");
+    await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Write);
     const buildId = args.build;
     const result = await wrapApiCall(
       "updateBuild",
@@ -342,6 +352,8 @@ export const deleteBuildTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "build", resourceId: args.build });
     const result = await wrapApiCall(
       "deleteBuild",
       () => komodo.client.write("DeleteBuild", { id: args.build }),

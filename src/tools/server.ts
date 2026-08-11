@@ -27,8 +27,12 @@ import {
 } from "./schemas/index.js";
 import {
   requireClient,
+  requireKomodoPermission,
+  requireKomodoCreatePermission,
+  requireDestructiveConfirmation,
   wrapApiCall,
   paginate,
+  LIST_ALL,
   wrapExecuteAndPoll,
   buildActionResult,
   extractUpdateId,
@@ -36,9 +40,10 @@ import {
   renderServerInfo,
   renderServerStats,
   renderActionResult,
-  tryRegisterResource,
   buildApplyResult,
   buildDeleteResult,
+  buildInfoResult,
+  summarizeResource,
 } from "../utils/index.js";
 
 type ServerListItem = Types.ServerListItem;
@@ -58,7 +63,7 @@ export const listServersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", {}), abortSignal);
+    const servers = await wrapApiCall("listServers", () => komodo.client.read("ListServers", LIST_ALL), abortSignal);
 
     const allItems = servers.map((s: ServerListItem) => {
       const version = s.info.version && s.info.version.toLowerCase() !== "unknown" ? s.info.version : undefined;
@@ -94,6 +99,7 @@ export const getServerStatsTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
     const stats = await wrapApiCall(
       `get stats for server '${args.server}'`,
       () => komodo.client.read("GetServerState", { server: args.server }),
@@ -122,26 +128,24 @@ export const getServerInfoTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal, sessionId }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Read);
     const result = await wrapApiCall(
       "getServerInfo",
       () => komodo.client.read("GetServer", { server: args.server }),
       abortSignal,
     );
-    const link = tryRegisterResource({
-      ctx: { sessionId },
-      category: "info",
-      name: `${args.server} (server info)`,
-      mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
-      ttlMs: config.KOMODO_RESOURCE_TTL_INFO,
-      inlineFull: args.inline_full,
-      description: `Full server resource for ${args.server}`,
-    });
-    const summary = { id: args.server, name: args.server };
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
-    return structured(payload, {
-      text: renderServerInfo(payload),
-      ...(link ? { links: [link] } : {}),
+    const summary = { id: args.server, ...summarizeResource(result, args.server) };
+    return buildInfoResult({
+      result,
+      summary,
+      register: {
+        ctx: { sessionId },
+        name: `${args.server} (server info)`,
+        ttlMs: config.MCP_RESOURCE_TTL_INFO,
+        inlineFull: args.inline_full,
+        description: `Full server resource for ${args.server}`,
+      },
+      render: (payload) => renderServerInfo(payload),
     });
   },
 });
@@ -161,6 +165,7 @@ export const applyServerTool = defineTool({
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
     if (args.action === "create") {
+      requireKomodoCreatePermission("Server");
       if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
@@ -177,6 +182,7 @@ export const applyServerTool = defineTool({
       return structured(built.payload, { text: built.text });
     }
     if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Write);
     const server = args.server;
     const result = await wrapApiCall(
       "updateServer",
@@ -205,6 +211,8 @@ export const deleteServerTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Write);
+    await requireDestructiveConfirmation({ action: "delete", resourceType: "server", resourceId: args.server });
     const result = await wrapApiCall(
       "deleteServer",
       () => komodo.client.write("DeleteServer", { id: args.server }),
@@ -253,6 +261,7 @@ export const serverActionTool = defineTool({
   requiredScopes: [ToolScopes.ADMIN],
   handler: async (args, { abortSignal, reportProgress }) => {
     const komodo = requireClient();
+    await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Execute);
     const apiAction = SERVER_ACTION_API_MAP[args.action];
 
     let params: Record<string, unknown>;
@@ -261,6 +270,20 @@ export const serverActionTool = defineTool({
       params = { server: args.server, name: args.name };
     } else {
       params = { server: args.server };
+    }
+
+    // start/restart/pause/unpause_all are recoverable; stop-all, prune and delete are not.
+    if (
+      args.action === "stop_all_containers" ||
+      args.action.startsWith("prune_") ||
+      args.action.startsWith("delete_")
+    ) {
+      await requireDestructiveConfirmation({
+        action: args.action.replace(/_/g, " "),
+        resourceType: "server",
+        resourceId: args.server,
+        ...(args.name && { detail: `Target: "${args.name}"` }),
+      });
     }
 
     const update = await wrapExecuteAndPoll(

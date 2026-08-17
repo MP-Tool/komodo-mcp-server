@@ -76,7 +76,7 @@
     "eslint-plugin-prettier": "^5.5.5",
     "eslint-plugin-security": "^4.0.0",
     "prettier": "^3.7.4",
-    "typescript": "^5.9.3",
+    "typescript": "^7.0.2",
     "typescript-eslint": "^8.57.1",
     "zod": "^3.25.0"
   }

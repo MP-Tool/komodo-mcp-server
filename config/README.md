@@ -179,6 +179,7 @@ connection above. Only applies to `http`/`https`; `stdio` is local and never aut
 |----------|-----------|---------|-------------|
 | `MCP_AUTH_ENABLED` | `auth.enabled` | `true` | Require clients to sign in |
 | `MCP_AUTH_REQUIRED_SCOPES` | `auth.required_scopes` | - | Required scopes for `/mcp` (advanced) |
+| `MCP_LOGIN_SESSION_TTL` | `komodo.login_session_ttl` | `2h` | How long a session from a local Komodo login stays valid before clients must sign in again (duration or ms) |
 
 > The RFC 9728 Protected Resource Metadata URL is derived automatically from the public base URL
 > (`MCP_BASE_URL`) — there is no separate setting.
@@ -186,6 +187,10 @@ connection above. Only applies to `http`/`https`; `stdio` is local and never aut
 **Enabled (default):** clients sign in via a browser username/password login against Komodo; each
 user gets an isolated, per-user Komodo session with their own permissions, and every tool call is
 permission-checked on Komodo before it runs.
+
+Sessions are kept in memory: they expire after `MCP_LOGIN_SESSION_TTL` and are lost when the
+server restarts. Each session wraps the user's Komodo JWT, so keep the TTL at or below Komodo
+Core's `jwt_ttl` (default 1 day) - beyond that, tool calls fail until the user signs in again.
 
 **Disabled (`MCP_AUTH_ENABLED=false`) on a network transport:** the server runs **read-only** for
 anonymous callers - write/exec/delete tools (including `komodo_exec`) are hidden from `tools/list`

@@ -80,6 +80,14 @@ export const appEnvSchema = z.object({
   /** Komodo API request timeout. Accepts human-readable durations ('30s', '1m') or plain milliseconds. Default: '30s' */
   KOMODO_API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
 
+  /**
+   * Lifetime of an MCP session token issued after a local Komodo username/password login
+   * (http/https with auth enabled). Clients must sign in again once it expires. Keep it at
+   * or below Komodo Core's `jwt_ttl` (default 1 day) — the session wraps the user's Komodo
+   * JWT. Accepts durations ('2h', '1d') or ms. Default: '2h'
+   */
+  MCP_LOGIN_SESSION_TTL: durationSchema("2h").pipe(z.number().int().positive()),
+
   // ── Ephemeral resource registry (MCP-server payload offloading) ────────────
 
   /** TTL for ephemeral info/inspect resources. Accepts durations ('15m') or ms. Default: '15m' */
@@ -205,6 +213,7 @@ function fileSectionOverrides(): Record<string, string> {
   };
 
   put("KOMODO_API_TIMEOUT_MS", komodo?.api_timeout_ms);
+  put("MCP_LOGIN_SESSION_TTL", komodo?.login_session_ttl);
   put("MCP_TOOLS_ALLOWED_CATEGORIES", tools?.allowed_categories);
   put("MCP_TOOLS_EXCLUDED_CATEGORIES", tools?.excluded_categories);
   put("MCP_TOOLS_EXCLUDED_TOOLS", tools?.excluded_tools);
@@ -308,6 +317,8 @@ const komodoConfigFileSchema = z.object({
   jwt_token_file: z.string().optional(),
   /** Komodo API request timeout as duration ('30s', '1m') or milliseconds (number). Env: KOMODO_API_TIMEOUT_MS */
   api_timeout_ms: z.union([z.number().int().positive(), z.string()]).optional(),
+  /** MCP session lifetime after a local Komodo login, as duration ('2h') or ms. Env: MCP_LOGIN_SESSION_TTL */
+  login_session_ttl: z.union([z.number().int().positive(), z.string()]).optional(),
 });
 
 /** `[tools]` — tool surface + destructive-action confirmation (env `MCP_TOOLS_*` / `MCP_CONFIRM_*`). */

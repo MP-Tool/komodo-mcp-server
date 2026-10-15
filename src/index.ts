@@ -148,6 +148,7 @@ if (authActive) {
         serverUrl: mcpServerUrl,
         localLogin,
         renderLoginPage: komodoLoginPage,
+        tokenTtlMs: config.MCP_LOGIN_SESSION_TTL,
       });
 
       authConfig = {

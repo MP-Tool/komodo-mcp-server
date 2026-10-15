@@ -95,6 +95,14 @@ komodo:
   ## Default: "30s" (30000ms)
   api_timeout_ms: "30s"
 
+  ## How long an MCP session from a local Komodo username/password login stays valid
+  ## (http/https with auth enabled). Clients must sign in again once it expires.
+  ## Keep it at or below Komodo Core's `jwt_ttl` (default 1 day): the session wraps the user's Komodo JWT.
+  ## Accepts a duration string ("2h", "1d") or milliseconds (number).
+  ## Env: MCP_LOGIN_SESSION_TTL
+  ## Default: "2h"
+  login_session_ttl: "2h"
+
 
 ## ===========================================================================
 ## TRANSPORT

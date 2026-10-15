@@ -15,6 +15,9 @@ const configPath = join(dir, "config.toml");
 writeFileSync(
   configPath,
   [
+    "[komodo]",
+    'login_session_ttl = "12h"',
+    "",
     "[tools]",
     "confirm_destructive = false",
     'allowed_categories = ["server", "stack"]',
@@ -37,13 +40,16 @@ test("config-file values are resolved (file > default), one key per new section"
   assert.deepEqual(config.MCP_TOOLS_ALLOWED_CATEGORIES, ["server", "stack"]); // [tools]
   assert.equal(config.MCP_SECRET_SCRUB_ENABLED, false); // [redaction] overrides default(true)
   assert.equal(config.MCP_RESOURCE_MAX_ENTRIES, 42); // [resources] overrides default(1000)
+  assert.equal(config.MCP_LOGIN_SESSION_TTL, 12 * 60 * 60 * 1000); // [komodo] overrides default(2h)
 });
 
 test("environment variables override config-file values (env > file)", () => {
   process.env["MCP_RESOURCE_MAX_ENTRIES"] = "99";
   process.env["MCP_CONFIRM_DESTRUCTIVE"] = "true";
+  process.env["MCP_LOGIN_SESSION_TTL"] = "1d";
   resolveKomodoConfig();
   assert.equal(config.MCP_RESOURCE_MAX_ENTRIES, 99); // env wins over file(42)
   assert.equal(config.MCP_CONFIRM_DESTRUCTIVE, true); // env wins over file(false)
+  assert.equal(config.MCP_LOGIN_SESSION_TTL, 24 * 60 * 60 * 1000); // env wins over file(12h)
   assert.deepEqual(config.MCP_TOOLS_ALLOWED_CATEGORIES, ["server", "stack"]); // no env → file still applies
 });

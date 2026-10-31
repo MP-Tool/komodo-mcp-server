@@ -113,13 +113,21 @@ interface ContainerListItem {
   readonly name: string;
   readonly state?: string;
   readonly image?: string;
+  readonly stats?: Types.ContainerStats;
 }
 
 export function renderContainerList(payload: { items: readonly ContainerListItem[]; page?: PageInfo }): string {
   const { items, page } = payload;
   const header = `${RESPONSE_ICONS.CONTAINER} Containers (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo containers found.`;
-  const rows = items.map((c) => `• ${c.name} (${stateBadge(c.state)}) — ${c.image ?? "Unknown image"}`).join("\n");
+  const rows = items
+    .map((c) => {
+      const stats = c.stats
+        ? ` | CPU: ${c.stats.cpu_perc} | Memory: ${c.stats.mem_perc} (${c.stats.mem_usage}) | Network: ${c.stats.net_io} | Block I/O: ${c.stats.block_io} | PIDs: ${c.stats.pids}`
+        : "";
+      return `• ${c.name} (${stateBadge(c.state)}) — ${c.image ?? "Unknown image"}${stats}`;
+    })
+    .join("\n");
   return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 

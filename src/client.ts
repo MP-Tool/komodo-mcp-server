@@ -35,10 +35,16 @@ type KomodoClientInstance = ReturnType<typeof createKomodoClient>;
 export class KomodoClient {
   private readonly _client: KomodoClientInstance;
   private readonly _url: string;
+  private readonly _apiKeyCredentials?: Readonly<{ key: string; secret: string }>;
 
-  private constructor(url: string, client: KomodoClientInstance) {
+  private constructor(
+    url: string,
+    client: KomodoClientInstance,
+    apiKeyCredentials?: Readonly<{ key: string; secret: string }>,
+  ) {
     this._url = url;
     this._client = client;
+    if (apiKeyCredentials) this._apiKeyCredentials = apiKeyCredentials;
   }
 
   /** The raw komodo_client SDK instance. */
@@ -49,6 +55,56 @@ export class KomodoClient {
   /** The base URL of the connected Komodo server. */
   get url(): string {
     return this._url;
+  }
+
+  /**
+   * Manage API keys for the connected Komodo user.
+   *
+   * komodo_client initializes MoghAuthClient with the JWT only, so its
+   * auth.manage() calls are unauthenticated when the outer SDK client is
+   * using an API key. Keep the existing SDK path for JWT connections and
+   * use the same API-key headers as Komodo's /read and /write calls for
+   * /auth/manage on service-account connections.
+   */
+  async createApiKey(name: string, expires: number): Promise<{ key: string; secret: string }> {
+    if (!this._apiKeyCredentials) {
+      return this._client.auth.manage("CreateApiKey", { name, expires });
+    }
+    return this.apiKeyAuthManage<{ key: string; secret: string }>("CreateApiKey", { name, expires });
+  }
+
+  async deleteApiKey(key: string): Promise<void> {
+    if (!this._apiKeyCredentials) {
+      await this._client.auth.manage("DeleteApiKey", { key });
+      return;
+    }
+    await this.apiKeyAuthManage("DeleteApiKey", { key });
+  }
+
+  private async apiKeyAuthManage<T>(method: "CreateApiKey" | "DeleteApiKey", params: object): Promise<T> {
+    const credentials = this._apiKeyCredentials;
+    if (!credentials) throw new Error("API-key credentials are not configured");
+
+    const response = await fetch(`${this._url}/auth/manage/${method}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "X-Api-Key": credentials.key,
+        "X-Api-Secret": credentials.secret,
+      },
+      body: JSON.stringify(params),
+      signal: AbortSignal.timeout(config.KOMODO_API_TIMEOUT_MS),
+      redirect: "error",
+    });
+
+    if (!response.ok) {
+      // Do not include the response body: an upstream error might echo
+      // credentials or the one-time secret into the MCP transcript.
+      throw Object.assign(new Error(`Komodo auth/manage/${method} failed (HTTP ${response.status})`), {
+        status: response.status,
+      });
+    }
+    return (await response.json()) as T;
   }
 
   /** Strip trailing slash from a URL. */
@@ -152,7 +208,7 @@ export class KomodoClient {
     const url = KomodoClient.normalizeUrl(baseUrl);
     logger.trace("Creating API-Key client for %s", url);
     const client = createKomodoClient(url, { type: "api-key", params: { key, secret } });
-    return new KomodoClient(url, client);
+    return new KomodoClient(url, client, { key, secret });
   }
 
   /**

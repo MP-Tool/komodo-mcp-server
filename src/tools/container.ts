@@ -72,10 +72,20 @@ const INSPECT_CONTAINER_READ = "InspectDockerContainer" as unknown as "InspectCo
 // List
 // ============================================================================
 
+/** Preserve live Periphery stats in structured output instead of dropping them. */
+export function summarizeContainerListItem(container: ContainerListItem) {
+  return {
+    name: container.name,
+    state: container.state,
+    ...(container.image ? { image: container.image } : {}),
+    ...(container.stats ? { stats: container.stats } : {}),
+  };
+}
+
 export const listContainersTool = defineTool({
   name: "komodo_container_list",
   description:
-    "List all containers on a server, including running, stopped, and paused containers. Shows container name, state, and image.",
+    "List all containers on a server, including running, stopped, and paused containers. Shows image, state, and available CPU, memory, network, block I/O, and PID statistics.",
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
@@ -95,11 +105,7 @@ export const listContainersTool = defineTool({
       abortSignal,
     );
 
-    const allItems = containers.map((c: ContainerListItem) => ({
-      name: c.name,
-      state: c.state,
-      ...(c.image ? { image: c.image } : {}),
-    }));
+    const allItems = containers.map(summarizeContainerListItem);
 
     const { items, page } = paginate(allItems, args.cursor, args.page_size);
     const payload = { items: [...items], page };

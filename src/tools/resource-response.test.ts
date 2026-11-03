@@ -18,6 +18,7 @@ import { config, ToolScopes } from "../config/index.js";
 import { KomodoClient, configureKomodoConnections, stopKomodoConnections } from "../client.js";
 import { resolveScrubOptions } from "../utils/index.js";
 import { getStackInfoTool } from "./stack.js";
+import { getBuildLogsTool } from "./build.js";
 import { inspectContainerTool, getContainerLogsTool, searchContainerLogsTool } from "./container.js";
 import { exportAllResourcesToTomlTool, exportResourcesToTomlTool } from "./toml.js";
 
@@ -68,6 +69,23 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
         };
       case "GetContainerLog":
         return { stdout: `match API_TOKEN=${secrets[3]}\nmatch ${padding}\ncomplete-log-end`, stderr: "" };
+      case "GetUpdate":
+        return {
+          target: { type: "Build", id: "b" },
+          success: true,
+          status: "Complete",
+          logs: [
+            {
+              stage: "build",
+              command: "docker build .",
+              success: true,
+              stdout: `API_TOKEN=${secrets[3]}\n${padding}`,
+              stderr: "",
+              start_ts: 1,
+              end_ts: 2,
+            },
+          ],
+        };
       case "ExportAllResourcesToToml":
       case "ExportResourcesToToml":
         if (exportFixture) return exportFixture;
@@ -103,6 +121,7 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
   toolRegistry.registerFromFactory(inspectContainerTool);
   toolRegistry.registerFromFactory(getContainerLogsTool);
   toolRegistry.registerFromFactory(searchContainerLogsTool);
+  toolRegistry.registerFromFactory(getBuildLogsTool);
   toolRegistry.registerFromFactory(exportAllResourcesToTomlTool);
   toolRegistry.registerFromFactory(exportResourcesToTomlTool);
   const tools = toolRegistry.getTools();
@@ -141,11 +160,13 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
         const args =
           tool.name === getStackInfoTool.name
             ? { stack: "test-stack" }
-            : tool.name === searchContainerLogsTool.name
-              ? { server: "s", container: "c", query: "match" }
-              : tool.name === inspectContainerTool.name || tool.name === getContainerLogsTool.name
-                ? { server: "s", container: "c" }
-                : {};
+            : tool.name === getBuildLogsTool.name
+              ? { update_id: "u" }
+              : tool.name === searchContainerLogsTool.name
+                ? { server: "s", container: "c", query: "match" }
+                : tool.name === inspectContainerTool.name || tool.name === getContainerLogsTool.name
+                  ? { server: "s", container: "c" }
+                  : {};
         const response = await client.callTool({
           name: tool.name,
           arguments: { ...args, ...("inlineFull" in scenario ? { inline_full: true } : {}) },
@@ -176,7 +197,13 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
           assert.throws(() => registry.read(link.uri, "other-session"), /Cross-session/);
         } else {
           assert.equal(payload["resourceLink"], undefined);
-          full = payload["info"] ?? payload["inspect"] ?? payload["stdout"] ?? payload["toml"] ?? payload["matches"];
+          full =
+            payload["info"] ??
+            payload["inspect"] ??
+            payload["stdout"] ??
+            payload["toml"] ??
+            payload["matches"] ??
+            payload["logs"];
         }
         for (const secret of secrets)
           assert.ok(!JSON.stringify(response).includes(secret), `tool result leaked ${secret}`);
@@ -199,6 +226,43 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
       if (!scenario.link) assert.equal(registry.size, 0, "inline delivery must not retain resource copies");
     });
   }
+
+  await t.test("large inline log handlers never concatenate an unused resource copy", async (st) => {
+    config.MCP_RESOURCE_RESPONSE_MODE = "inline";
+    padding = "x".repeat(131072);
+    // Node 22's mock.method rejects arrays, including Array.prototype. Restore
+    // this narrowly observed method even if the sequential subtest fails.
+    const originalJoin = Array.prototype.join;
+    st.after(() => {
+      Array.prototype.join = originalJoin;
+    });
+    let resourceJoins = 0;
+    let searchPreviewJoins = 0;
+    Array.prototype.join = function (this: unknown[], separator?: string) {
+      const first = this[0];
+      if (typeof first === "string" && (first.startsWith("=== stdout ===\n") || first.startsWith("=== build ✅ ==="))) {
+        resourceJoins++;
+        throw new Error("unused resource log concatenation");
+      }
+      // Search logs render the same line format: one join is needed for the
+      // displayed preview; a second would reveal an unused resource copy.
+      if (typeof first === "string" && first.startsWith("[stdout] match")) searchPreviewJoins++;
+      return originalJoin.call(this, separator);
+    };
+    for (const tool of [getContainerLogsTool, searchContainerLogsTool, getBuildLogsTool]) {
+      const response = await client.callTool({
+        name: tool.name,
+        arguments:
+          tool.name === getBuildLogsTool.name ? { update_id: "u" } : { server: "s", container: "c", query: "match" },
+      });
+      assert.notEqual(response.isError, true);
+      assert.ok(JSON.stringify(response.structuredContent).includes(padding), "complete large logs must stay inline");
+      for (const secret of secrets) assert.ok(!JSON.stringify(response).includes(secret));
+    }
+    assert.equal(resourceJoins, 0);
+    assert.equal(searchPreviewJoins, 1);
+    assert.equal(registry.size, 0);
+  });
 
   const malformed =
     `[[variable]]\nname = "private"\nis_secret = true\nvalue = "${secrets[4]}"\n` +

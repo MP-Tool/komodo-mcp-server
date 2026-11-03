@@ -1143,7 +1143,9 @@ interface TomlExportPayload {
   readonly resourceLink?: { readonly uri: string };
 }
 export function renderTomlExport(payload: TomlExportPayload): string {
-  const redaction = payload.summary.secrets_masked ? "secret redaction applied" : "secret redaction disabled";
+  const redaction = payload.summary.secrets_masked
+    ? "secret redaction applied"
+    : "WARNING: secret redaction disabled; export may contain unmasked credentials";
   const header = `${RESPONSE_ICONS.SYNC} Exported sync TOML (${payload.summary.bytes} bytes, ${redaction})`;
   if (payload.resourceLink) {
     return `${header}\n\nFull TOML available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;

@@ -99,8 +99,9 @@ export const exportAllResourcesToTomlTool = defineTool({
   name: "komodo_toml_export_all",
   description:
     "Export every resource the caller can view as sync TOML — the same format komodo_resource_sync_* reads from a git repo. " +
-    "Secret values (variable values, server passkeys, alerter webhook URLs) are redacted, so the export is for inspection " +
-    "and diffing, not for re-applying verbatim via ResourceSync. " +
+    "When secret scrubbing is enabled, secret values (variable values, server passkeys, alerter webhook URLs) are redacted, " +
+    "so the export is for inspection and diffing, not for re-applying verbatim via ResourceSync. " +
+    "When scrubbing is explicitly disabled, the export may contain unmasked credentials. " +
     RESOURCE_DELIVERY_DESCRIPTION,
   input: tomlExportAllInputSchema.merge(inlineFullInputSchema),
   output: tomlOutputSchema,
@@ -135,7 +136,9 @@ export const exportResourcesToTomlTool = defineTool({
   name: "komodo_toml_export_resources",
   description:
     "Export a specific set of resources and/or user groups as sync TOML. " +
-    "Secret values are redacted, so the export is for inspection and diffing, not for re-applying verbatim via ResourceSync." +
+    "When secret scrubbing is enabled, secret values are redacted, so the export is for inspection and diffing, " +
+    "not for re-applying verbatim via ResourceSync. " +
+    "When scrubbing is explicitly disabled, the export may contain unmasked credentials. " +
     RESOURCE_DELIVERY_DESCRIPTION,
   input: tomlExportResourcesInputSchema.merge(inlineFullInputSchema),
   output: tomlOutputSchema,

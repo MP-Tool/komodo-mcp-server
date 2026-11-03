@@ -16,7 +16,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -105,7 +105,8 @@ export const listBuildsTool = defineTool({
 export const getBuildInfoTool = defineTool({
   name: "komodo_build_info",
   description:
-    "Get the full Komodo Build resource for a single build, including its configuration (builder, repo/branch, image, dockerfile, build args, labels) and last-built metadata.",
+    "Get the full Komodo Build resource for a single build, including its configuration (builder, repo/branch, image, dockerfile, build args, labels) and last-built metadata." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       build: buildIdSchema.describe("Build id or name"),
@@ -202,7 +203,8 @@ export const buildActionTool = defineTool({
 export const getBuildLogsTool = defineTool({
   name: "komodo_build_logs",
   description:
-    "Fetch per-stage logs from a previous build run. Pass the `update_id` returned by `komodo_build_action`.",
+    "Fetch per-stage logs from a previous build run. Pass the `update_id` returned by `komodo_build_action`." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       update_id: z.string().min(1).describe("Komodo Update id returned by a previous komodo_build_run call"),
@@ -226,31 +228,28 @@ export const getBuildLogsTool = defineTool({
 
     const buildName = update.target.id || args.update_id;
 
-    const fullLogs =
+    const link =
       update.logs.length > 0
-        ? update.logs
-            .map((l) => {
-              const head = `=== ${l.stage} ${l.success ? "✅" : "❌"} ===`;
-              const cmd = l.command ? `$ ${l.command}` : "";
-              const out = l.stdout ? `[stdout]\n${l.stdout}` : "";
-              const err = l.stderr ? `[stderr]\n${l.stderr}` : "";
-              return [head, cmd, out, err].filter(Boolean).join("\n");
-            })
-            .join("\n\n")
-        : "";
-
-    const link = fullLogs
-      ? tryRegisterResource({
-          ctx: { sessionId },
-          category: "logs",
-          name: `${buildName} (build logs)`,
-          mimeType: "text/plain",
-          content: fullLogs,
-          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
-          inlineFull: args.inline_full,
-          description: `Build logs for update ${args.update_id}`,
-        })
-      : null;
+        ? tryRegisterResource({
+            ctx: { sessionId },
+            category: "logs",
+            name: `${buildName} (build logs)`,
+            mimeType: "text/plain",
+            content: () =>
+              update.logs
+                .map((l) => {
+                  const head = `=== ${l.stage} ${l.success ? "✅" : "❌"} ===`;
+                  const cmd = l.command ? `$ ${l.command}` : "";
+                  const out = l.stdout ? `[stdout]\n${l.stdout}` : "";
+                  const err = l.stderr ? `[stderr]\n${l.stderr}` : "";
+                  return [head, cmd, out, err].filter(Boolean).join("\n");
+                })
+                .join("\n\n"),
+            ttlMs: config.MCP_RESOURCE_TTL_LOGS,
+            inlineFull: args.inline_full,
+            description: `Build logs for update ${args.update_id}`,
+          })
+        : null;
 
     const summary = {
       id: args.update_id,

@@ -6,6 +6,14 @@
  * @module config/descriptions
  */
 
+/** Shared delivery guidance for tools using the ephemeral resource helper. */
+export const RESOURCE_DELIVERY_DESCRIPTION =
+  " Delivery: when inline_full is false or omitted, use the server's MCP_RESOURCE_RESPONSE_MODE " +
+  "(default link, which may return a session-scoped resource link). inline returns the complete " +
+  "payload inline; auto uses the configured UTF-8 byte threshold. inline_full=true overrides " +
+  "the mode and forces complete inline delivery. Missing sessions or failed resource registration " +
+  "also fall back inline; false does not mean summary-only.";
+
 // ============================================================================
 // Response Icons
 // ============================================================================

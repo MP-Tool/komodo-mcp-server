@@ -2,11 +2,10 @@
  * Resource Link Helper
  *
  * Bridges Komodo tool handlers to the framework's `DynamicResourceRegistry`.
- * For session-bound clients, large payloads (inspect output, full logs,
- * compose files) are stored ephemerally and surfaced as a `resource_link`
- * content block plus a `resourceLink` field in the structured payload.
- * Stateless callers and explicit `inline_full=true` opt-outs continue to
- * receive the full payload inline.
+ * Session-bound clients receive ephemeral `resource_link` content by default.
+ * Operators can choose inline delivery or automatic offloading above a UTF-8
+ * byte threshold. Stateless callers and explicit `inline_full=true` opt-outs
+ * continue to receive the full payload inline.
  *
  * Registered content is secret-scrubbed by the registry itself (scrub-on-
  * register, wired in `src/index.ts`); inline fallbacks pass the framework's
@@ -16,6 +15,7 @@
  */
 
 import { getDynamicResourceRegistry, type ResourceLinkSpec, type ToolContext } from "mcp-server-framework";
+import { config } from "../config/index.js";
 
 /** Logical category for a registered resource (segments the URI). */
 export type ResourceCategory = "info" | "inspect" | "logs" | "compose";
@@ -38,8 +38,10 @@ export interface RegisterResourceOptions {
   readonly name: string;
   /** MIME type of the stored content (e.g. `application/json`, `text/plain`). */
   readonly mimeType: string;
-  /** Payload to register. */
-  readonly content: string | Uint8Array;
+  /** Payload, or a factory invoked once only if offloading/auto sizing needs it. */
+  readonly content: string | Uint8Array | (() => string | Uint8Array);
+  /** Original serialized byte count when content was structurally scrubbed before registration. */
+  readonly originalBytes?: number;
   /** TTL in milliseconds. */
   readonly ttlMs: number;
   /** Inline-full opt-out from the tool's input arguments. */
@@ -50,28 +52,51 @@ export interface RegisterResourceOptions {
 
 /**
  * Register `content` in the dynamic resource registry and return a
- * link spec, or `null` if registration must be skipped (stateless caller
- * or explicit inline-full opt-out).
+ * link spec, or `null` when the delivery policy selects inline content,
+ * the caller is stateless, or inline-full is explicitly requested.
  *
  * Callers use the return value to decide between two output shapes:
  * - link spec → emit summary + resource link, drop the full payload from the body
  * - `null`    → inline the full payload as before
  *
- * Registration failures are swallowed (logged-and-fallback) — the caller
+ * Registration failures are swallowed (as in the original link mode) — the caller
  * always falls back to inlining so that a registry hiccup never breaks
  * the tool.
  */
 export function tryRegisterResource(opts: RegisterResourceOptions): ResourceLinkSpec | null {
   if (opts.inlineFull) return null;
+  if (config.MCP_RESOURCE_RESPONSE_MODE === "inline") return null;
   const sessionId = opts.ctx.sessionId;
   if (!sessionId) return null;
+
+  // A caller may already know the raw size (strictly scrubbed TOML). Skip even
+  // factory evaluation when that count alone selects inline delivery.
+  if (
+    config.MCP_RESOURCE_RESPONSE_MODE === "auto" &&
+    opts.originalBytes !== undefined &&
+    opts.originalBytes <= config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES
+  )
+    return null;
+
+  // Preserve preparation errors as tool errors, as with formerly eager callers;
+  // only registry failures below use the complete-inline fallback.
+  const content = typeof opts.content === "function" ? opts.content() : opts.content;
+
+  // Measure without another byte buffer/cache. TOML callers supply the original
+  // count after their strict pre-registration scrub. The registry/result boundaries
+  // still run; a large raw payload is never inlined just because scrubbing shrinks it.
+  if (config.MCP_RESOURCE_RESPONSE_MODE === "auto") {
+    const bytes =
+      opts.originalBytes ?? (typeof content === "string" ? Buffer.byteLength(content, "utf8") : content.byteLength);
+    if (bytes <= config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES) return null;
+  }
 
   try {
     const { uri } = getDynamicResourceRegistry().register({
       sessionId,
       category: opts.category,
       mimeType: opts.mimeType,
-      content: opts.content,
+      content,
       ttlMs: opts.ttlMs,
     });
 

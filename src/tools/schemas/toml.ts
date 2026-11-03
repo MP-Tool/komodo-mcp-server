@@ -42,7 +42,10 @@ export function splitResourceTarget(entry: string): { type: string; id: string }
 export const tomlOutputSchema = z
   .object({
     summary: z.object({
-      bytes: z.number().int().describe("Size of the exported TOML in bytes"),
+      bytes: z
+        .number()
+        .int()
+        .describe("UTF-8 bytes of the complete exported TOML after configured redaction, for either delivery path"),
       secrets_masked: z
         .boolean()
         .describe(
@@ -52,7 +55,10 @@ export const tomlOutputSchema = z
             "may contain plaintext secrets.",
         ),
     }),
-    toml: z.string().optional().describe("The exported sync TOML (inline when small or inline_full is set)"),
+    toml: z
+      .string()
+      .optional()
+      .describe("Complete sync TOML when delivery is inline (configured mode, inline_full, or fallback)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Exported sync TOML contents");

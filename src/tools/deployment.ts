@@ -15,7 +15,13 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import {
+  RESOURCE_DELIVERY_DESCRIPTION,
+  PARAM_DESCRIPTIONS,
+  ToolCategories,
+  ToolScopes,
+  config,
+} from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -91,7 +97,8 @@ export const listDeploymentsTool = defineTool({
 export const getDeploymentInfoTool = defineTool({
   name: "komodo_deployment_info",
   description:
-    "Get detailed information about a Komodo-managed deployment, including its configuration, current state, and assigned server.",
+    "Get detailed information about a Komodo-managed deployment, including its configuration, current state, and assigned server." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),

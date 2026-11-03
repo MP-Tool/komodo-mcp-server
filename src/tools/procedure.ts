@@ -15,7 +15,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -93,7 +93,8 @@ export const listProceduresTool = defineTool({
 
 export const getProcedureInfoTool = defineTool({
   name: "komodo_procedure_info",
-  description: "Get the full Komodo Procedure resource (configuration, stages, schedule).",
+  description:
+    "Get the full Komodo Procedure resource (configuration, stages, schedule)." + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       procedure: procedureIdSchema.describe("Procedure id or name"),

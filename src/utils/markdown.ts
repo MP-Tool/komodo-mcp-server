@@ -1143,9 +1143,16 @@ interface TomlExportPayload {
   readonly resourceLink?: { readonly uri: string };
 }
 export function renderTomlExport(payload: TomlExportPayload): string {
-  const header = `${RESPONSE_ICONS.SYNC} Exported sync TOML (${payload.summary.bytes} bytes, secrets masked as [[VAR]])`;
+  const redaction = payload.summary.secrets_masked
+    ? "secret redaction applied"
+    : "WARNING: secret redaction disabled; export may contain unmasked credentials";
+  const header = `${RESPONSE_ICONS.SYNC} Exported sync TOML (${payload.summary.bytes} bytes, ${redaction})`;
   if (payload.resourceLink) {
     return `${header}\n\nFull TOML available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
   }
-  return `${header}\n\n\`\`\`toml\n${payload.toml ?? ""}\n\`\`\``;
+  const toml = payload.toml ?? "";
+  if (toml.length > OUTPUT_BUDGET) {
+    return `${header}\n\nTOML preview (complete export in structuredContent.toml):\n\n${codeBlock(truncate(toml, OUTPUT_BUDGET), "toml")}`;
+  }
+  return `${header}\n\n${codeBlock(toml, "toml")}`;
 }

@@ -6,6 +6,31 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+## [Unreleased]
+
+### Fixed
+
+- Defer resource-only JSON/log preparation until offloading or auto sizing needs it, avoiding
+  discarded copies for inline delivery, explicit inline overrides, and missing sessions.
+- With secret redaction enabled, validate and structurally scrub TOML exports before either
+  delivery path; withhold the whole export on parsing, scrubbing, serialization, or validation
+  failure without exposing raw TOML or error details. Explicit redaction opt-out is unchanged.
+- Reject fractional threshold strings before JavaScript numeric rounding. Clarify MCP tool
+  delivery descriptions and make redaction-dependent tests independent of the inherited switch.
+- Count TOML `summary.bytes` after configured redaction for both inline and resource output;
+  bound the rendered preview while preserving complete structured data. Add real search-log MCP
+  coverage. Declare the already-locked `smol-toml` parser directly for strict export handling.
+
+### Added
+
+- Independent read-only Node.js 22 PR CI: locked install, tests with default/disabled framework
+  redaction, lint, formatting, type checks, and build. Release/publishing workflows are unchanged.
+- Configurable resource delivery for offload-capable info, inspect, log, and TOML export tools:
+  `MCP_RESOURCE_RESPONSE_MODE=link|inline|auto` (default `link`, preserving v1.5.0 behavior) and
+  `MCP_RESOURCE_INLINE_THRESHOLD_BYTES` (default 16384 UTF-8 bytes, inclusive). `inline_full: true`
+  remains an explicit override. Both paths retain existing redaction, schemas, resource TTLs,
+  session isolation, entry limits, and inline fallback on registration failure or absent sessions.
+
 ## [1.5.0]
 
 The main themes: **sign in with your own Komodo account**, **secure by default** over the network,

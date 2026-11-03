@@ -62,9 +62,11 @@
   ],
   "dependencies": {
     "komodo_client": "^2.3.1",
-    "mcp-server-framework": "^1.2.0"
+    "mcp-server-framework": "^1.2.0",
+    "smol-toml": "1.9.1"
   },
   "overrides": {
+    "smol-toml": "$smol-toml",
     "zod": "$zod"
   },
   "devDependencies": {

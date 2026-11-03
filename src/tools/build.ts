@@ -228,31 +228,28 @@ export const getBuildLogsTool = defineTool({
 
     const buildName = update.target.id || args.update_id;
 
-    const fullLogs =
+    const link =
       update.logs.length > 0
-        ? update.logs
-            .map((l) => {
-              const head = `=== ${l.stage} ${l.success ? "✅" : "❌"} ===`;
-              const cmd = l.command ? `$ ${l.command}` : "";
-              const out = l.stdout ? `[stdout]\n${l.stdout}` : "";
-              const err = l.stderr ? `[stderr]\n${l.stderr}` : "";
-              return [head, cmd, out, err].filter(Boolean).join("\n");
-            })
-            .join("\n\n")
-        : "";
-
-    const link = fullLogs
-      ? tryRegisterResource({
-          ctx: { sessionId },
-          category: "logs",
-          name: `${buildName} (build logs)`,
-          mimeType: "text/plain",
-          content: fullLogs,
-          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
-          inlineFull: args.inline_full,
-          description: `Build logs for update ${args.update_id}`,
-        })
-      : null;
+        ? tryRegisterResource({
+            ctx: { sessionId },
+            category: "logs",
+            name: `${buildName} (build logs)`,
+            mimeType: "text/plain",
+            content: () =>
+              update.logs
+                .map((l) => {
+                  const head = `=== ${l.stage} ${l.success ? "✅" : "❌"} ===`;
+                  const cmd = l.command ? `$ ${l.command}` : "";
+                  const out = l.stdout ? `[stdout]\n${l.stdout}` : "";
+                  const err = l.stderr ? `[stderr]\n${l.stderr}` : "";
+                  return [head, cmd, out, err].filter(Boolean).join("\n");
+                })
+                .join("\n\n"),
+            ttlMs: config.MCP_RESOURCE_TTL_LOGS,
+            inlineFull: args.inline_full,
+            description: `Build logs for update ${args.update_id}`,
+          })
+        : null;
 
     const summary = {
       id: args.update_id,

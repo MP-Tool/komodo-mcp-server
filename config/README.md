@@ -353,6 +353,11 @@ text keeps its existing display budget; complete data remains in structured outp
 payload cache or byte-buffer copy is created; offloaded resources retain their TTLs, session
 isolation, and entry cap. This policy does not impose a new absolute payload-size limit.
 
+Resource-only JSON serialization and combined log strings are prepared lazily, after the helper
+rules out configured inline delivery, `inline_full`, and missing sessions. Auto mode still prepares
+content when needed to measure bytes; link/auto prepare it at most once. TOML's strict structural
+scrub always runs when enabled because its sanitized export is also the complete inline payload.
+
 Invalid modes and thresholds fail configuration validation. Thresholds must be positive safe
 integers (1 through 9007199254740991 bytes). Environment strings must contain only decimal digits;
 fractions (even ones JavaScript would round to integers), exponent/hex notation, signs, whitespace,

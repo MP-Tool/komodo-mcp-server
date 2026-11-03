@@ -111,7 +111,7 @@ export const getBuilderInfoTool = defineTool({
       category: "info",
       name: `${result.name} (builder info)`,
       mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
+      content: () => JSON.stringify(result, null, 2),
       ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Full builder resource for ${result.name}`,

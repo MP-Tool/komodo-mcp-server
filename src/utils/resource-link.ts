@@ -38,8 +38,8 @@ export interface RegisterResourceOptions {
   readonly name: string;
   /** MIME type of the stored content (e.g. `application/json`, `text/plain`). */
   readonly mimeType: string;
-  /** Payload to register. */
-  readonly content: string | Uint8Array;
+  /** Payload, or a factory invoked once only if offloading/auto sizing needs it. */
+  readonly content: string | Uint8Array | (() => string | Uint8Array);
   /** Original serialized byte count when content was structurally scrubbed before registration. */
   readonly originalBytes?: number;
   /** TTL in milliseconds. */
@@ -69,13 +69,25 @@ export function tryRegisterResource(opts: RegisterResourceOptions): ResourceLink
   const sessionId = opts.ctx.sessionId;
   if (!sessionId) return null;
 
+  // A caller may already know the raw size (strictly scrubbed TOML). Skip even
+  // factory evaluation when that count alone selects inline delivery.
+  if (
+    config.MCP_RESOURCE_RESPONSE_MODE === "auto" &&
+    opts.originalBytes !== undefined &&
+    opts.originalBytes <= config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES
+  )
+    return null;
+
+  // Preserve preparation errors as tool errors, as with formerly eager callers;
+  // only registry failures below use the complete-inline fallback.
+  const content = typeof opts.content === "function" ? opts.content() : opts.content;
+
   // Measure without another byte buffer/cache. TOML callers supply the original
   // count after their strict pre-registration scrub. The registry/result boundaries
   // still run; a large raw payload is never inlined just because scrubbing shrinks it.
   if (config.MCP_RESOURCE_RESPONSE_MODE === "auto") {
     const bytes =
-      opts.originalBytes ??
-      (typeof opts.content === "string" ? Buffer.byteLength(opts.content, "utf8") : opts.content.byteLength);
+      opts.originalBytes ?? (typeof content === "string" ? Buffer.byteLength(content, "utf8") : content.byteLength);
     if (bytes <= config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES) return null;
   }
 
@@ -84,7 +96,7 @@ export function tryRegisterResource(opts: RegisterResourceOptions): ResourceLink
       sessionId,
       category: opts.category,
       mimeType: opts.mimeType,
-      content: opts.content,
+      content,
       ttlMs: opts.ttlMs,
     });
 

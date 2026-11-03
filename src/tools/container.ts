@@ -150,7 +150,7 @@ export const inspectContainerTool = defineTool({
       category: "inspect",
       name: `${args.container} (inspect)`,
       mimeType: "application/json",
-      content: JSON.stringify(result, null, 2),
+      content: () => JSON.stringify(result, null, 2),
       ttlMs: config.MCP_RESOURCE_TTL_INFO,
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
@@ -212,22 +212,22 @@ export const getContainerLogsTool = defineTool({
 
     const stdout = result.stdout;
     const stderr = result.stderr;
-    const fullLogs =
+    const link =
       stdout || stderr
-        ? [stdout && `=== stdout ===\n${stdout}`, stderr && `=== stderr ===\n${stderr}`].filter(Boolean).join("\n\n")
-        : "";
-    const link = fullLogs
-      ? tryRegisterResource({
-          ctx: { sessionId },
-          category: "logs",
-          name: `${args.container} (logs)`,
-          mimeType: "text/plain",
-          content: fullLogs,
-          ttlMs: config.MCP_RESOURCE_TTL_LOGS,
-          inlineFull: args.inline_full,
-          description: `Container logs for ${args.container} on ${args.server}`,
-        })
-      : null;
+        ? tryRegisterResource({
+            ctx: { sessionId },
+            category: "logs",
+            name: `${args.container} (logs)`,
+            mimeType: "text/plain",
+            content: () =>
+              [stdout && `=== stdout ===\n${stdout}`, stderr && `=== stderr ===\n${stderr}`]
+                .filter(Boolean)
+                .join("\n\n"),
+            ttlMs: config.MCP_RESOURCE_TTL_LOGS,
+            inlineFull: args.inline_full,
+            description: `Container logs for ${args.container} on ${args.server}`,
+          })
+        : null;
 
     const payload = link
       ? { summary: { name: args.container }, resourceLink: link }
@@ -311,7 +311,7 @@ export const searchContainerLogsTool = defineTool({
             category: "logs",
             name: `${args.container} (search: ${args.query})`,
             mimeType: "text/plain",
-            content: matches.map((m) => `[${m.stream}] ${m.line}`).join("\n"),
+            content: () => matches.map((m) => `[${m.stream}] ${m.line}`).join("\n"),
             ttlMs: config.MCP_RESOURCE_TTL_LOGS,
             inlineFull: args.inline_full,
             description: `${matches.length} matching log line(s) for query "${args.query}" in ${args.container}`,

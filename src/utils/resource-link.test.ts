@@ -99,6 +99,91 @@ test("inline mode always skips offloading, including large payloads", () => {
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
+test("lazy resource factories are not evaluated when delivery is already inline", (t) => {
+  const content = t.mock.fn(() => {
+    throw new Error("discarded resource serialization executed");
+  });
+  for (const mode of ["link", "inline", "auto"] as const) {
+    config.MCP_RESOURCE_RESPONSE_MODE = mode;
+    for (const category of ["info", "logs"] as const) {
+      assert.equal(tryRegisterResource({ ...options, category, content, inlineFull: true }), null);
+      assert.equal(tryRegisterResource({ ...options, category, content, ctx: {} }), null);
+      if (mode === "inline") assert.equal(tryRegisterResource({ ...options, category, content }), null);
+    }
+  }
+  config.MCP_RESOURCE_RESPONSE_MODE = "auto";
+  assert.equal(
+    tryRegisterResource({ ...options, content, originalBytes: config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES }),
+    null,
+  );
+  assert.equal(content.mock.callCount(), 0);
+});
+
+test("large info inline results skip their unused JSON resource copy", (t) => {
+  const toJSON = t.mock.fn(() => {
+    throw new Error("unused JSON resource copy");
+  });
+  const result = { name: "large-info", data: "x".repeat(131072), toJSON };
+  for (const scenario of [
+    { mode: "inline", ctx: options.ctx },
+    { mode: "link", ctx: options.ctx, inlineFull: true },
+    { mode: "auto", ctx: options.ctx, inlineFull: true },
+    { mode: "link", ctx: {} },
+    { mode: "auto", ctx: {} },
+  ] as const) {
+    config.MCP_RESOURCE_RESPONSE_MODE = scenario.mode;
+    const response = buildInfoResult({
+      result,
+      summary: { name: result.name },
+      register: { ...scenario, name: result.name, ttlMs: options.ttlMs, description: "Large info" },
+      // The renderer's own representation is separate from the unused resource copy.
+      render: () => "Info returned inline",
+    });
+    assert.equal(response.structuredContent?.["info"], result);
+    assert.equal(
+      response.content.some((block) => block.type === "resource_link"),
+      false,
+    );
+  }
+  assert.equal(toJSON.mock.callCount(), 0);
+  assert.equal(getDynamicResourceRegistry().size, 0);
+});
+
+test("link and auto evaluate lazy content exactly once when sizing or offloading needs it", (t) => {
+  for (const mode of ["link", "auto"] as const) {
+    config.MCP_RESOURCE_RESPONSE_MODE = mode;
+    for (const size of [8, 32768]) {
+      const content = t.mock.fn(() => "x".repeat(size));
+      const link = tryRegisterResource({ ...options, mimeType: "text/plain", content });
+      assert.equal(content.mock.callCount(), 1);
+      assert.equal(link !== null, mode === "link" || size > config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES);
+      if (link) assert.equal(getDynamicResourceRegistry().read(link.uri, "session-a").content, "x".repeat(size));
+    }
+  }
+});
+
+test("lazy content preserves complete inline fallback when registration fails", (t) => {
+  t.mock.method(getDynamicResourceRegistry(), "register", () => {
+    throw new Error("registry unavailable");
+  });
+  for (const mode of ["link", "auto"] as const) {
+    config.MCP_RESOURCE_RESPONSE_MODE = mode;
+    const content = t.mock.fn(() => "x".repeat(32768));
+    assert.equal(tryRegisterResource({ ...options, content }), null);
+    assert.equal(content.mock.callCount(), 1);
+  }
+});
+
+test("lazy preparation failures remain tool errors instead of registry fallbacks", () => {
+  const content = () => {
+    throw new Error("serialization failed");
+  };
+  for (const mode of ["link", "auto"] as const) {
+    config.MCP_RESOURCE_RESPONSE_MODE = mode;
+    assert.throws(() => tryRegisterResource({ ...options, content }), /serialization failed/);
+  }
+});
+
 test("inline_full overrides every mode even for large payloads", () => {
   for (const mode of ["link", "inline", "auto"] as const) {
     config.MCP_RESOURCE_RESPONSE_MODE = mode;

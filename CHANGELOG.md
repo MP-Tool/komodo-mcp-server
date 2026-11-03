@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Defer resource-only JSON/log preparation until offloading or auto sizing needs it, avoiding
+  discarded copies for inline delivery, explicit inline overrides, and missing sessions.
 - With secret redaction enabled, validate and structurally scrub TOML exports before either
   delivery path; withhold the whole export on parsing, scrubbing, serialization, or validation
   failure without exposing raw TOML or error details. Explicit redaction opt-out is unchanged.
@@ -21,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Independent read-only Node.js 22 PR CI: locked install, tests with default/disabled framework
+  redaction, lint, formatting, type checks, and build. Release/publishing workflows are unchanged.
 - Configurable resource delivery for offload-capable info, inspect, log, and TOML export tools:
   `MCP_RESOURCE_RESPONSE_MODE=link|inline|auto` (default `link`, preserving v1.5.0 behavior) and
   `MCP_RESOURCE_INLINE_THRESHOLD_BYTES` (default 16384 UTF-8 bytes, inclusive). `inline_full: true`

@@ -194,7 +194,7 @@ export function buildInfoResult<S extends object>(input: {
     category: "info",
     name: input.register.name,
     mimeType: "application/json",
-    content: JSON.stringify(input.result, null, 2),
+    content: () => JSON.stringify(input.result, null, 2),
     ttlMs: input.register.ttlMs,
     inlineFull: input.register.inlineFull,
     description: input.register.description,

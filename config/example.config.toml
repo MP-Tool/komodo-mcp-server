@@ -372,6 +372,18 @@ enabled = true
 
 [resources]
 
+## Delivery policy: link (v1.5.0 behavior), inline (complete data), or auto (small data inline).
+## inline_full=true always overrides this. Missing sessions/registration failures fall back inline.
+## Env: MCP_RESOURCE_RESPONSE_MODE
+## Default: "link"
+response_mode = "link"
+
+## Inclusive auto-mode threshold: serialized payload UTF-8 bytes, before redaction.
+## Positive safe integer. Does not cap explicit inline delivery or fallback.
+## Env: MCP_RESOURCE_INLINE_THRESHOLD_BYTES
+## Default: 16384
+inline_threshold_bytes = 16384
+
 ## TTL for info/inspect resources. Duration ("15m") or milliseconds.
 ## Env: MCP_RESOURCE_TTL_INFO
 ## Default: "15m"

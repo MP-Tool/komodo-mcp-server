@@ -82,6 +82,12 @@ export const appEnvSchema = z.object({
 
   // ── Ephemeral resource registry (MCP-server payload offloading) ────────────
 
+  /** Delivery policy for offload-capable tools. Explicit inline_full always wins. Default: link */
+  MCP_RESOURCE_RESPONSE_MODE: z.enum(["link", "inline", "auto"]).default("link"),
+
+  /** Maximum serialized payload size to inline in auto mode (UTF-8 bytes, inclusive). Default: 16384 */
+  MCP_RESOURCE_INLINE_THRESHOLD_BYTES: z.coerce.number().int().positive().safe().default(16384),
+
   /** TTL for ephemeral info/inspect resources. Accepts durations ('15m') or ms. Default: '15m' */
   MCP_RESOURCE_TTL_INFO: durationSchema("15m").pipe(z.number().int().positive()),
 
@@ -217,6 +223,8 @@ function fileSectionOverrides(): Record<string, string> {
   put("MCP_RESOURCE_TTL_INFO", resources?.ttl_info);
   put("MCP_RESOURCE_TTL_LOGS", resources?.ttl_logs);
   put("MCP_RESOURCE_MAX_ENTRIES", resources?.max_entries);
+  put("MCP_RESOURCE_RESPONSE_MODE", resources?.response_mode);
+  put("MCP_RESOURCE_INLINE_THRESHOLD_BYTES", resources?.inline_threshold_bytes);
   return overrides;
 }
 
@@ -338,6 +346,10 @@ const redactionConfigFileSchema = z.object({
 
 /** `[resources]` — ephemeral resource registry for offloaded payloads (env `MCP_RESOURCE_*`). */
 const resourcesConfigFileSchema = z.object({
+  /** Delivery policy for offload-capable tools. Env: MCP_RESOURCE_RESPONSE_MODE */
+  response_mode: z.enum(["link", "inline", "auto"]).optional(),
+  /** Inclusive auto-mode threshold in UTF-8 bytes. Env: MCP_RESOURCE_INLINE_THRESHOLD_BYTES */
+  inline_threshold_bytes: z.number().int().positive().safe().optional(),
   /** TTL for info/inspect resources as duration ('15m') or ms. Env: MCP_RESOURCE_TTL_INFO */
   ttl_info: z.union([z.number().int().positive(), z.string()]).optional(),
   /** TTL for log resources as duration ('2m') or ms. Env: MCP_RESOURCE_TTL_LOGS */

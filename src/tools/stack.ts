@@ -15,7 +15,13 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import {
+  RESOURCE_DELIVERY_DESCRIPTION,
+  PARAM_DESCRIPTIONS,
+  ToolCategories,
+  ToolScopes,
+  config,
+} from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -90,7 +96,8 @@ export const listStacksTool = defineTool({
 export const getStackInfoTool = defineTool({
   name: "komodo_stack_info",
   description:
-    "Get detailed information about a Compose stack including configuration, current state, compose file contents, services, and environment variables.",
+    "Get detailed information about a Compose stack including configuration, current state, compose file contents, services, and environment variables." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),

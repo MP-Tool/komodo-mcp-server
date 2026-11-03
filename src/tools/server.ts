@@ -10,7 +10,13 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import {
+  RESOURCE_DELIVERY_DESCRIPTION,
+  PARAM_DESCRIPTIONS,
+  ToolCategories,
+  ToolScopes,
+  config,
+} from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   serverApplyInputSchema,
@@ -116,7 +122,7 @@ export const getServerStatsTool = defineTool({
 
 export const getServerInfoTool = defineTool({
   name: "komodo_server_info",
-  description: "Get detailed information about a specific server",
+  description: "Get detailed information about a specific server" + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),

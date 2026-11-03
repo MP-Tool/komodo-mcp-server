@@ -41,6 +41,17 @@ const csvList = () =>
     )
     .optional();
 
+/** Check decimal integer syntax BEFORE conversion can round a fractional env string. */
+const resourceInlineThresholdSchema = z
+  .union([
+    z
+      .string()
+      .regex(/^[0-9]+$/, "Expected a decimal integer byte count")
+      .transform(Number),
+    z.number(),
+  ])
+  .pipe(z.number().int().positive().safe());
+
 export const appEnvSchema = z.object({
   // ── Komodo Core connection ────────────────────────────────────────────────
 
@@ -86,7 +97,7 @@ export const appEnvSchema = z.object({
   MCP_RESOURCE_RESPONSE_MODE: z.enum(["link", "inline", "auto"]).default("link"),
 
   /** Maximum serialized payload size to inline in auto mode (UTF-8 bytes, inclusive). Default: 16384 */
-  MCP_RESOURCE_INLINE_THRESHOLD_BYTES: z.coerce.number().int().positive().safe().default(16384),
+  MCP_RESOURCE_INLINE_THRESHOLD_BYTES: resourceInlineThresholdSchema.default(16384),
 
   /** TTL for ephemeral info/inspect resources. Accepts durations ('15m') or ms. Default: '15m' */
   MCP_RESOURCE_TTL_INFO: durationSchema("15m").pipe(z.number().int().positive()),

@@ -20,7 +20,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -112,7 +112,8 @@ export const listSwarmsTool = defineTool({
 export const getSwarmInfoTool = defineTool({
   name: "komodo_swarm_info",
   description:
-    "Get the full Komodo Swarm resource (manager server ids, links, alert/maintenance configuration). Large payloads are offloaded via a session-scoped resource link when available.",
+    "Get the full Komodo Swarm resource (manager server ids, links, alert/maintenance configuration)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       swarm: swarmIdSchema.describe("Swarm id or name"),

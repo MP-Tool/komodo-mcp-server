@@ -16,7 +16,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -105,7 +105,8 @@ export const listBuildsTool = defineTool({
 export const getBuildInfoTool = defineTool({
   name: "komodo_build_info",
   description:
-    "Get the full Komodo Build resource for a single build, including its configuration (builder, repo/branch, image, dockerfile, build args, labels) and last-built metadata.",
+    "Get the full Komodo Build resource for a single build, including its configuration (builder, repo/branch, image, dockerfile, build args, labels) and last-built metadata." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       build: buildIdSchema.describe("Build id or name"),
@@ -202,7 +203,8 @@ export const buildActionTool = defineTool({
 export const getBuildLogsTool = defineTool({
   name: "komodo_build_logs",
   description:
-    "Fetch per-stage logs from a previous build run. Pass the `update_id` returned by `komodo_build_action`.",
+    "Fetch per-stage logs from a previous build run. Pass the `update_id` returned by `komodo_build_action`." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       update_id: z.string().min(1).describe("Komodo Update id returned by a previous komodo_build_run call"),

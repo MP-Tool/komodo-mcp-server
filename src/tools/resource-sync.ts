@@ -15,7 +15,7 @@
 
 import { defineTool, structured, text, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -98,7 +98,7 @@ export const listResourceSyncsTool = defineTool({
 
 export const getResourceSyncInfoTool = defineTool({
   name: "komodo_resource_sync_info",
-  description: "Get the full Komodo ResourceSync resource including pending diffs.",
+  description: "Get the full Komodo ResourceSync resource including pending diffs." + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       resource_sync: resourceSyncIdSchema.describe("ResourceSync id or name"),

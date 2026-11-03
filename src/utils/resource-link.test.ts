@@ -1,13 +1,12 @@
 import { afterEach, beforeEach, test } from "node:test";
 import assert from "node:assert/strict";
 import { configureDynamicResourceRegistry, getDynamicResourceRegistry } from "mcp-server-framework";
-import { appEnvSchema, config } from "../config/env.js";
+import { config } from "../config/index.js";
 import { tryRegisterResource, type RegisterResourceOptions } from "./resource-link.js";
 import { buildInfoResult } from "./response-formatter.js";
 import { resolveScrubOptions } from "./redact.js";
 
 const originalConfig = { ...config };
-const defaults = appEnvSchema.parse({});
 const options: RegisterResourceOptions = {
   ctx: { sessionId: "session-a" },
   category: "info",
@@ -19,7 +18,15 @@ const options: RegisterResourceOptions = {
 };
 
 beforeEach(() => {
-  Object.assign(config, defaults);
+  Object.assign(config, originalConfig, {
+    MCP_RESOURCE_RESPONSE_MODE: "link",
+    MCP_RESOURCE_INLINE_THRESHOLD_BYTES: 16384,
+    MCP_RESOURCE_TTL_INFO: 900000,
+    MCP_RESOURCE_TTL_LOGS: 120000,
+    MCP_SECRET_SCRUB_ENABLED: true,
+    MCP_SECRET_SCRUB_KEYS: [],
+    MCP_SECRET_SCRUB_ALLOW_KEYS: [],
+  });
   configureDynamicResourceRegistry({ scrub: resolveScrubOptions(), cleanupIntervalMs: 0 });
 });
 afterEach(() => {
@@ -147,6 +154,19 @@ test("auto measures the original serialized payload before redaction can shrink 
   const stored = getDynamicResourceRegistry().read(link.uri, "session-a").content;
   assert.equal(typeof stored, "string");
   assert.ok(Buffer.byteLength(stored, "utf8") < 128);
+});
+
+test("pre-scrubbed TOML still selects delivery using the original byte count", () => {
+  config.MCP_RESOURCE_RESPONSE_MODE = "auto";
+  config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 128;
+  const link = tryRegisterResource({
+    ...options,
+    content: 'name = "safe"\n',
+    mimeType: "application/toml",
+    originalBytes: 512,
+  });
+  assert.ok(link);
+  assert.equal(getDynamicResourceRegistry().read(link.uri, "session-a").content, 'name = "safe"\n');
 });
 
 test("auto preserves per-call TTLs, session isolation, and registry entry bounds", (t) => {

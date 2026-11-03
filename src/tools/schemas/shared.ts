@@ -36,14 +36,16 @@ export const paginationInputSchema = z.object({
 /**
  * Inline-full toggle for detail tools.
  *
- * When `true`, the tool returns the full payload inline instead of a
- * compact summary. When `false` (default), a concise summary is returned.
+ * True forces complete inline delivery. False/unset defers to the configured
+ * link/inline/auto policy, with inline fallback when offloading is unavailable.
  */
 export const inlineFullInputSchema = z.object({
   inline_full: z
     .boolean()
     .optional()
-    .describe("If true, return the full payload inline instead of a compact summary. Default: false."),
+    .describe(
+      "If true, force the full payload inline. Otherwise use configured link/inline/auto delivery, with inline fallback if no session or registration fails. Default: false.",
+    ),
 });
 
 /** System command configuration (working directory + shell command). */

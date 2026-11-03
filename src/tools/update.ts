@@ -16,7 +16,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -178,7 +178,9 @@ export const listUpdatesTool = defineTool({
 
 export const getUpdateInfoTool = defineTool({
   name: "komodo_update_info",
-  description: "Get the full update payload for a single operation, including per-stage logs (stdout/stderr).",
+  description:
+    "Get the full update payload for a single operation, including per-stage logs (stdout/stderr)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       id: updateIdSchema,

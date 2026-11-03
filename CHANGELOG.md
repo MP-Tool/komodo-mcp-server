@@ -8,6 +8,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --------------------------------------------------------------
 ## [Unreleased]
 
+### Fixed
+
+- With secret redaction enabled, validate and structurally scrub TOML exports before either
+  delivery path; withhold the whole export on parsing, scrubbing, serialization, or validation
+  failure without exposing raw TOML or error details. Explicit redaction opt-out is unchanged.
+- Reject fractional threshold strings before JavaScript numeric rounding. Clarify MCP tool
+  delivery descriptions and make redaction-dependent tests independent of the inherited switch.
+- Count TOML `summary.bytes` after configured redaction for both inline and resource output;
+  bound the rendered preview while preserving complete structured data. Add real search-log MCP
+  coverage. Declare the already-locked `smol-toml` parser directly for strict export handling.
+
 ### Added
 
 - Configurable resource delivery for offload-capable info, inspect, log, and TOML export tools:

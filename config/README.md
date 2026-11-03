@@ -286,6 +286,13 @@ variables (`is_secret`) always have their value masked, alerter endpoint URLs/em
 path, and stacks' post-interpolation `deployed_config`/`deployed_contents` are removed entirely -
 in structured payloads, rendered text, offloaded JSON and exported TOML alike.
 
+With redaction enabled, TOML exports must successfully parse, apply the structural policy,
+serialize, and validate again before either inlining or resource registration. Any failure
+withholds the entire export with a generic error; raw TOML and parser details are not logged or
+returned. This local guard does not use the framework's best-effort TOML text fallback. Explicitly
+disabling redaction retains the existing raw-export behavior, including unvalidated TOML; the
+server does not silently override that operator setting.
+
 > **The TOML export is redacted, so it is not directly re-appliable.** `komodo_toml_export_*`
 > masks secret values, which means the exported file is meant for reading and diffing rather than
 > for feeding straight back through ResourceSync. The `secrets_masked` field in the result reports
@@ -329,8 +336,15 @@ Offload-capable info, inspect, log, search-log, and TOML export tools share one 
 
 The threshold measures the **serialized candidate payload before redaction**, using UTF-8 bytes
 (including JSON indentation or log stream headers), rather than JavaScript string length. It does
-not count the summary, rendered text, or MCP envelope. Both delivery paths retain central secret
-redaction; TOML also retains its structural inline scrub. The output schemas are unchanged.
+not count the summary, rendered text, or MCP envelope. TOML is structurally scrubbed before either
+delivery path, but its original byte count still drives auto selection. Both paths retain the
+framework's central scrub boundaries. The output schemas are unchanged.
+
+For both TOML export tools, `summary.bytes` consistently means UTF-8 bytes of the complete export
+**after configured redaction**, whether delivered inline or through `resources/read`. With
+redaction disabled it counts the original export. Large inline exports retain complete data in
+`structuredContent.toml`; rendered text shows a preview limited to the existing 4000-character
+display budget rather than duplicating the full export.
 
 `inline_full: true` overrides every mode. Missing sessions and resource-registration failures
 retain the existing complete-inline fallback. The threshold only limits automatic inline
@@ -340,8 +354,10 @@ payload cache or byte-buffer copy is created; offloaded resources retain their T
 isolation, and entry cap. This policy does not impose a new absolute payload-size limit.
 
 Invalid modes and thresholds fail configuration validation. Thresholds must be positive safe
-integers (1 through 9007199254740991 bytes); zero, fractions, empty strings, and non-finite values
-are rejected, including when the mode is `link` or `inline`. Environment variables override file
+integers (1 through 9007199254740991 bytes). Environment strings must contain only decimal digits;
+fractions (even ones JavaScript would round to integers), exponent/hex notation, signs, whitespace,
+zero, and overflow are rejected. Config-file values must be numeric positive safe integers.
+Validation applies even when the mode is `link` or `inline`. Environment variables override file
 settings, which override defaults.
 
 | Variable | Config Key | Default | Description |

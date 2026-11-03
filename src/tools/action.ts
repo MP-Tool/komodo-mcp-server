@@ -21,7 +21,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -95,7 +95,7 @@ export const listActionsTool = defineTool({
 export const getActionInfoTool = defineTool({
   name: "komodo_action_info",
   description:
-    "Get the full Komodo Action resource (script body, schedule, webhook config). The TypeScript script body is offloaded via a session-scoped resource link when available.",
+    "Get the full Komodo Action resource (script body, schedule, webhook config)." + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       action_id: actionIdSchema.describe("Action id or name"),

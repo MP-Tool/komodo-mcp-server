@@ -6,6 +6,12 @@
  * @module config/descriptions
  */
 
+/** Shared delivery guidance for tools using the ephemeral resource helper. */
+export const RESOURCE_DELIVERY_DESCRIPTION =
+  " Delivery mode: link may return a session-scoped resource link; inline returns the full payload inline; " +
+  "auto selects by the configured UTF-8 byte threshold. inline_full=true forces inline delivery. " +
+  "Missing sessions or failed registration fall back inline.";
+
 // ============================================================================
 // Response Icons
 // ============================================================================

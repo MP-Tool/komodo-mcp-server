@@ -15,7 +15,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -94,7 +94,8 @@ export const listReposTool = defineTool({
 
 export const getRepoInfoTool = defineTool({
   name: "komodo_repo_info",
-  description: "Get the full Komodo Repo resource (configuration + last clone/build metadata).",
+  description:
+    "Get the full Komodo Repo resource (configuration + last clone/build metadata)." + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       repo: repoIdSchema.describe("Repo id or name"),

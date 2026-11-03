@@ -14,7 +14,7 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { ToolCategories, ToolScopes, config } from "../config/index.js";
+import { RESOURCE_DELIVERY_DESCRIPTION, ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
 import {
   requireClient,
@@ -80,7 +80,8 @@ export const listAlertersTool = defineTool({
 export const getAlerterInfoTool = defineTool({
   name: "komodo_alerter_info",
   description:
-    "Get the full Komodo Alerter resource (endpoint configuration, alert filters, maintenance windows). Sensitive fields like webhook URLs are offloaded via a session-scoped resource link when available.",
+    "Get the full Komodo Alerter resource (endpoint configuration, alert filters, maintenance windows)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       alerter: alerterIdSchema.describe("Alerter id or name"),

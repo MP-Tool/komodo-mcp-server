@@ -12,13 +12,13 @@ import {
   ResourceRegistry,
   ToolRegistry,
 } from "mcp-server-framework";
-import { createSecretScrubber } from "mcp-server-framework/logger";
+import { createSecretScrubber, SecretScrubber, Logger } from "mcp-server-framework/logger";
 import { parse as parseToml } from "smol-toml";
 import { config, ToolScopes } from "../config/index.js";
 import { KomodoClient, configureKomodoConnections, stopKomodoConnections } from "../client.js";
-import { resolveScrubOptions } from "../utils/redact.js";
+import { resolveScrubOptions } from "../utils/index.js";
 import { getStackInfoTool } from "./stack.js";
-import { inspectContainerTool, getContainerLogsTool } from "./container.js";
+import { inspectContainerTool, getContainerLogsTool, searchContainerLogsTool } from "./container.js";
 import { exportAllResourcesToTomlTool, exportResourcesToTomlTool } from "./toml.js";
 
 // These tests exercise real tool handlers, SDK output-schema validation, the
@@ -27,10 +27,15 @@ import { exportAllResourcesToTomlTool, exportResourcesToTomlTool } from "./toml.
 test("adaptive delivery preserves complete, redacted tool results across the MCP boundary", async (t) => {
   const originalConfig = { ...config };
   const originalEnv = { ...process.env };
+  // Komodo's explicit test setting overrides an inherited MCP_SCRUB_ENABLED=false.
+  config.MCP_SECRET_SCRUB_ENABLED = true;
+  config.MCP_SECRET_SCRUB_KEYS = [];
+  config.MCP_SECRET_SCRUB_ALLOW_KEYS = [];
   const registry = configureDynamicResourceRegistry({ scrub: resolveScrubOptions(), cleanupIntervalMs: 0 });
   const resultScrubber = createSecretScrubber(resolveScrubOptions());
   assert.ok(resultScrubber);
   let padding = "";
+  let exportFixture: { toml: unknown } | undefined;
   const secrets = [
     "stack-credential-739",
     "expanded-deploy-849",
@@ -62,9 +67,10 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
           padding,
         };
       case "GetContainerLog":
-        return { stdout: `API_TOKEN=${secrets[3]}\n${padding}\ncomplete-log-end`, stderr: "" };
+        return { stdout: `match API_TOKEN=${secrets[3]}\nmatch ${padding}\ncomplete-log-end`, stderr: "" };
       case "ExportAllResourcesToToml":
       case "ExportResourcesToToml":
+        if (exportFixture) return exportFixture;
         return {
           toml:
             `[[variable]]\nname = "v"\nis_secret = true\nvalue = "${secrets[4]}"\n` +
@@ -96,6 +102,7 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
   toolRegistry.registerFromFactory(getStackInfoTool);
   toolRegistry.registerFromFactory(inspectContainerTool);
   toolRegistry.registerFromFactory(getContainerLogsTool);
+  toolRegistry.registerFromFactory(searchContainerLogsTool);
   toolRegistry.registerFromFactory(exportAllResourcesToTomlTool);
   toolRegistry.registerFromFactory(exportResourcesToTomlTool);
   const tools = toolRegistry.getTools();
@@ -122,7 +129,7 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
       registry.clear();
       config.MCP_RESOURCE_RESPONSE_MODE = scenario.mode;
       config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 16384;
-      padding = scenario.large ? "x".repeat(20000) : "benign-data";
+      padding = scenario.large ? "x".repeat(20000) : "benign-data-é漢😀";
       if ("missingSession" in scenario) delete serverTransport.sessionId;
       else serverTransport.sessionId = "session-a";
       if ("registrationFailure" in scenario) {
@@ -134,9 +141,11 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
         const args =
           tool.name === getStackInfoTool.name
             ? { stack: "test-stack" }
-            : tool.name === inspectContainerTool.name || tool.name === getContainerLogsTool.name
-              ? { server: "s", container: "c" }
-              : {};
+            : tool.name === searchContainerLogsTool.name
+              ? { server: "s", container: "c", query: "match" }
+              : tool.name === inspectContainerTool.name || tool.name === getContainerLogsTool.name
+                ? { server: "s", container: "c" }
+                : {};
         const response = await client.callTool({
           name: tool.name,
           arguments: { ...args, ...("inlineFull" in scenario ? { inline_full: true } : {}) },
@@ -167,7 +176,7 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
           assert.throws(() => registry.read(link.uri, "other-session"), /Cross-session/);
         } else {
           assert.equal(payload["resourceLink"], undefined);
-          full = payload["info"] ?? payload["inspect"] ?? payload["stdout"] ?? payload["toml"];
+          full = payload["info"] ?? payload["inspect"] ?? payload["stdout"] ?? payload["toml"] ?? payload["matches"];
         }
         for (const secret of secrets)
           assert.ok(!JSON.stringify(response).includes(secret), `tool result leaked ${secret}`);
@@ -176,11 +185,127 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
         if (tool.name === exportAllResourcesToTomlTool.name || tool.name === exportResourcesToTomlTool.name) {
           assert.equal((payload["summary"] as { secrets_masked: boolean }).secrets_masked, true);
           assert.equal(typeof full, "string");
+          assert.equal((payload["summary"] as { bytes: number }).bytes, Buffer.byteLength(full as string, "utf8"));
           const parsed = parseToml(full as string);
           assert.equal((parsed["variable"] as { is_secret: boolean }[])[0]?.is_secret, true);
+          if (!scenario.link && scenario.large) {
+            const text = JSON.stringify(response.content);
+            assert.ok(!text.includes(padding), "large inline TOML should not be duplicated in rendered text");
+            assert.ok(text.length < 5000, "rendered TOML preview must stay bounded");
+            assert.match(text, /complete export in structuredContent.toml/);
+          }
         }
       }
       if (!scenario.link) assert.equal(registry.size, 0, "inline delivery must not retain resource copies");
+    });
+  }
+
+  const malformed =
+    `[[variable]]\nname = "private"\nis_secret = true\nvalue = "${secrets[4]}"\n` +
+    `[[alerter]]\n[alerter.config.endpoint.params]\nurl = "${secrets[6]}"\nbroken = [\n`;
+  for (const scenario of [
+    { mode: "inline" },
+    { mode: "link" },
+    { mode: "auto", threshold: 1 },
+    { mode: "auto", threshold: 16384 },
+    { mode: "link", inlineFull: true },
+    { mode: "auto", inlineFull: true },
+    { mode: "link", missingSession: true },
+    { mode: "auto", missingSession: true },
+    { mode: "link", registrationFailure: true },
+    { mode: "auto", threshold: 1, registrationFailure: true },
+  ] as const) {
+    await t.test(`malformed TOML withheld: ${JSON.stringify(scenario)}`, async (st) => {
+      const logs = (["error", "warn"] as const).map((level) => st.mock.method(Logger.prototype, level, () => {}));
+      registry.clear();
+      config.MCP_RESOURCE_RESPONSE_MODE = scenario.mode;
+      config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = "threshold" in scenario ? scenario.threshold : 16384;
+      exportFixture = { toml: malformed };
+      if ("missingSession" in scenario) delete serverTransport.sessionId;
+      else serverTransport.sessionId = "session-a";
+      const register = st.mock.method(registry, "register");
+      if ("registrationFailure" in scenario)
+        register.mock.mockImplementation(() => {
+          throw new Error("registry unavailable");
+        });
+      for (const tool of [exportAllResourcesToTomlTool, exportResourcesToTomlTool]) {
+        const response = await client.callTool({
+          name: tool.name,
+          arguments: "inlineFull" in scenario ? { inline_full: true } : {},
+        });
+        assert.equal(response.isError, true);
+        assert.equal(response.structuredContent, undefined);
+        assert.match(JSON.stringify(response), /TOML export withheld/);
+        for (const secret of secrets) assert.ok(!JSON.stringify(response).includes(secret));
+        assert.ok(!JSON.stringify(response).includes("broken ="), "parser details must not escape");
+      }
+      assert.equal(register.mock.callCount(), 0, "invalid TOML must never reach resource registration");
+      assert.equal(registry.size, 0);
+      for (const log of logs)
+        assert.equal(log.mock.callCount(), 0, "parser failures must not be logged with payload details");
+    });
+  }
+  exportFixture = undefined;
+
+  await t.test("TOML auto selection retains the original size while bytes describe the scrubbed export", async () => {
+    config.MCP_RESOURCE_RESPONSE_MODE = "auto";
+    config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 128;
+    serverTransport.sessionId = "session-a";
+    exportFixture = { toml: `[[variable]]\nis_secret = true\nvalue = "${"s".repeat(512)}"\n` };
+    try {
+      const response = await client.callTool({ name: exportAllResourcesToTomlTool.name, arguments: {} });
+      assert.notEqual(response.isError, true);
+      const payload = response.structuredContent as { summary: { bytes: number }; resourceLink: { uri: string } };
+      assert.ok(payload.resourceLink);
+      const resource = await client.readResource({ uri: payload.resourceLink.uri });
+      const content = resource.contents[0];
+      assert.ok(content && "text" in content);
+      assert.ok(!content.text.includes("s".repeat(512)));
+      assert.equal(payload.summary.bytes, Buffer.byteLength(content.text, "utf8"));
+      assert.ok(payload.summary.bytes < 128);
+    } finally {
+      exportFixture = undefined;
+    }
+  });
+
+  await t.test("non-string TOML payloads are withheld without exposing their values", async () => {
+    registry.clear();
+    exportFixture = { toml: { raw: secrets[4] } };
+    try {
+      const response = await client.callTool({ name: exportAllResourcesToTomlTool.name, arguments: {} });
+      assert.equal(response.isError, true);
+      assert.equal(response.structuredContent, undefined);
+      assert.match(JSON.stringify(response), /TOML export withheld/);
+      assert.ok(!JSON.stringify(response).includes(secrets[4] ?? "unreachable"));
+      assert.equal(registry.size, 0);
+    } finally {
+      exportFixture = undefined;
+    }
+  });
+
+  for (const failure of ["scrub", "serialize", "invalid-serialization"] as const) {
+    await t.test(`TOML ${failure} failure is safe before either delivery path`, async (st) => {
+      const logs = (["error", "warn"] as const).map((level) => st.mock.method(Logger.prototype, level, () => {}));
+      registry.clear();
+      // Exercise the real local serializer: a scrubber-produced invalid Date throws;
+      // an invalid property value serializes to invalid TOML and fails revalidation.
+      st.mock.method(SecretScrubber.prototype, "scrubObject", () => {
+        if (failure === "scrub") throw new Error(`sensitive internal error: ${secrets[4]}`);
+        return failure === "serialize" ? { date: new Date(NaN) } : { invalid: Symbol("not-toml") };
+      });
+      const register = st.mock.method(registry, "register");
+      for (const mode of ["link", "inline", "auto"] as const) {
+        config.MCP_RESOURCE_RESPONSE_MODE = mode;
+        const response = await client.callTool({ name: exportAllResourcesToTomlTool.name, arguments: {} });
+        assert.equal(response.isError, true);
+        assert.equal(response.structuredContent, undefined);
+        assert.match(JSON.stringify(response), /TOML export withheld: structural/);
+        for (const secret of secrets) assert.ok(!JSON.stringify(response).includes(secret));
+      }
+      assert.equal(register.mock.callCount(), 0);
+      assert.equal(registry.size, 0);
+      for (const log of logs)
+        assert.equal(log.mock.callCount(), 0, "scrub/serializer failures must not log their causes");
     });
   }
 
@@ -198,5 +323,43 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
     assert.equal(response.structuredContent, undefined);
     assert.match(JSON.stringify(response), /withheld/);
     for (const secret of secrets) assert.ok(!JSON.stringify(response).includes(secret));
+  });
+  await t.test("explicit redaction opt-out preserves raw export behavior and reports bytes consistently", async () => {
+    config.MCP_SECRET_SCRUB_ENABLED = false;
+    const sdk = new McpServer({ name: "redaction-disabled", version: "1.0.0" });
+    const client = new Client({ name: "test-client", version: "1.0.0" });
+    const [clientTransport, serverTransport] = InMemoryTransport.createLinkedPair();
+    serverTransport.sessionId = "session-a";
+    // These two boundaries deliberately match production's explicit opt-out.
+    ToolRegistry.bindToSdk(sdk, tools, { stateless: false, logger, anonymousScopes: [ToolScopes.READ] });
+    const rawRegistry = configureDynamicResourceRegistry({ scrub: false, cleanupIntervalMs: 0 });
+    try {
+      await sdk.connect(serverTransport);
+      await client.connect(clientTransport);
+      exportFixture = { toml: malformed };
+      for (const mode of ["link", "inline", "auto"] as const) {
+        config.MCP_RESOURCE_RESPONSE_MODE = mode;
+        config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 1;
+        const response = await client.callTool({ name: exportAllResourcesToTomlTool.name, arguments: {} });
+        assert.notEqual(response.isError, true);
+        const payload = response.structuredContent as {
+          summary: { bytes: number; secrets_masked: boolean };
+          toml?: string;
+          resourceLink?: { uri: string };
+        };
+        assert.equal(payload.summary.secrets_masked, false);
+        assert.equal(payload.summary.bytes, Buffer.byteLength(malformed, "utf8"));
+        const delivered = payload.resourceLink
+          ? rawRegistry.read(payload.resourceLink.uri, "session-a").content
+          : payload.toml;
+        assert.equal(delivered, malformed);
+      }
+    } finally {
+      await client.close();
+      await sdk.close();
+      rawRegistry.clear();
+      config.MCP_SECRET_SCRUB_ENABLED = true;
+      exportFixture = undefined;
+    }
   });
 });

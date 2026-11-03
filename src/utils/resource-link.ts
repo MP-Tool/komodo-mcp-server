@@ -40,6 +40,8 @@ export interface RegisterResourceOptions {
   readonly mimeType: string;
   /** Payload to register. */
   readonly content: string | Uint8Array;
+  /** Original serialized byte count when content was structurally scrubbed before registration. */
+  readonly originalBytes?: number;
   /** TTL in milliseconds. */
   readonly ttlMs: number;
   /** Inline-full opt-out from the tool's input arguments. */
@@ -67,11 +69,13 @@ export function tryRegisterResource(opts: RegisterResourceOptions): ResourceLink
   const sessionId = opts.ctx.sessionId;
   if (!sessionId) return null;
 
-  // Measure the already-serialized candidate without allocating another buffer
-  // or caching it. Redaction still runs at the existing boundaries, after this
-  // decision; a large raw payload is never inlined just because scrubbing shrinks it.
+  // Measure without another byte buffer/cache. TOML callers supply the original
+  // count after their strict pre-registration scrub. The registry/result boundaries
+  // still run; a large raw payload is never inlined just because scrubbing shrinks it.
   if (config.MCP_RESOURCE_RESPONSE_MODE === "auto") {
-    const bytes = typeof opts.content === "string" ? Buffer.byteLength(opts.content, "utf8") : opts.content.byteLength;
+    const bytes =
+      opts.originalBytes ??
+      (typeof opts.content === "string" ? Buffer.byteLength(opts.content, "utf8") : opts.content.byteLength);
     if (bytes <= config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES) return null;
   }
 

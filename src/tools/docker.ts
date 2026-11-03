@@ -16,7 +16,13 @@
 
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
-import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
+import {
+  RESOURCE_DELIVERY_DESCRIPTION,
+  PARAM_DESCRIPTIONS,
+  ToolCategories,
+  ToolScopes,
+  config,
+} from "../config/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -102,7 +108,9 @@ export const listDockerImagesTool = defineTool({
 
 export const inspectDockerImageTool = defineTool({
   name: "komodo_docker_image_inspect",
-  description: "Get detailed Docker inspect data for an image (config, layers, exposed ports, env, labels).",
+  description:
+    "Get detailed Docker inspect data for an image (config, layers, exposed ports, env, labels)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
@@ -145,7 +153,9 @@ export const inspectDockerImageTool = defineTool({
 
 export const getDockerImageHistoryTool = defineTool({
   name: "komodo_docker_image_history",
-  description: "Get the layer history of a Docker image (each build step, its size, and the command that produced it).",
+  description:
+    "Get the layer history of a Docker image (each build step, its size, and the command that produced it)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
@@ -223,7 +233,9 @@ export const listDockerNetworksTool = defineTool({
 
 export const inspectDockerNetworkTool = defineTool({
   name: "komodo_docker_network_inspect",
-  description: "Get detailed Docker inspect data for a network (subnets, connected containers, IPAM config).",
+  description:
+    "Get detailed Docker inspect data for a network (subnets, connected containers, IPAM config)." +
+    RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
@@ -300,7 +312,8 @@ export const listDockerVolumesTool = defineTool({
 
 export const inspectDockerVolumeTool = defineTool({
   name: "komodo_docker_volume_inspect",
-  description: "Get detailed Docker inspect data for a volume (labels, driver options, scope).",
+  description:
+    "Get detailed Docker inspect data for a volume (labels, driver options, scope)." + RESOURCE_DELIVERY_DESCRIPTION,
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),

@@ -139,6 +139,30 @@ Add to `.vscode/mcp.json` in your workspace:
 
 -> **[Full VS Code Guide](examples/vscode/README.md)** · **[Node.js / npx (no Docker)](examples/node/README.md)** · **[All Integrations](examples/README.md)**
 
+### ChatGPT via OpenAI Secure MCP Tunnel (stdio)
+
+For ChatGPT clients that cannot reliably consume `resource_link` results, configure the **Komodo MCP
+server process** (the `node /app/build/index.js` child launched over stdio) with:
+
+```dotenv
+MCP_RESOURCE_RESPONSE_MODE=inline
+```
+
+Set this environment variable on the MCP process/container, **not solely on the tunnel client**
+unless its environment is explicitly inherited by the child. The existing Secure MCP Tunnel,
+connection details, and `stdio` transport do not need to change.
+
+With this setting, `komodo_stack_info`, container inspect/log/search-log tools, and TOML exports
+deliver their complete payloads inline even when the tool caller omits `inline_full` or passes
+`inline_full: false`. The `inline_full: true` argument always forces full inline delivery for an
+individual request, regardless of the server mode.
+
+The default is still `MCP_RESOURCE_RESPONSE_MODE=link` for backwards compatibility. The `auto`
+mode only inlines results at or below the configured threshold (default 16384 UTF-8 bytes); larger
+results still require a client that supports `resources/read`. For ChatGPT clients that cannot read
+those links reliably, use `inline` instead of `auto`. Large inline responses can increase context
+and memory usage; request bounded logs where possible. See [Resource delivery modes](config/README.md#resources).
+
 ## Use
 
 Once connected, ask Claude, Copilot, or any MCP-compatible assistant in plain language — it picks the tools. The tool each prompt drives is shown on the right:

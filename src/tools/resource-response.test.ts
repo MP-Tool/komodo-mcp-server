@@ -132,6 +132,13 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
   await sdk.connect(serverTransport);
   await client.connect(clientTransport);
 
+  const advertised = await client.listTools();
+  for (const tool of [exportAllResourcesToTomlTool, exportResourcesToTomlTool]) {
+    const description = advertised.tools.find((entry) => entry.name === tool.name)?.description ?? "";
+    assert.match(description, /When secret scrubbing is enabled/);
+    assert.match(description, /When scrubbing is explicitly disabled.*unmasked credentials/);
+  }
+
   for (const scenario of [
     { mode: "link", large: false, link: true },
     { mode: "inline", large: false, link: false },
@@ -404,19 +411,22 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
       for (const mode of ["link", "inline", "auto"] as const) {
         config.MCP_RESOURCE_RESPONSE_MODE = mode;
         config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 1;
-        const response = await client.callTool({ name: exportAllResourcesToTomlTool.name, arguments: {} });
-        assert.notEqual(response.isError, true);
-        const payload = response.structuredContent as {
-          summary: { bytes: number; secrets_masked: boolean };
-          toml?: string;
-          resourceLink?: { uri: string };
-        };
-        assert.equal(payload.summary.secrets_masked, false);
-        assert.equal(payload.summary.bytes, Buffer.byteLength(malformed, "utf8"));
-        const delivered = payload.resourceLink
-          ? rawRegistry.read(payload.resourceLink.uri, "session-a").content
-          : payload.toml;
-        assert.equal(delivered, malformed);
+        for (const tool of [exportAllResourcesToTomlTool, exportResourcesToTomlTool]) {
+          const response = await client.callTool({ name: tool.name, arguments: {} });
+          assert.notEqual(response.isError, true);
+          assert.match(JSON.stringify(response.content), /WARNING:.*export may contain unmasked credentials/);
+          const payload = response.structuredContent as {
+            summary: { bytes: number; secrets_masked: boolean };
+            toml?: string;
+            resourceLink?: { uri: string };
+          };
+          assert.equal(payload.summary.secrets_masked, false);
+          assert.equal(payload.summary.bytes, Buffer.byteLength(malformed, "utf8"));
+          const delivered = payload.resourceLink
+            ? rawRegistry.read(payload.resourceLink.uri, "session-a").content
+            : payload.toml;
+          assert.equal(delivered, malformed);
+        }
       }
     } finally {
       await client.close();

@@ -4,6 +4,8 @@ on:
   pull_request:
     branches:
       - main
+      # Release branches such as 1.5.1, which collect PRs before they go to main
+      - '[0-9]+.[0-9]+.[0-9]+'
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - '**.md'

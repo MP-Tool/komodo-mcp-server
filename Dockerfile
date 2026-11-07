@@ -12,6 +12,12 @@
 # - Runtime uses built-in node user (UID 1000) with nologin shell
 # - Build artifacts owned by root (immutable for runtime user)
 # - Tini as init system for proper signal handling
+#
+# Node.js:
+# - node:22-alpine follows the newest Node.js 22 release on every build
+# - The minimum version is the "engines" range in package.json; npm ci enforces
+#   it through .npmrc (engine-strict), together with ignore-scripts and the
+#   pinned registry
 # =============================================================================
 
 # Build arguments for metadata (passed from CI/docker build)
@@ -20,15 +26,15 @@ ARG BUILD_DATE=unknown
 ARG COMMIT_SHA=unknown
 
 # Use native platform for builder (avoids QEMU emulation issues with npm)
-FROM --platform=$BUILDPLATFORM node:22.23.4-alpine AS builder
+FROM --platform=$BUILDPLATFORM node:22-alpine AS builder
 
 # Upgrade OS packages
 RUN apk upgrade --no-cache 
 
 WORKDIR /app
 
-# Copy package files first (better layer caching)
-COPY package*.json ./
+# Copy package files and npm settings first (better layer caching)
+COPY package*.json .npmrc ./
 
 # Install all dependencies (including devDependencies for TypeScript build)
 RUN npm ci
@@ -50,7 +56,7 @@ RUN npm prune --omit=dev && npm cache clean --force
 # Source files are NOT copied — the devcontainer mounts the workspace as a volume.
 # Dependencies are pre-installed and preserved in an anonymous volume (/app/node_modules).
 
-FROM node:22.23.4-alpine AS development
+FROM node:22-alpine AS development
 
 # Install development tools and tini for proper signal handling
 RUN apk upgrade --no-cache && \
@@ -62,7 +68,7 @@ USER node
 
 # Pre-install dependencies (preserved in anonymous volume by devcontainer).
 # Runs as node user so node_modules has correct ownership for postCreateCommand.
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package*.json .npmrc ./
 RUN npm ci
 
 # Environment variables for development
@@ -81,7 +87,7 @@ CMD ["npm", "run", "dev"]
 # Production stage
 # =============================================================================
 
-FROM node:22.23.4-alpine AS production
+FROM node:22-alpine AS production
 
 # Re-declare ARGs for this stage (needed for LABELs)
 ARG VERSION

@@ -85,7 +85,7 @@ export const getAlerterInfoTool = defineTool({
     .object({
       alerter: alerterIdSchema.describe("Alerter id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: alerterInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.ALERTER },

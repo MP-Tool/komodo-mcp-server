@@ -103,7 +103,7 @@ export const getResourceSyncInfoTool = defineTool({
     .object({
       resource_sync: resourceSyncIdSchema.describe("ResourceSync id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: resourceSyncInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.RESOURCE_SYNC },

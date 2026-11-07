@@ -117,7 +117,7 @@ export const getSwarmInfoTool = defineTool({
     .object({
       swarm: swarmIdSchema.describe("Swarm id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: swarmInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SWARM },
@@ -162,7 +162,7 @@ export const listSwarmNodesTool = defineTool({
     .object({
       swarm: swarmIdSchema.describe("Swarm id or name"),
     })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: swarmNodesListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SWARM },
@@ -199,7 +199,7 @@ export const listSwarmServicesTool = defineTool({
     .object({
       swarm: swarmIdSchema.describe("Swarm id or name"),
     })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: swarmServicesListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SWARM },

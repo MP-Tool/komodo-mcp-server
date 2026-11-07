@@ -95,7 +95,7 @@ export const getStackInfoTool = defineTool({
     .object({
       stack: stackIdSchema.describe(PARAM_DESCRIPTIONS.STACK_ID_FOR_INFO),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: stackInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.STACK },

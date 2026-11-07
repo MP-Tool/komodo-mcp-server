@@ -73,7 +73,7 @@ export const listDockerImagesTool = defineTool({
   description: "List Docker images cached locally on a server, with size and in-use status.",
   input: z
     .object({ server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED) })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: imageListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -107,7 +107,7 @@ export const inspectDockerImageTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
       image: z.string().min(1).describe("Image name or ID to inspect"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: imageInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -150,7 +150,7 @@ export const getDockerImageHistoryTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
       image: z.string().min(1).describe("Image name or ID"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: imageHistoryOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -195,7 +195,7 @@ export const listDockerNetworksTool = defineTool({
   description: "List Docker networks on a server, with driver and scope.",
   input: z
     .object({ server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED) })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: networkListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -228,7 +228,7 @@ export const inspectDockerNetworkTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
       network: z.string().min(1).describe("Network name or ID to inspect"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: networkInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -272,7 +272,7 @@ export const listDockerVolumesTool = defineTool({
   description: "List Docker volumes on a server, with driver, mountpoint, and in-use status.",
   input: z
     .object({ server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED) })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: volumeListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },
@@ -305,7 +305,7 @@ export const inspectDockerVolumeTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_REQUIRED),
       volume: z.string().min(1).describe("Volume name to inspect"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: volumeInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DOCKER },

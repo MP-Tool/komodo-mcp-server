@@ -45,7 +45,7 @@ export const appEnvSchema = z.object({
   // ── Komodo Core connection ────────────────────────────────────────────────
 
   /** Komodo Core API URL */
-  KOMODO_URL: z.string().url().optional(),
+  KOMODO_URL: z.url().optional(),
 
   /** Username for login authentication */
   KOMODO_USERNAME: z.string().optional(),
@@ -285,7 +285,7 @@ export function getKomodoCredentials(): KomodoCredentials {
 /** `[komodo]` — Komodo Core connection (credentials belong in the environment, not the file). */
 const komodoConfigFileSchema = z.object({
   /** Komodo Core API URL */
-  url: z.string().url().optional(),
+  url: z.url().optional(),
   /** Username for login authentication */
   username: z.string().optional(),
   /** Path to file containing the username (Docker secrets) */

@@ -96,7 +96,7 @@ export const getDeploymentInfoTool = defineTool({
     .object({
       deployment: deploymentIdSchema.describe(PARAM_DESCRIPTIONS.DEPLOYMENT_ID_FOR_INFO),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: deploymentInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.DEPLOYMENT },

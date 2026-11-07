@@ -183,7 +183,7 @@ export const getUpdateInfoTool = defineTool({
     .object({
       id: updateIdSchema,
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: updateInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.UPDATE },

@@ -99,7 +99,7 @@ export const getRepoInfoTool = defineTool({
     .object({
       repo: repoIdSchema.describe("Repo id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: repoInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.REPO },

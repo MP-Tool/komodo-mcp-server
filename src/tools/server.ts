@@ -121,7 +121,7 @@ export const getServerInfoTool = defineTool({
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: serverInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.SERVER },

@@ -110,7 +110,7 @@ export const getBuildInfoTool = defineTool({
     .object({
       build: buildIdSchema.describe("Build id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: buildInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILD },
@@ -207,7 +207,7 @@ export const getBuildLogsTool = defineTool({
     .object({
       update_id: z.string().min(1).describe("Komodo Update id returned by a previous komodo_build_run call"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: buildLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILD },

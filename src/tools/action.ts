@@ -100,7 +100,7 @@ export const getActionInfoTool = defineTool({
     .object({
       action_id: actionIdSchema.describe("Action id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: actionInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.ACTION },

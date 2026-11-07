@@ -19,7 +19,7 @@ const maintenanceWindowSchema = z
     name: z.string().describe("Name of the maintenance window"),
     description: z.string().optional().describe("Description of what maintenance is performed"),
     schedule_type: z
-      .nativeEnum(Types.MaintenanceScheduleType)
+      .enum(Types.MaintenanceScheduleType)
       .optional()
       .describe("Schedule type: Daily, Weekly, or OneTime"),
     day_of_week: z.string().optional().describe("For Weekly schedules: day of the week"),

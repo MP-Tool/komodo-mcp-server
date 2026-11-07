@@ -88,7 +88,7 @@ export const getBuilderInfoTool = defineTool({
   name: "komodo_builder_info",
   description:
     "Get the full Komodo Builder resource (type, connection/instance configuration). Offloaded via a session-scoped resource link unless `inline_full` is set.",
-  input: z.object({ builder: builderIdSchema.describe("Builder id or name") }).merge(inlineFullInputSchema),
+  input: z.object({ builder: builderIdSchema.describe("Builder id or name") }).extend(inlineFullInputSchema.shape),
   output: builderInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILDER },

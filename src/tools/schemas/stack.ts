@@ -25,7 +25,7 @@ const stackConfigFileDependencySchema = z
     path: z.string().describe("Path to the config file relative to run directory"),
     services: z.array(z.string()).optional().describe("Specific services this file applies to"),
     requires: z
-      .nativeEnum(Types.StackFileRequires)
+      .enum(Types.StackFileRequires)
       .optional()
       .describe("Action required when file changes: Redeploy, Restart, or None (default)"),
   })
@@ -88,8 +88,8 @@ export const stackConfigSchema = z
       .optional()
       .describe(`${FIELD_DESCRIPTIONS.ENVIRONMENT} Written to env_file_path before compose up.`),
   })
-  .merge(linkedRepoSchema)
-  .merge(webhookSchema)
+  .extend(linkedRepoSchema.shape)
+  .extend(webhookSchema.shape)
   .describe("Stack configuration - only specify fields you want to set or update");
 
 /** Stack creation config — extends base with create-specific overrides */

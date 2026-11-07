@@ -98,7 +98,7 @@ export const getProcedureInfoTool = defineTool({
     .object({
       procedure: procedureIdSchema.describe("Procedure id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: procedureInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.PROCEDURE },

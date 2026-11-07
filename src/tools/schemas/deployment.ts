@@ -20,14 +20,14 @@ import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 /** Container restart policy */
 const restartModeSchema = z
-  .nativeEnum(Types.RestartMode)
+  .enum(Types.RestartMode)
   .describe(
     `Container restart policy: "no" (${RESTART_MODE_DESCRIPTIONS.NO}), "on-failure" (${RESTART_MODE_DESCRIPTIONS.ON_FAILURE}), "always" (${RESTART_MODE_DESCRIPTIONS.ALWAYS}), "unless-stopped" (${RESTART_MODE_DESCRIPTIONS.UNLESS_STOPPED})`,
   );
 
 /** Signal to send when stopping the container */
 const terminationSignalSchema = z
-  .nativeEnum(Types.TerminationSignal)
+  .enum(Types.TerminationSignal)
   .describe("Signal to send when stopping the container. Default: SIGTERM");
 
 /** Image source: either an external Docker image or a Komodo Build */

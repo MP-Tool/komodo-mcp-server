@@ -90,7 +90,7 @@ export const listContainersTool = defineTool({
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
     })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: containerListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -126,7 +126,7 @@ export const inspectContainerTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
       container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -192,7 +192,7 @@ export const getContainerLogsTool = defineTool({
         .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
         .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -272,7 +272,7 @@ export const searchContainerLogsTool = defineTool({
         .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
         .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerSearchLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },

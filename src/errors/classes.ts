@@ -6,9 +6,8 @@
  * @module errors/classes
  */
 
-import { ErrorCode } from "@modelcontextprotocol/sdk/types.js";
 import { AppError, type BaseErrorOptions } from "mcp-server-framework";
-import { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";
+import { ErrorCodes, HttpStatus, JsonRpcErrorCode } from "mcp-server-framework/errors";
 import { getAppMessage } from "./messages.js";
 
 // ============================================================================
@@ -29,7 +28,7 @@ export class ApiError extends AppError {
     super(message, {
       code: ErrorCodes.API_ERROR,
       statusCode: options.statusCode || HttpStatus.INTERNAL_SERVER_ERROR,
-      mcpCode: ErrorCode.InternalError,
+      mcpCode: JsonRpcErrorCode.INTERNAL_ERROR,
       cause: options.cause,
       recoveryHint: options.recoveryHint,
       context: {
@@ -88,7 +87,7 @@ export class ConnectionError extends AppError {
     super(message, {
       code: "CONNECTION_ERROR",
       statusCode: HttpStatus.BAD_GATEWAY,
-      mcpCode: ErrorCode.InternalError,
+      mcpCode: JsonRpcErrorCode.INTERNAL_ERROR,
       cause: options.cause,
       recoveryHint: options.recoveryHint,
       context: { ...options.context, target },
@@ -139,7 +138,7 @@ export class AuthenticationError extends AppError {
     super(message, {
       code: ErrorCodes.API_AUTHENTICATION_ERROR,
       statusCode: options.statusCode || HttpStatus.UNAUTHORIZED,
-      mcpCode: ErrorCode.InvalidRequest,
+      mcpCode: JsonRpcErrorCode.INVALID_REQUEST,
       cause: options.cause,
       recoveryHint: options.recoveryHint,
       context: options.context,
@@ -213,7 +212,7 @@ export class NotFoundError extends AppError {
     super(message, {
       code: ErrorCodes.NOT_FOUND,
       statusCode: HttpStatus.NOT_FOUND,
-      mcpCode: ErrorCode.InvalidParams,
+      mcpCode: JsonRpcErrorCode.INVALID_PARAMS,
       cause: options.cause,
       recoveryHint: options.recoveryHint,
       context: { ...options.context, resourceType, resourceId },
@@ -270,7 +269,7 @@ export class ConfirmationRequiredError extends AppError {
     super(message, {
       code: "CONFIRMATION_REQUIRED",
       statusCode: HttpStatus.PRECONDITION_REQUIRED,
-      mcpCode: ErrorCode.InvalidRequest,
+      mcpCode: JsonRpcErrorCode.INVALID_REQUEST,
       cause: options.cause,
       recoveryHint: options.recoveryHint,
       context: options.context,
@@ -312,7 +311,7 @@ export class ClientNotConfiguredError extends AppError {
     super(message, {
       code: ErrorCodes.API_CLIENT_NOT_CONFIGURED,
       statusCode: HttpStatus.PRECONDITION_REQUIRED,
-      mcpCode: ErrorCode.InvalidRequest,
+      mcpCode: JsonRpcErrorCode.INVALID_REQUEST,
       cause: options.cause,
       recoveryHint:
         options.recoveryHint ||

@@ -93,11 +93,7 @@ export const createApiKeyTool = defineTool({
 
     const expires = args.expires_in_days > 0 ? Date.now() + args.expires_in_days * 24 * 60 * 60 * 1000 : 0;
 
-    const result = await wrapApiCall(
-      "createApiKey",
-      () => komodo.client.auth.manage("CreateApiKey", { name: args.name, expires }),
-      abortSignal,
-    );
+    const result = await wrapApiCall("createApiKey", () => komodo.createApiKey(args.name, expires), abortSignal);
 
     const payload = {
       name: args.name,
@@ -163,11 +159,7 @@ export const deleteApiKeyTool = defineTool({
       detail: "Clients authenticating with this key will lose access immediately.",
     });
 
-    await wrapApiCall(
-      "deleteApiKey",
-      () => komodo.client.auth.manage("DeleteApiKey", { key: resolvedKey }),
-      abortSignal,
-    );
+    await wrapApiCall("deleteApiKey", () => komodo.deleteApiKey(resolvedKey), abortSignal);
 
     const label = resolvedName
       ? `**Name:** ${resolvedName}\n\n**Key:** \`${resolvedKey}\``

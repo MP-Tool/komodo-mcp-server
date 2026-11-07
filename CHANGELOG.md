@@ -8,6 +8,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --------------------------------------------------------------
 ## [1.5.1]
 
+The theme: **every way to connect over the network now has a way to authenticate** - including
+clients that cannot open a browser and Komodo accounts that cannot sign in with a password. Nothing
+changes unless you use one of the new options; `stdio`, the browser login and the read-only mode
+with authentication switched off behave as in 1.5.0.
+
 > **Upgrade notes**
 > - **Node.js 22.23.4 or newer is required** (or 24.22.1+ / 26.12.1+). Older Node.js releases have a
 >   security flaw (Node2Shell, CVE-2026-111497). The Docker image already uses the newest Node.js 22.
@@ -18,9 +23,70 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 > - **One signed-in user can have at most 50 sessions at a time**; more are refused. If many clients
 >   share one account, raise `MCP_MAX_SESSIONS_PER_PRINCIPAL`.
 > - **Audit log files are no longer deleted** by log rotation or retention. Remove old ones yourself.
+> - **Clients sign in again once** after the upgrade (as after any restart - sessions live in memory).
+> - **Plain HTTP with a non-`localhost` `MCP_BASE_URL`:** OAuth needs HTTPS. The server now says so
+>   at startup and stops, instead of failing with an unhelpful error. Use HTTPS, or see
+>   [Plain HTTP on private networks](config/README.md#plain-http-on-private-networks).
+> - **MCP server without outbound internet access:** set `MCP_AUTH_CLIENT_METADATA=false`.
+>   Applications that support it now introduce themselves by a web address the server has to be
+>   able to reach (see *Added*); without internet access they could not sign in. With the setting
+>   off they register as before - also the ones that already tried, without re-adding the server.
+>   The server says at startup whether this is on, and names the setting in its log when a lookup
+>   fails.
 
 ### Added
 
+- **Sign in with a Komodo API key.** The login page has a second tab next to username/password. Use
+  it when your Komodo account signs in through SSO (OIDC, GitHub, Google), has two-factor
+  authentication, or when the client should act as a service user. When Komodo has local login
+  switched off, the password tab is hidden.
+- **Connect without a browser: OAuth client credentials.** Gateways, automation and other
+  machine-to-machine clients can request a token from `POST /token` with the standard
+  `client_credentials` grant - `client_id` is a Komodo API key, `client_secret` its secret. The
+  client acts as the Komodo user the key belongs to, with that user's permissions. No server
+  configuration needed. ([#182](https://github.com/MP-Tool/komodo-mcp-server/issues/182))
+- **Registered clients that act as the server's service account.** If the Komodo secret should not
+  leave the server, register a client under `[auth.clients.<id>]` (or `MCP_AUTH_SERVICE_CLIENT_*`)
+  with its own secret. It authenticates with `client_credentials` and acts as the `[komodo]`
+  service account, optionally limited with `scopes` (for example read-only).
+- **API-key headers for clients that can only send fixed headers.** With
+  `MCP_AUTH_API_KEY_HEADER=true` the server also accepts Komodo's `X-Api-Key` / `X-Api-Secret`
+  headers on `/mcp`. Off by default, because the long-lived secret then travels with every request.
+- **Sessions that last.** Signed-in clients get a refresh token, so a login no longer ends after an
+  hour: a password session lasts as long as the Komodo login behind it (Komodo's `jwt_ttl`, one
+  day by default), an API-key session as long as the key is valid. `MCP_AUTH_ACCESS_TOKEN_TTL` and
+  `MCP_AUTH_REFRESH_TOKEN_TTL` adjust the lifetimes.
+- **The login page shows which client is signing in** and where you are sent back to.
+- **MCP clients can introduce themselves by their web address.** Applications such as Claude Code
+  and VS Code no longer have to register with the server first: they name an address on their
+  maker's website, and the server reads the application's name and return addresses from there.
+  The login page shows the name together with the website it comes from (*identified by
+  claude.ai*), and a restart of the MCP server no longer makes such an application a stranger.
+  Applications that register keep working as before. On by default; needs outbound HTTPS from the
+  server. `MCP_AUTH_CLIENT_METADATA_HOSTS` limits it to websites you name, and
+  `MCP_AUTH_CLIENT_METADATA=false` switches it off. See
+  [How your MCP client introduces itself](config/README.md#how-your-mcp-client-introduces-itself).
+- **Registered clients can use a key instead of a secret.** Give a client under
+  `[auth.clients.<id>]` a `public_key_file` (or `MCP_AUTH_SERVICE_CLIENT_PUBLIC_KEY_FILE`): it then
+  signs each token request with its private key (`private_key_jwt`), and the server holds nothing
+  that could be used to sign in as that client. A secret and a key can be configured side by side.
+- **Machine clients can give a token back.** A client that got its token with OAuth client
+  credentials - a Komodo API key, or a registered client - can now revoke it at `/revoke` before it
+  expires, with the same credentials. Before, the server announced that address but turned such
+  clients away.
+- **Tokens can be tied to the client (DPoP).** A client that supports DPoP gets a token that only
+  works together with a fresh signature from a key that never leaves the client - a token that
+  leaks is useless on its own, and its signatures cannot be prepared in advance either. Nothing to
+  configure, and nothing changes for clients that do not ask for it. See
+  [Tokens tied to the client](config/README.md#tokens-tied-to-the-client-dpop).
+- **Sign in through your identity provider - ready for the Komodo Core that supports it.** Configure
+  your OpenID Connect provider (Authentik, Keycloak, ...) with `MCP_AUTH_OIDC_*` or
+  `[auth.providers.<name>]` and the login page gets a button for it: you sign in at the provider and
+  come back as your own Komodo user. This needs a Komodo Core with *token exchange*, which Komodo
+  Core 2.3 and earlier do not have - the server then says so at startup, shows no button, and you
+  keep using an API key. See
+  [Signing in through your identity provider](config/README.md#signing-in-through-your-identity-provider).
+- New guide: [examples/machine-clients](examples/machine-clients/).
 - **Sign-in from desktop apps with their own link scheme.** After sign-in, clients may now also
   return to app links in reverse-domain form (`com.example.app:/callback`). Short schemes of a single
   app can be allowed with `MCP_AUTH_REDIRECT_SCHEMES`. See the
@@ -29,17 +95,57 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The username/password login no longer forces a new sign-in every hour (see *Sessions that last*).
+- With authentication on, the server needs only `KOMODO_URL`; `KOMODO_API_KEY` / `KOMODO_API_SECRET`
+  are used for `stdio`, the read-only mode and registered clients.
 - **Stopping the server lets running calls finish**, for up to a few seconds, before it closes the
   sessions. Before, a stop cut off every call in flight.
 - **`/ready` no longer reports session counts.** Its status code and `status` text are unchanged.
 
 ### Security
 
+- **No way in without a credential - unchanged, and now spelled out.** The request in #182 was a
+  switch that would let unauthenticated network callers act with the server's Komodo credentials
+  again. That is the situation advisory GHSA-gf32-w3f6-crx6 was about, so there is no such switch:
+  every new option above makes the *caller* present a credential, and the caller then gets exactly
+  what that credential is worth in Komodo. With authentication switched off the network server
+  stays read-only, whatever else is configured.
+- **The server's own Komodo credentials are only used where you put them to use:** for `stdio`, for
+  the read-only mode, and for clients you registered. A signed-in user never acts through them.
+- **Sessions belong to whoever opened them.** A session id alone is no longer enough to use a
+  session; the request has to be authenticated as the same user or client.
+- **Stricter sign-in protocol:** tokens are issued by the server itself (random, stored only as
+  digests, bound to the client and to this server), refresh tokens are rotated on every use and a
+  replayed one ends the session, authorization codes can only be redeemed by the client they were
+  issued to, and the login form only works for a sign-in the server itself started.
+- **Permission changes take effect sooner.** A session is re-checked against Komodo whenever its
+  token is refreshed: a deleted API key or a disabled user ends it, changed permissions are picked up.
+- **Guessing API keys is stopped.** An address that tries 20 different wrong keys within 15 minutes
+  is locked out until that window ends. A client that keeps sending one outdated key does not count
+  as guessing, so it does not lock out others behind the same address, and keys that worked before
+  keep working during a lockout. Input that does not look like a Komodo API key is rejected without
+  being forwarded to Komodo.
+- **Failed sign-ins on the login page are recorded in the audit log** (without what was typed).
+- **Sign-in pages are never stored** by the browser or a proxy in between.
+- **When the server looks up an application's web address, it only talks to the public internet.**
+  It refuses addresses of your own network, of the machine itself and of cloud metadata services,
+  follows no redirect, and reads a few kilobytes at most - so a sign-in request cannot be used to
+  make the server reach into your network.
+- **The login page tells you when it cannot vouch for an application.** For an application that
+  introduced itself by a web address and has the sign-in returned to your own computer, the page
+  says that it cannot verify the application is the one named - continue only if you started the
+  sign-in yourself.
+- **Nobody can borrow a website's name.** The login page only says *identified by claude.ai* for
+  an application whose description the server itself fetched from claude.ai; an application cannot
+  register under a web address to appear that way.
+- **An application that changes its signing key is not locked out,** and one that authenticates
+  with a key never also gets a secret it did not ask for.
+- **A token can only be revoked by the client it was issued to.**
+- **Sign-in through an identity provider is built so that nothing of the provider reaches the
+  client:** the client only ever holds tokens of the MCP server itself, a token issued by the
+  provider is never accepted in their place, and a sign-in only counts in the browser that
+  started it.
 - **Compressed request bodies are refused** (`415`). Unpacking them was the way in for Node2Shell.
-- **A session can only be used by the user who opened it.** Before, any signed-in caller who knew a
-  session id could use that session.
-- **Sign-in is bound more tightly**: a login code only works for the client and request it was issued
-  for, sign-in pages are never cached, and failed logins are recorded in the audit log.
 - **Secret redaction covers more**: error messages of failed tools, secrets nested below a sensitive
   key, and more formats in text (quoted, numeric and URL credentials).
 - **The audit log no longer loses records.** Rotation used to delete the oldest file, so a flood of
@@ -47,6 +153,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Clients that authenticate with HTTP Basic are served everywhere.** The token endpoint accepted
+  `client_id`/`client_secret` in the `Authorization` header only for client credentials, and did
+  not announce it at all - clients that follow the announcement strictly could not connect. It is
+  now accepted for every kind of token request and announced.
+- **Refusals follow the HTTP standard.** When a client's credentials are refused at the token
+  address, the answer now always says how a client can authenticate - before, that was missing
+  unless the client had used HTTP Basic, which strict clients and proxies can stumble over. A wrong
+  password on the login page is now answered as "refused" (HTTP 403) instead of 401; the page looks
+  the same. If you watch your access log for failed sign-ins, look for 403 on `/authorize/local`.
+- **Clients that listen on the IPv6 loopback address** (`http://[::1]:...`) can sign in; they were
+  turned away before.
+- **Discovery follows the standard more closely:** the server now describes its `/mcp` endpoint
+  exactly under the address clients are told to look at (RFC 9728). Clients that connected before
+  keep working.
+- **Tools on a single resource work for non-admin users.** In 1.5.0, tools that look at or act on one
+  specific resource (info, logs, start/stop, update, ...) could refuse a signed-in Komodo user who is
+  not an admin with `requires ..., but you have undefined` - even though Komodo itself would have
+  allowed the call. Listing was not affected. Reported in #217 and fixed by **htazq** in #226 - thank you!
+- **Permissions granted on one specific resource are honoured.** A user who may, for example, operate
+  a single deployment was turned away when the deployment was addressed by its name instead of its
+  id. Both now follow what the user is allowed to do in Komodo.
 - **A config file of another program in the working directory no longer stops the server** (#191). A
   file found automatically that is invalid for this server is ignored, and the reasons are logged.
 - **Confirmation prompts reach clients without a separate event stream.** Destructive actions ask for
@@ -57,6 +184,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
 - **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
   sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
+
+### Notes
+
+- Sign-ins and sessions live in the server's memory: run one instance per address, not several
+  replicas behind a load balancer.
+- DPoP signatures are made for the exact address the client calls. Behind a reverse proxy,
+  `MCP_BASE_URL` has to be the address clients use and the path must be passed on unchanged;
+  if your proxy rewrites the path, set `MCP_AUTH_DPOP=false`.
+- Signing in through an identity provider depends on Komodo Core: it becomes available once your
+  Komodo supports token exchange. Sign-in with GitHub is not possible, because GitHub issues no
+  signed proof of identity that Komodo could check. An API key works for every account today.
 
 --------------------------------------------------------------
 ## [1.5.0]

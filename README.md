@@ -35,7 +35,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 ### 🔐 Security & Authentication
 
 - **Three Auth Methods** — API Key/Secret (recommended), username/password, or JWT token. All support Docker secrets via `*_FILE` variants.
-- **Auth Enabled by Default** — Per-user local login in HTTP mode unless explicitly disabled. The global `[komodo]` connection is configured once at startup (or via env vars) and used only for stdio or auth-disabled deployments.
+- **Auth Enabled by Default** — Over HTTP every caller authenticates as a Komodo user and acts with that user's permissions: interactively (username/password or API key) or without a browser (OAuth `client_credentials`). The global `[komodo]` connection is used only for stdio, auth-disabled deployments, and clients you register explicitly.
 - **Confirmation for Destructive Actions** — Deletes, destroys, prunes, and shell execution ask the human operator for explicit approval first (MCP elicitation with a confirm checkbox). Fail-closed on clients that can't prompt; tunable via `MCP_CONFIRM_DESTRUCTIVE` / `MCP_CONFIRM_FALLBACK`.
 - **Hardened by Default** — Input validation (Zod), rate limiting, DNS rebinding protection, security headers via Helmet, and central fail-closed secret redaction: every tool result (including exec output and retrieved logs) passes the framework's scrub boundary before it reaches the client transcript — see [Secret Redaction](config/README.md#secret-redaction).
 
@@ -177,10 +177,27 @@ There are two distinct layers - don't confuse them:
 (e.g. `KOMODO_API_KEY_FILE`). This shared connection is used for stdio and for open (auth-disabled)
 HTTP mode.
 
-**2. Users signing in to the MCP server** (HTTP/HTTPS) - **on by default** since 1.5.0. Each person
-logs in with their own Komodo username and password and gets their own session with their own
-permissions. Turn it off with `MCP_AUTH_ENABLED=false` (an open network server is then read-only);
-`stdio` is local and never authenticated.
+**2. Clients authenticating to the MCP server** (HTTP/HTTPS) - **on by default** since 1.5.0.
+Every caller proves who they are with a Komodo credential and then acts as exactly that Komodo
+user, with that user's permissions - never more:
+
+| How the client authenticates | Needs a browser | Acts as |
+|------------------------------|-----------------|---------|
+| **Login page** - Komodo username + password | once | that user |
+| **Login page** - Komodo API key + secret (works for SSO-only and 2FA accounts) | once | the key's user |
+| **Login page** - your identity provider (OpenID Connect; needs a Komodo Core with token exchange) | once | the Komodo user linked to it |
+| **OAuth `client_credentials`** - `client_id` = API key, `client_secret` = API secret | no | the key's user |
+| **OAuth `client_credentials`** - a client registered in `[auth.clients]`, with a secret or a key | no | the `[komodo]` service account |
+| **`X-Api-Key` / `X-Api-Secret` headers** - opt-in with `MCP_AUTH_API_KEY_HEADER=true` | no | the key's user |
+
+For automation and gateways, create a Komodo **service user** with just the permissions it needs,
+give it an API key, and let the client present that key. See
+[MCP-Server Authentication](config/README.md#mcp-server-authentication) for each option and
+[examples/machine-clients](examples/machine-clients/) for ready-to-use snippets.
+
+Turn authentication off with `MCP_AUTH_ENABLED=false` and the network server is **read-only** for
+everyone; there is no setting that lets a caller without a credential write. `stdio` is local and
+never authenticated.
 
 For the full configuration reference (env vars, config files, Docker secrets), see the **[Configuration Guide](config/README.md)**.
 
@@ -188,10 +205,13 @@ For the full configuration reference (env vars, config files, Docker secrets), s
 
 **Connection refused / the server can't reach Komodo.** Check `KOMODO_URL` — it needs the scheme, host, and Komodo Core port (e.g. `https://komodo.example.com:9120`). From inside Docker, `localhost` points at the container, not the host — use the host's IP or a Docker network alias. Confirm nothing (firewall, reverse proxy) blocks the port.
 
-**401 Unauthorized when a client connects (HTTP).** Since 1.5.0, authentication defaults **on** for HTTP/HTTPS, so clients must sign in (browser login against your Komodo username/password). Either complete the login, or set `MCP_AUTH_ENABLED=false` to run without it. A 401 *after* login usually means the Komodo credentials are wrong or the account is disabled. (stdio is local and never requires this.)
+**401 Unauthorized when a client connects (HTTP).** Since 1.5.0, authentication defaults **on** for HTTP/HTTPS, so the client has to authenticate: complete the browser login (Komodo username/password, or an API key if your account uses SSO or 2FA), or configure the client with OAuth client credentials / API-key headers - see [Authentication](#authentication). A 401 *after* that usually means the Komodo credentials are wrong, the API key expired, or the account is disabled. To run without authentication set `MCP_AUTH_ENABLED=false` (read-only). (stdio is local and never requires this.)
+
+**The server stops with "…public URL … is not HTTPS".** OAuth needs TLS. Set `MCP_BASE_URL` to the `https://` address clients use (reverse proxy, or `MCP_TRANSPORT=https` with a certificate). On a network that already encrypts traffic (Tailscale, WireGuard) you can accept plain HTTP explicitly - see [Plain HTTP on private networks](config/README.md#plain-http-on-private-networks).
 
 **Tools are missing from the list.** Two causes, both by design:
-- **Read-only mode.** If you disabled auth (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the server is read-only for anonymous callers — every write/exec/delete tool (incl. `komodo_exec`) is hidden and rejected. Enable `[auth]` (per-user login) to get them back. Startup logs a `READ-ONLY` notice when this is active.
+- **Read-only mode.** If you disabled auth (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the server is read-only for anonymous callers — every write/exec/delete tool (incl. `komodo_exec`) is hidden and rejected. Enable `[auth]` to get them back. Startup logs a `READ-ONLY` notice when this is active.
+- **Your Komodo permissions.** With authentication on, you only see the tools your Komodo user (or the user your API key belongs to) may use. A read-only service user sees read tools only.
 - **Tool-surface filter.** `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, or `MCP_TOOLS_EXCLUDED_TOOLS` prune the registered set. Unset all three to expose everything. A bad category name is ignored with a startup warning listing the valid categories.
 
 ## Disclaimer

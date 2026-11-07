@@ -1,14 +1,16 @@
 /**
  * Komodo identity & permission binding.
  *
- * Bridges a Komodo user (resolved once at OAuth time via `getUser` + `ListPermissions`)
- * into the MCP session:
+ * Bridges a Komodo user into the MCP session. However a caller authenticates — username and
+ * password, an API key on the login page, an API key as OAuth client credentials or request
+ * headers, or a registered service client — the result is the same thing: a Komodo user,
+ * resolved via `GetUser` + `ListPermissions` by {@link buildKomodoContext}.
  *
  * - {@link komodoIdentity} — a typed `auth.extra` codec (built on the framework's
- *   {@link defineAuthExtra}) carrying the user's stable id, username, minted Komodo JWT,
- *   admin flag, and a compact permission summary. The producer is `mapUserInfo`
- *   (`src/index.ts`); consumers read it via `getCurrentToolContext().auth` (the per-user
- *   Komodo client in `requireClient`, plus audit/logging).
+ *   {@link defineAuthExtra}) carrying the user's stable id, username, the credential the
+ *   session uses against Komodo, admin flag, and a compact permission summary. Consumers
+ *   read it via `getCurrentToolContext().auth` (the per-user Komodo client in
+ *   `requireClient`, plus audit/logging).
  * - {@link deriveKomodoScopes} — maps a user's Komodo permissions onto the three MCP tool
  *   tiers (`komodo:read|operate|admin`) so tool calls are authorized **fail-early** at the
  *   MCP layer (Komodo remains the per-resource authority on every API call).
@@ -19,7 +21,7 @@
 import { Types } from "komodo_client";
 import { defineAuthExtra, logAuditEvent, type AuthInfo } from "mcp-server-framework";
 import { ToolScopes, type ToolScope } from "../config/scopes.js";
-import { KomodoClient } from "../client.js";
+import type { KomodoClient, KomodoCredential } from "../client.js";
 import { AuthenticationError } from "../errors/index.js";
 
 // ============================================================================
@@ -27,20 +29,36 @@ import { AuthenticationError } from "../errors/index.js";
 // ============================================================================
 
 /**
- * Per-user Komodo identity embedded in `auth.extra` by the OAuth `mapUserInfo` hook.
+ * How a session was authenticated:
+ * - `password` — Komodo username and password on the login page
+ * - `api-key` — a Komodo API key and secret (login page, OAuth client credentials, or headers)
+ * - `service-client` — a client registered under `[auth.clients]`, acting as the server's
+ *   `[komodo]` service account
+ * - `sso` — a sign-in at an identity provider, which Komodo exchanged for a session of the
+ *   Komodo user linked to it
+ */
+export type KomodoAuthMethod = "password" | "api-key" | "service-client" | "sso";
+
+/**
+ * Per-user Komodo identity carried in `auth.extra`.
  *
  * Only minted for users that exist in Komodo and are enabled — an absent identity
  * means no valid MCP session (enforced upstream in the auth hooks).
  */
 export interface KomodoIdentity extends Record<string, unknown> {
-  /** Authentication method: an upstream OAuth provider, or local username/password. */
-  readonly provider: "google" | "github" | "oidc" | "local";
+  /** How this session was authenticated. */
+  readonly method: KomodoAuthMethod;
   /** Stable Komodo user id (`_id.$oid`, falling back to username) — the session/connection key. */
   readonly komodoUserId: string;
   /** Globally-unique Komodo username. */
   readonly username: string;
-  /** Komodo JWT minted by `ExchangeProviderTokenForJwt`, used for this user's API calls. */
-  readonly komodoJwt: string;
+  /**
+   * What this session uses for its Komodo API calls. Never logged: the property name is on
+   * the scrubber's sensitive-key list, so it is redacted wherever `auth.extra` surfaces.
+   */
+  readonly credential: KomodoCredential;
+  /** For `service-client` sessions: the registered OAuth client that is acting. */
+  readonly oauthClientId?: string | undefined;
   /** Whether the user holds global admin / super-admin in Komodo. */
   readonly isAdmin: boolean;
   /**
@@ -60,12 +78,28 @@ export interface KomodoIdentity extends Record<string, unknown> {
   readonly resourcePermissions?: Readonly<Record<string, string>> | undefined;
 }
 
+/** Runtime check for the credential carried in `auth.extra` (it crosses an untyped boundary). */
+function isKomodoCredential(value: unknown): value is KomodoCredential {
+  if (typeof value !== "object" || value === null) return false;
+  const credential = value as Record<string, unknown>;
+  switch (credential["type"]) {
+    case "jwt":
+      return typeof credential["jwt"] === "string" && credential["jwt"].length > 0;
+    case "api-key":
+      return typeof credential["key"] === "string" && typeof credential["secret"] === "string";
+    case "service":
+      return true;
+    default:
+      return false;
+  }
+}
+
 /**
  * Typed read/write codec for {@link KomodoIdentity} on any auth carrier
- * (`AuthContext` or `ToolContext.auth`), in both stateful and stateless transports.
+ * (`AuthInfo`, `AuthContext` or `ToolContext.auth`), in both stateful and stateless transports.
  */
 export const komodoIdentity = defineAuthExtra<KomodoIdentity>(
-  (extra) => typeof extra["komodoUserId"] === "string" && typeof extra["komodoJwt"] === "string",
+  (extra) => typeof extra["komodoUserId"] === "string" && isKomodoCredential(extra["credential"]),
 );
 
 // ============================================================================
@@ -86,11 +120,31 @@ function levelRank(level: Types.PermissionLevel | string | undefined): number {
   }
 }
 
-/** Extract the level from a `User.all` entry (which is a level string or `{ level, specific }`). */
-function entryLevel(entry: Types.PermissionLevelAndSpecifics | Types.PermissionLevel | undefined): number {
-  if (entry === undefined) return 0;
-  if (typeof entry === "string") return levelRank(entry);
-  return levelRank(entry.level);
+const PERMISSION_LEVELS = new Set<string>(Object.values(Types.PermissionLevel));
+
+/**
+ * The level of a permission value as Komodo writes it.
+ *
+ * Komodo serialises a permission without resource-specific extras as the bare level
+ * (`"Read"`) and one with extras as `{ level, specific }` — in `User.all` and in the
+ * `GetPermission` response alike, whatever the generated client types say (#217).
+ * A missing entry is no permission. Anything else is refused rather than read as some
+ * level: an unknown permission must not be cached or treated as authorized.
+ *
+ * @throws Error when the value is no permission Komodo knows
+ */
+export function permissionLevelOf(permission: unknown): Types.PermissionLevel {
+  if (permission === undefined) return Types.PermissionLevel.None;
+  const level =
+    typeof permission === "string"
+      ? permission
+      : permission !== null && typeof permission === "object" && "level" in permission
+        ? permission.level
+        : undefined;
+  if (typeof level !== "string" || !PERMISSION_LEVELS.has(level)) {
+    throw new Error("Unexpected Komodo permission value: invalid permission level");
+  }
+  return level as Types.PermissionLevel;
 }
 
 /**
@@ -118,7 +172,7 @@ export function deriveKomodoScopes(user: Types.User, permissions: readonly Types
 
   if (user.all) {
     for (const entry of Object.values(user.all)) {
-      maxRank = Math.max(maxRank, entryLevel(entry));
+      maxRank = Math.max(maxRank, levelRank(permissionLevelOf(entry)));
     }
   }
   for (const permission of permissions) {
@@ -205,7 +259,7 @@ export function summarizeResourcePermissions(user: Types.User): Record<string, s
   if (!user.all) return undefined;
   const summary: Record<string, string> = {};
   for (const [resourceType, entry] of Object.entries(user.all)) {
-    const level = typeof entry === "string" ? entry : entry.level;
+    const level = permissionLevelOf(entry);
     if (level !== Types.PermissionLevel.None) {
       summary[resourceType] = level;
     }
@@ -214,7 +268,7 @@ export function summarizeResourcePermissions(user: Types.User): Record<string, s
 }
 
 // ============================================================================
-// Session context (shared by OAuth + local login)
+// Session context (shared by every way of authenticating)
 // ============================================================================
 
 /** Resolved Komodo session: the user's bound identity + derived MCP scopes. */
@@ -224,20 +278,28 @@ export interface KomodoSessionContext {
 }
 
 /**
- * Resolve a Komodo session from a freshly-minted Komodo JWT.
+ * Resolve the Komodo session a credential stands for.
  *
- * Verifies the user exists and is enabled (else throws {@link AuthenticationError}), pulls
- * their permissions, derives MCP scopes, and records a login audit event. Shared by the
- * OAuth flow (after `exchangeProviderToken`) and the local username/password login.
+ * Asks Komodo who the credential belongs to, verifies that user is enabled, pulls their
+ * permissions and derives the MCP scopes. This is the single place a credential becomes an
+ * identity — every authentication path ends here, so they cannot drift apart.
  *
- * @throws {AuthenticationError} when the user is disabled — callers map this to a denial.
+ * Deliberately silent on success: callers decide whether what happened was a login worth an
+ * audit entry (see {@link auditLogin}) or a routine re-validation.
+ *
+ * @param client - A Komodo client that authenticates with `credential`
+ * @param credential - What the resulting session will use for its Komodo API calls
+ * @param method - How the caller authenticated
+ * @param oauthClientId - For `service-client` sessions: the registered client that is acting
+ * @throws {AuthenticationError} when Komodo rejects the credential or the user is disabled
+ * @throws {ConnectionError} when Komodo cannot be reached
  */
 export async function buildKomodoContext(
-  komodoUrl: string,
-  jwt: string,
-  provider: KomodoIdentity["provider"],
+  client: KomodoClient,
+  credential: KomodoCredential,
+  method: KomodoAuthMethod,
+  oauthClientId?: string,
 ): Promise<KomodoSessionContext> {
-  const client = KomodoClient.connectWithJwt(komodoUrl, jwt).client;
   const user = await client.getUser();
 
   if (user.enabled === false) {
@@ -246,50 +308,115 @@ export async function buildKomodoContext(
       action: "login",
       outcome: "denied",
       actor: { userId: komodoUserId(user), username: user.username },
-      detail: { provider, reason: "user_disabled" },
+      detail: { method, reason: "user_disabled" },
     });
     throw AuthenticationError.failed(`Komodo user "${user.username}" is disabled — access denied`);
   }
 
-  const permissions = await client.read("ListPermissions", {});
+  const permissions = await client.client.read("ListPermissions", {});
   const scopes = deriveKomodoScopes(user, permissions);
   const resourcePermissions = summarizeResourcePermissions(user);
 
   const identity: KomodoIdentity = {
-    provider,
+    method,
     komodoUserId: komodoUserId(user),
     username: user.username,
-    komodoJwt: jwt,
+    credential,
+    ...(oauthClientId !== undefined && { oauthClientId }),
     isAdmin: Boolean(user.admin || user.super_admin),
     canCreateServers: Boolean(user.create_server_permissions),
     canCreateBuilds: Boolean(user.create_build_permissions),
     ...(resourcePermissions && { resourcePermissions }),
   };
 
+  return { scopes, identity };
+}
+
+/**
+ * Record a successful login in the audit trail.
+ *
+ * @param ctx - The session that was just established
+ * @param via - Which door the caller came through (login page, token endpoint, …)
+ */
+export function auditLogin(ctx: KomodoSessionContext, via: string): void {
+  const { identity } = ctx;
   logAuditEvent({
     category: "auth",
     action: "login",
     outcome: "success",
     actor: { userId: identity.komodoUserId, username: identity.username },
-    detail: { provider, isAdmin: identity.isAdmin, scopes },
+    detail: {
+      method: identity.method,
+      via,
+      isAdmin: identity.isAdmin,
+      scopes: ctx.scopes,
+      ...(identity.oauthClientId !== undefined && { client: identity.oauthClientId }),
+    },
   });
-
-  return { scopes, identity };
 }
 
 /**
- * Assemble framework {@link AuthInfo} from a {@link KomodoSessionContext}.
+ * When a Komodo JWT stops being accepted, in epoch seconds — or `undefined` if it cannot be
+ * read from the token.
+ *
+ * The token is only decoded, not verified: Komodo verifies it on every call, and this value
+ * merely tells the MCP session when re-authentication will become necessary. Komodo writes
+ * `exp` in milliseconds; a value small enough to be seconds is taken as seconds, so a
+ * standards-conformant token is read correctly too.
+ */
+export function komodoJwtExpiry(jwt: string): number | undefined {
+  const payload = jwt.split(".")[1];
+  if (!payload) return undefined;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf-8")) as { exp?: unknown };
+    if (typeof claims.exp !== "number" || !Number.isFinite(claims.exp) || claims.exp <= 0) return undefined;
+    return Math.floor(claims.exp >= 1e11 ? claims.exp / 1000 : claims.exp);
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * The principal an MCP session belongs to — what the framework ties sessions and audit
+ * entries to.
+ *
+ * Normally that is the Komodo user. Registered service clients all act as the same Komodo
+ * service account, so each one is its own principal: one client cannot attach to another
+ * client's session, and the audit trail shows which client made a call.
+ */
+export function principalId(identity: KomodoIdentity): string {
+  return identity.oauthClientId !== undefined ? `service-client:${identity.oauthClientId}` : identity.komodoUserId;
+}
+
+/** Fallback session length when a JWT's own expiry cannot be read. */
+const UNKNOWN_JWT_SESSION_SECONDS = 3600;
+
+/**
+ * Assemble the framework {@link AuthInfo} describing a session's principal.
+ *
+ * `scopes` are what the user is entitled to. `expiresAt` caps the MCP session at the
+ * lifetime of the Komodo credential behind it: a JWT expires on Komodo's schedule and
+ * cannot be renewed without the password, so the session must end with it. API keys and
+ * the service account have no such deadline — those sessions are re-validated against
+ * Komodo instead whenever their refresh token is used.
  *
  * @param ctx - The resolved session context
- * @param token - Token string recorded on AuthInfo (upstream access token, or the Komodo JWT)
- * @param email - Optional email to attach to the bound identity (from OAuth userinfo)
+ * @param email - Optional email to attach to the bound identity
  */
-export function komodoAuthInfo(ctx: KomodoSessionContext, token: string, email?: string): AuthInfo {
+export function komodoAuthInfo(ctx: KomodoSessionContext, email?: string): AuthInfo {
+  const { credential } = ctx.identity;
+  const expiresAt =
+    credential.type === "jwt"
+      ? (komodoJwtExpiry(credential.jwt) ?? Math.floor(Date.now() / 1000) + UNKNOWN_JWT_SESSION_SECONDS)
+      : undefined;
+
   return {
-    token,
-    clientId: ctx.identity.komodoUserId,
+    // The bearer token of a request is the one the MCP server issued; the Komodo credential
+    // lives in `extra` only.
+    token: "",
+    clientId: principalId(ctx.identity),
     scopes: [...ctx.scopes],
-    expiresAt: Math.floor(Date.now() / 1000) + 3600,
+    ...(expiresAt !== undefined && { expiresAt }),
     extra: komodoIdentity.write({ ...ctx.identity, ...(email && { email }) }),
   };
 }

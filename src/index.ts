@@ -10,7 +10,6 @@ import "./utils/polyfills.js";
 
 import {
   createServer,
-  createOAuthProvider,
   logger,
   logAuditEvent,
   getFrameworkConfig,
@@ -21,7 +20,7 @@ import {
   defineDynamicResourceTemplate,
   iconFromFile,
 } from "mcp-server-framework";
-import type { AuthOptions, LocalLoginConfig, ScrubToolResultsConfig, ToolDefinition } from "mcp-server-framework";
+import type { AuthOptions, ScrubToolResultsConfig, ToolDefinition } from "mcp-server-framework";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 import {
@@ -34,10 +33,8 @@ import {
   ToolScopes,
   ToolCategories,
 } from "./config/index.js";
-import { configureKomodoConnections, stopKomodoConnections, resolveAuth, KomodoClient } from "./client.js";
-import { AuthenticationError } from "./errors/index.js";
-import { buildKomodoContext, komodoAuthInfo } from "./auth/komodo-identity.js";
-import { komodoLoginPage } from "./auth/login.js";
+import { configureKomodoConnections, stopKomodoConnections, resolveAuth } from "./client.js";
+import { createKomodoAuth } from "./auth/setup.js";
 import { resolveScrubOptions } from "./utils/redact.js";
 
 // Side-effect imports — register all tools in the global registry
@@ -83,8 +80,8 @@ defineDynamicResourceTemplate();
 // MCP authentication resolution (operating-mode aware)
 // ============================================================================
 
-// OAuth applies only to HTTP transports; stdio has no HTTP layer to authenticate against
-// and always runs anonymously against the global Komodo connection.
+// Authentication applies only to HTTP transports; stdio has no HTTP layer to authenticate
+// against and always runs anonymously against the global Komodo connection.
 const transportMode = getFrameworkConfig().MCP_TRANSPORT;
 const httpMode = transportMode !== "stdio";
 
@@ -94,13 +91,14 @@ const mcpServerUrl = deriveServerBaseUrl();
 
 const startupCreds = getKomodoCredentials();
 const komodoUrl = startupCreds.url;
-// ownLogin: Komodo offers local username/password login of its own, so "zero providers"
-// doesn't mean "no way to log in" (the framework refuses to start auth without one).
-// Without KOMODO_URL that login cannot work; the branch below then fails closed.
+// ownLogin: Komodo always offers a way to sign in whenever KOMODO_URL is set (username/password
+// and API key), so "zero providers" doesn't mean "no way to log in" (the framework refuses to
+// start auth without one). Without KOMODO_URL that login cannot work; the server then fails closed.
 // Auth defaults ON; set MCP_AUTH_ENABLED=false or [auth].enabled=false to opt out.
-// NOTE: external OAuth providers ([auth.providers.*]) are not wired in yet — only local
-// Komodo username/password login is offered until that lands (see feat/oauth-login).
-const authResolved = resolveAuthConfig({ ownLogin: true }); // master switch
+// Identity providers configured under [auth.providers.*] / MCP_AUTH_OIDC_* are offered on the
+// login page when Komodo Core can take such a sign-in over (see auth/sso.ts); otherwise the
+// server says so at start-up and accounts that sign in to Komodo via SSO use an API key.
+const authResolved = resolveAuthConfig({ ownLogin: true });
 const authActive = httpMode && authResolved.enabled;
 
 /** Fail-closed provider: server starts but every /mcp request is rejected (no token verifies). */
@@ -112,6 +110,8 @@ const denyAllAuth: AuthOptions = {
 };
 
 let authConfig: AuthOptions | undefined;
+/** Registered service clients act through the global Komodo connection, so it must exist for them. */
+let serviceClients = false;
 
 if (authActive) {
   if (!komodoUrl) {
@@ -126,49 +126,20 @@ if (authActive) {
     });
     authConfig = denyAllAuth;
   } else {
-    const url = komodoUrl;
     try {
-      // Local username/password login against Komodo — always offered on the unified login
-      // page when auth is active, yielding an isolated per-user session. External OAuth
-      // providers (GitHub/Google/OIDC) are not wired in yet — see feat/oauth-login.
-      const localLogin: LocalLoginConfig = {
-        displayName: "Komodo username & password",
-        verify: async (username, password) => {
-          try {
-            const jwt = await KomodoClient.loginForJwt(url, username, password);
-            return komodoAuthInfo(await buildKomodoContext(url, jwt, "local"), jwt);
-          } catch (err) {
-            if (err instanceof AuthenticationError) return null; // bad credentials / disabled → reject
-            throw err; // unexpected (e.g. Komodo unreachable) → surfaced as a server error
-          }
-        },
-      };
-
-      const { provider, callbackHandler, localLoginHandler } = await createOAuthProvider([], {
+      // Every way of signing in — login page (password / API key), OAuth client credentials,
+      // and the opt-in API-key headers — resolves to a Komodo user. See auth/setup.ts.
+      const setup = await createKomodoAuth({
+        komodoUrl,
         serverUrl: mcpServerUrl,
-        localLogin,
-        renderLoginPage: komodoLoginPage,
+        config: authResolved,
+        serviceAccountConfigured: resolveAuth(startupCreds) !== null,
       });
-
-      authConfig = {
-        enabled: true,
-        provider,
-        callbackHandler,
-        ...(localLoginHandler && { localLoginHandler }),
-        issuerUrl: new URL(mcpServerUrl),
-        // Show each signed-in user only the tools their Komodo permissions actually
-        // allow. Scopes are derived from real Komodo permissions, so without this a
-        // read-only user is offered every write tool and gets a refusal on each —
-        // wasted context and a misleading tool list. Anonymous callers are already
-        // filtered this way via `anonymousScopes`; this closes the gap for
-        // authenticated ones. Call-time enforcement is unaffected either way.
-        scopeFilterCapabilities: true,
-      };
-
-      logger.info("MCP authentication enabled — local login");
+      authConfig = setup.auth;
+      serviceClients = setup.serviceClients;
     } catch (err) {
       logger.error(
-        "SECURITY: OAuth provider initialization failed — failing closed (all requests rejected): %s",
+        "SECURITY: authentication setup failed — failing closed (all requests rejected): %s",
         err instanceof Error ? err.message : String(err),
       );
       logAuditEvent({
@@ -187,14 +158,15 @@ if (authActive) {
 // ============================================================================
 
 // Anonymous mode (stdio, or HTTP with auth disabled) serves via the global Komodo
-// connection; authenticated HTTP resolves a per-user client from each request's JWT.
+// connection; authenticated HTTP resolves a client from each request's own credential.
 const anonymousMode = !authConfig;
 
 // Open network deployment (http OR https, no per-user auth) ⇒ READ-ONLY, as an invariant.
 // Anonymous requests are granted only the READ scope, so the framework hides and rejects
 // every write/operate/exec/delete tool (komodo:operate / komodo:admin). This bounds the blast
 // radius of a misconfigured open server to reads; the only way to get write access over the
-// network is to enable [auth]. stdio (httpMode === false) is local & trusted ⇒ unrestricted.
+// network is to authenticate. There is no setting that lifts this: a caller who presents no
+// credential never writes. stdio (httpMode === false) is local & trusted ⇒ unrestricted.
 const anonymousScopes = httpMode && anonymousMode ? [ToolScopes.READ] : undefined;
 
 // Security notice: an open network server backed by shared global credentials is now read-only.
@@ -295,7 +267,7 @@ const { start } = createServer({
   ...(authConfig && { auth: authConfig }),
 
   lifecycle: {
-    onStarting: () => configureKomodoConnections({ anonymousMode }),
+    onStarting: () => configureKomodoConnections({ anonymousMode, serviceClients }),
     onStopping: () => {
       stopKomodoConnections();
     },

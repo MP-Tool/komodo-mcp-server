@@ -25,7 +25,7 @@ import { defineTool, structured } from "mcp-server-framework";
 import { createSecretScrubber, scrubByMimeType } from "mcp-server-framework/logger";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   wrapApiCall,
@@ -141,10 +141,9 @@ export const exportResourcesToTomlTool = defineTool({
       ? targetEntries.map((entry) => {
           const target = splitResourceTarget(entry);
           if (!target) {
-            throw AppErrorFactory.validation.custom(
-              `Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`,
-              "targets",
-            );
+            throw new ValidationError(`Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`, {
+              field: "targets",
+            });
           }
           // @type-variance — { type: string } → SDK `ResourceTarget` (a per-type discriminated union).
           // Komodo validates the resource type server-side.

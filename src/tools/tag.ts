@@ -19,7 +19,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   recordAffected,
@@ -49,7 +49,7 @@ type Tag = Types.Tag;
 function requireTagColor(input: string): Types.TagColor {
   const color = parseTagColor(input);
   if (!color) {
-    throw AppErrorFactory.validation.custom(`Unknown tag color "${input}". ${TAG_COLOR_HINT}`, "color");
+    throw new ValidationError(`Unknown tag color "${input}". ${TAG_COLOR_HINT}`, { field: "color" });
   }
   return color;
 }
@@ -132,7 +132,7 @@ export const applyTagTool = defineTool({
     const komodo = requireClient();
     recordAffected("Tag", args.tag ?? args.name ?? "<new>");
     if (args.action === "create") {
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const params: Types.CreateTag = {
         name,
@@ -142,9 +142,9 @@ export const applyTagTool = defineTool({
       const built = buildApplyResult("create", "tag", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.tag) throw AppErrorFactory.validation.fieldRequired("tag");
+    if (!args.tag) throw ValidationError.fieldRequired("tag");
     if (args.name === undefined && args.color === undefined) {
-      throw AppErrorFactory.validation.fieldRequired("name | color");
+      throw ValidationError.fieldRequired("name | color");
     }
     const tagId = await resolveTagObjectId(args.tag, abortSignal);
     let updated: Tag | undefined;

@@ -16,7 +16,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -141,7 +141,7 @@ export const applyBuilderTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Builder");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const config = toBuilderConfig(args.config);
       const result = await wrapApiCall(
@@ -152,9 +152,9 @@ export const applyBuilderTool = defineTool({
       const built = buildApplyResult("create", "builder", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.builder) throw AppErrorFactory.validation.fieldRequired("builder");
+    if (!args.builder) throw ValidationError.fieldRequired("builder");
     const config = toBuilderConfig(args.config);
-    if (!config) throw AppErrorFactory.validation.fieldRequired("config");
+    if (!config) throw ValidationError.fieldRequired("config");
     await requireKomodoPermission({ type: "Builder", id: args.builder }, Write);
     const builderId = args.builder;
     const result = await wrapApiCall(

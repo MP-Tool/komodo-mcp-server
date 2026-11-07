@@ -15,7 +15,7 @@
 import { defineTool, structured } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { NotFoundError, ValidationError } from "../errors/index.js";
 import {
   requireClient,
   recordAffected,
@@ -139,15 +139,15 @@ export const deleteApiKeyTool = defineTool({
       const matches = keys.filter((k) => k.name === input);
 
       if (matches.length === 0) {
-        throw AppErrorFactory.notFound.resource(input, "API key");
+        throw NotFoundError.resource(input, "API key");
       }
       if (matches.length > 1) {
-        throw AppErrorFactory.validation.fieldRequired(
+        throw ValidationError.fieldRequired(
           `Multiple API keys named "${input}" exist. Provide the full K_... key string instead.`,
         );
       }
       const match = matches[0];
-      if (!match) throw AppErrorFactory.notFound.resource(input, "API key");
+      if (!match) throw NotFoundError.resource(input, "API key");
       resolvedKey = match.key;
       resolvedName = match.name;
     }

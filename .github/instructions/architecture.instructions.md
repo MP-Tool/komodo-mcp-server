@@ -24,7 +24,6 @@ src/
 ├── errors/
 │   ├── index.ts          # Barrel export
 │   ├── classes.ts        # ApiError, ConnectionError, AuthenticationError, etc.
-│   ├── factory.ts        # AppErrorFactory (extends FrameworkErrorFactory)
 │   ├── messages.ts       # AppMessages registry + getAppMessage()
 │   └── extraction.ts     # Error parsing from komodo_client responses
 ├── tools/
@@ -60,7 +59,7 @@ Entry Point (index.ts)
        ├─ Tools (tools/) - defineTool() with auto-registration
        │    └─ Utils (utils/) - requireClient(), wrapApiCall(), formatters
        │         └─ API Client (client.ts) - KomodoClient wrapping komodo_client
-       └─ Errors (errors/) - AppErrorFactory, AppMessages, error classes
+       └─ Errors (errors/) - error classes, AppMessages
 ```
 
 ## Framework Dependency
@@ -75,7 +74,7 @@ The `mcp-server-framework` package provides:
 | Duration parsing | `durationSchema`, `parseDuration` |
 | Config integration | `registerConfigSection`, `getAppConfig` |
 | Logging | `logger` |
-| Error base classes | `FrameworkErrorFactory`, `AppError`, `OperationCancelledError` |
+| Error base classes | `AppError`, `ValidationError`, `OperationCancelledError` |
 | Message interpolation | `interpolate` |
 
 All framework features are imported from `mcp-server-framework` - no deep imports into framework internals.

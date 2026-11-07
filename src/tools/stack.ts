@@ -16,7 +16,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -141,7 +141,7 @@ export const applyStackTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Stack");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const stackConfig: Record<string, unknown> = { ...args.config };
       if (args.server_id) stackConfig.server_id = args.server_id;
@@ -153,7 +153,7 @@ export const applyStackTool = defineTool({
       const built = buildApplyResult("create", "stack", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.stack) throw AppErrorFactory.validation.fieldRequired("stack");
+    if (!args.stack) throw ValidationError.fieldRequired("stack");
     await requireKomodoPermission({ type: "Stack", id: args.stack }, Types.PermissionLevel.Write);
     const stackId = args.stack;
     const result = await wrapApiCall(

@@ -16,7 +16,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -218,7 +218,7 @@ export const applyResourceSyncTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("ResourceSync");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
         "createResourceSync",
@@ -230,7 +230,7 @@ export const applyResourceSyncTool = defineTool({
       const built = buildApplyResult("create", "resource_sync", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.resource_sync) throw AppErrorFactory.validation.fieldRequired("resource_sync");
+    if (!args.resource_sync) throw ValidationError.fieldRequired("resource_sync");
     await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Write);
     const syncId = args.resource_sync;
     const result = await wrapApiCall(

@@ -11,7 +11,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { PARAM_DESCRIPTIONS, ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   serverApplyInputSchema,
   serverIdSchema,
@@ -166,7 +166,7 @@ export const applyServerTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Server");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
         "createServer",
@@ -181,7 +181,7 @@ export const applyServerTool = defineTool({
       const built = buildApplyResult("create", "server", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+    if (!args.server) throw ValidationError.fieldRequired("server");
     await requireKomodoPermission({ type: "Server", id: args.server }, Types.PermissionLevel.Write);
     const server = args.server;
     const result = await wrapApiCall(
@@ -266,7 +266,7 @@ export const serverActionTool = defineTool({
 
     let params: Record<string, unknown>;
     if (args.action === "delete_network" || args.action === "delete_image" || args.action === "delete_volume") {
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       params = { server: args.server, name: args.name };
     } else {
       params = { server: args.server };

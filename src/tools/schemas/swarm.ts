@@ -128,7 +128,7 @@ export const swarmActionEnum = z.enum(["update_node", "remove_nodes", "remove_se
  *
  * Replaces `z.discriminatedUnion` because many MCP clients (incl. MCP Inspector)
  * cannot render discriminated unions as input forms. The handler validates the
- * per-action required fields at runtime via `AppErrorFactory.validation.fieldRequired`.
+ * per-action required fields at runtime via `ValidationError.fieldRequired`.
  *
  * - `update_node`     → `UpdateSwarmNode`     (requires `node`)
  * - `remove_nodes`    → `RemoveSwarmNodes`    (requires `nodes`)

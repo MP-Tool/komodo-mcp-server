@@ -16,7 +16,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -187,7 +187,7 @@ export const applyProcedureTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Procedure");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
         "createProcedure",
@@ -202,7 +202,7 @@ export const applyProcedureTool = defineTool({
       const built = buildApplyResult("create", "procedure", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.procedure) throw AppErrorFactory.validation.fieldRequired("procedure");
+    if (!args.procedure) throw ValidationError.fieldRequired("procedure");
     await requireKomodoPermission({ type: "Procedure", id: args.procedure }, Types.PermissionLevel.Write);
     const procedureId = args.procedure;
     const result = await wrapApiCall(

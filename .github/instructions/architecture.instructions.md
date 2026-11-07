@@ -13,7 +13,8 @@ Komodo MCP Server is a consumer of the `mcp-server-framework` package. The frame
 
 ```
 src/
-├── index.ts              # Entry point - createServer() + lifecycle hooks
+├── index.ts              # Entry point - loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + lifecycle hooks
 ├── client.ts             # KomodoClient wrapper + connection monitoring
 ├── config/
 │   ├── index.ts          # Barrel export
@@ -53,7 +54,7 @@ src/
 ## Layers
 
 ```
-Entry Point (index.ts)
+Entry Point (index.ts → server.ts)
   └─ createServer() from mcp-server-framework
        ├─ Config (config/) - env vars, descriptions, defaults
        ├─ Tools (tools/) - defineTool() with auto-registration
@@ -97,7 +98,7 @@ import "./container.js";
 import "./server.js";
 // ...
 
-// index.ts - side-effect import triggers registration before createServer()
+// server.ts - side-effect import triggers registration before createServer()
 import "./tools/index.js";
 ```
 

@@ -24,6 +24,7 @@ import {
   booleanFromEnv,
   optionalBooleanFromEnv,
   caseInsensitiveEnum,
+  ConfigurationError,
 } from "mcp-server-framework";
 
 // ============================================================================
@@ -118,7 +119,7 @@ export const appEnvSchema = z.object({
   //
   // Layered on top of the framework's generic `MCP_SCRUB_*` settings: the
   // framework provides the BASE, these Komodo keys are the EXTENSION and win.
-  // See `resolveScrubOptions()` in `src/index.ts` for the exact composition.
+  // See `resolveScrubOptions()` in `src/server.ts` for the exact composition.
 
   /**
    * Master switch for secret redaction of tool output. Applied centrally by the
@@ -177,7 +178,17 @@ export type AppEnvConfig = z.infer<typeof appEnvSchema>;
  * {@link resolveKomodoConfig} once the config file has loaded — mutated **in place** so
  * every importer keeps a stable reference. Read `config.MCP_*` / `config.KOMODO_*` anywhere.
  */
-export const config: AppEnvConfig = appEnvSchema.parse(process.env);
+export const config: AppEnvConfig = parseAppEnv(process.env);
+
+/**
+ * Parse the app's settings. An invalid value is reported like the framework reports its own: a
+ * {@link ConfigurationError} that lists every setting with its problem, not a raw `ZodError`.
+ */
+function parseAppEnv(source: Record<string, string | undefined>): AppEnvConfig {
+  const result = appEnvSchema.safeParse(source);
+  if (!result.success) throw ConfigurationError.envValidationFailed(result.error);
+  return result.data;
+}
 
 /**
  * Merge the app-specific config-file sections and re-resolve {@link config} as
@@ -185,11 +196,11 @@ export const config: AppEnvConfig = appEnvSchema.parse(process.env);
  * schema parses, and `process.env` is spread last so a real env var always wins.
  *
  * Must be called AFTER the config file is loaded and BEFORE any consumer reads a file-backed
- * knob (`scrubOptions`, the resource registry, the tool filter in `src/index.ts`).
+ * knob (`scrubOptions`, the resource registry, the tool filter in `src/server.ts`).
  */
 export function resolveKomodoConfig(): void {
   getFrameworkConfig(); // ensure the config file is loaded so getAppConfig() has section data
-  Object.assign(config, appEnvSchema.parse({ ...fileSectionOverrides(), ...process.env }));
+  Object.assign(config, parseAppEnv({ ...fileSectionOverrides(), ...process.env }));
 }
 
 /** Map the registered app config-file sections to env-style string overrides (only for present keys). */

@@ -77,7 +77,7 @@ All MCP infrastructure is imported from `mcp-server-framework`. This section pro
 
 | Export | Purpose | Usage |
 |--------|---------|-------|
-| `createServer(options)` | Create and start MCP server | `src/index.ts` entry point |
+| `createServer(options)` | Create and start MCP server | `src/server.ts` (loaded by the entry point `src/index.ts`) |
 | `defineTool({ name, input, handler })` | Define + auto-register a tool | Every tool file |
 | `z` | Zod re-export (version-safe) | Input schemas, env validation |
 | `text(content)` | Text tool response | Most tool handlers |

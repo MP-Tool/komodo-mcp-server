@@ -1,5 +1,5 @@
 // Must precede any komodo_client import — mogh_auth_client touches localStorage at
-// module load, same reason src/index.ts imports this first.
+// module load, same reason src/server.ts imports this first.
 import "../utils/polyfills.js";
 
 import { test } from "node:test";

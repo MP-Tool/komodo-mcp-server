@@ -19,7 +19,8 @@ An MCP (Model Context Protocol) server that enables AI assistants to interact wi
 
 ```
 src/
-├── index.ts              # Entry point — createServer() + lifecycle hooks
+├── index.ts              # Entry point — loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + lifecycle hooks
 ├── client.ts             # KomodoClient wrapper + connection monitoring
 ├── config/
 │   ├── index.ts          # Barrel export

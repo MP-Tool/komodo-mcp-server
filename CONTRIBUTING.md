@@ -17,7 +17,8 @@ npm run build
 
 ```
 src/
-├── index.ts              # Server entry point (createServer + tool imports)
+├── index.ts              # Entry point: loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + tool imports
 ├── client.ts             # Komodo API client (connection management)
 ├── config/               # Configuration & environment validation (Zod)
 │   ├── env.ts            # Environment variable schema
@@ -99,7 +100,7 @@ export const myTool = defineTool({
 });
 ```
 
-Import the tool file in `src/index.ts` — it auto-registers via the global registry.
+Import the tool file in `src/tools/index.ts` — it auto-registers via the global registry.
 
 ## Commits & Pull Requests
 

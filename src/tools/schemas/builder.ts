@@ -13,7 +13,7 @@
  * @module tools/schemas/builder
  */
 
-import { z } from "zod";
+import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { resourceNameSchema } from "./validators.js";
 import { pageOutputSchema, resourceLinkSchema } from "./shared.js";

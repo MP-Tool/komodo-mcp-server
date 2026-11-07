@@ -94,13 +94,13 @@ const mcpServerUrl = deriveServerBaseUrl();
 
 const startupCreds = getKomodoCredentials();
 const komodoUrl = startupCreds.url;
-// defaultEnabled:true — unlike the framework's generic default (auth on only when an
-// OAuth provider is configured), Komodo always offers local username/password login
-// whenever KOMODO_URL is set, so "zero providers" doesn't mean "no way to log in".
+// ownLogin: Komodo offers local username/password login of its own, so "zero providers"
+// doesn't mean "no way to log in" (the framework refuses to start auth without one).
+// Without KOMODO_URL that login cannot work; the branch below then fails closed.
 // Auth defaults ON; set MCP_AUTH_ENABLED=false or [auth].enabled=false to opt out.
 // NOTE: external OAuth providers ([auth.providers.*]) are not wired in yet — only local
 // Komodo username/password login is offered until that lands (see feat/oauth-login).
-const authResolved = resolveAuthConfig({ defaultEnabled: true }); // master switch
+const authResolved = resolveAuthConfig({ ownLogin: true }); // master switch
 const authActive = httpMode && authResolved.enabled;
 
 /** Fail-closed provider: server starts but every /mcp request is rejected (no token verifies). */

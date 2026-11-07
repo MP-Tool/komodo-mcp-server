@@ -9,7 +9,7 @@
  * @module tools/schemas/toml
  */
 
-import { z } from "zod";
+import { z } from "mcp-server-framework";
 import { resourceLinkSchema } from "./shared.js";
 
 /**

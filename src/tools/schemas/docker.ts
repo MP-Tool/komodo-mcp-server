@@ -9,7 +9,7 @@
  * @module tools/schemas/docker
  */
 
-import { z } from "zod";
+import { z } from "mcp-server-framework";
 import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
 
 // ============================================================================

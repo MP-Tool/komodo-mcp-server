@@ -21,7 +21,7 @@
  * @module tools/toml
  */
 
-import { defineTool, structured } from "mcp-server-framework";
+import { defineTool, structured, type ToolResultFor } from "mcp-server-framework";
 import { createSecretScrubber, scrubByMimeType } from "mcp-server-framework/logger";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
@@ -60,7 +60,7 @@ function buildTomlResult(
   sessionId: string | undefined,
   inlineFull: boolean | undefined,
   description: string,
-): ReturnType<typeof structured> {
+): ToolResultFor<typeof tomlOutputSchema> {
   const scrubConfig = resolveScrubOptions();
   const link = toml
     ? tryRegisterResource({

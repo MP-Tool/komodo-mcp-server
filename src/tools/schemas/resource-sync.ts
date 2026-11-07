@@ -73,7 +73,7 @@ export const resourceSyncApplyInputSchema = z.object({
     .optional()
     .describe("Required when action='update' — existing resource sync id or name"),
   config: z
-    .record(z.unknown())
+    .record(z.string(), z.unknown())
     .optional()
     .describe(
       "ResourceSync configuration (repo, branch, resource_path[], file_contents, managed, etc.). " +

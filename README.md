@@ -237,7 +237,7 @@ GPL-3.0 License - see [LICENSE](LICENSE.txt) for details.
 ### Requirements
 
 - **Komodo** v2 (Komodo Core 2.x; the server refuses version-sensitive tools like `komodo_exec` on older cores)
-- **Docker** (for containerized deployment) or **Node.js 22+** (for native installation)
+- **Docker** (for containerized deployment) or **Node.js 22.23.4+, 24.22.1+ or 26.12.1+** (for native installation)
 - **Valid Komodo credentials** (API Key/Secret, Username/Password, or JWT Token)
 
 ## Security

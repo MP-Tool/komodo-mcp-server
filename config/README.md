@@ -64,6 +64,16 @@ Override auto-discovery by setting the config file path:
 MCP_CONFIG_FILE_PATH=/path/to/my-config.toml
 ```
 
+### Strict Checking
+
+Settings are checked when the server starts, so a typo does not silently fall back to a default:
+
+- **Unknown sections or keys make a config file invalid.**
+  - A file set via `MCP_CONFIG_FILE_PATH` stops the start, and the error lists every problem.
+  - A file found automatically in the working directory is ignored instead: the problems are logged and the server starts without it. Such a file may belong to another program. A found file that contains `[auth]` or `[security]` stops the start, so a broken security setting never goes unnoticed.
+- **Yes/no settings** accept `true`/`false`, `1`/`0`, `yes`/`no` or `on`/`off`. Anything else stops the start, and an empty value counts as not set.
+- **Settings with fixed values** accept any upper or lower case: `LOG_LEVEL=INFO` works like `info`.
+
 ### Example Files
 
 This directory contains complete reference configs with all available options documented:
@@ -179,6 +189,7 @@ connection above. Only applies to `http`/`https`; `stdio` is local and never aut
 |----------|-----------|---------|-------------|
 | `MCP_AUTH_ENABLED` | `auth.enabled` | `true` | Require clients to sign in |
 | `MCP_AUTH_REQUIRED_SCOPES` | `auth.required_scopes` | - | Required scopes for `/mcp` (advanced) |
+| `MCP_AUTH_REDIRECT_SCHEMES` | `auth.redirect_schemes` | - | Comma-separated app link schemes a client may return to after sign-in, beyond the ones that are always allowed (see below) |
 
 > The RFC 9728 Protected Resource Metadata URL is derived automatically from the public base URL
 > (`MCP_BASE_URL`) — there is no separate setting.
@@ -186,6 +197,11 @@ connection above. Only applies to `http`/`https`; `stdio` is local and never aut
 **Enabled (default):** clients sign in via a browser username/password login against Komodo; each
 user gets an isolated, per-user Komodo session with their own permissions, and every tool call is
 permission-checked on Komodo before it runs.
+
+**Where a client may return after sign-in:** to `https` addresses, to `http` on the same machine
+(`localhost`, `127.0.0.1`, `[::1]`), and to app links in reverse-domain form such as
+`com.example.app:/callback`. A desktop app with a short link scheme of its own needs that scheme in
+`MCP_AUTH_REDIRECT_SCHEMES`, for example `MCP_AUTH_REDIRECT_SCHEMES=claude`. Other schemes are refused.
 
 **Disabled (`MCP_AUTH_ENABLED=false`) on a network transport:** the server runs **read-only** for
 anonymous callers - write/exec/delete tools (including `komodo_exec`) are hidden from `tools/list`
@@ -334,7 +350,8 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | Variable | Config Key | Default | Description |
 |----------|-----------|---------|-------------|
 | `MCP_MAX_SESSIONS` | `session.max_sessions` | `200` | Max total concurrent sessions |
-| `MCP_MAX_STREAMABLE_HTTP_SESSIONS` | `session.max_streamable_http_sessions` | `100` | Max Streamable HTTP sessions |
+| `MCP_MAX_SESSIONS_PER_PRINCIPAL` | `session.max_sessions_per_principal` | `50` | Max concurrent sessions of one signed-in user; more are refused with `429`. Raise it when many clients share one account |
+| `MCP_MAX_STREAMABLE_HTTP_SESSIONS` | `session.max_streamable_http_sessions` | *(`MCP_MAX_SESSIONS`)* | Max Streamable HTTP sessions |
 | `MCP_MAX_SSE_SESSIONS` | `session.max_sse_sessions` | `50` | Max legacy SSE sessions |
 
 ## Logging
@@ -347,9 +364,9 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | `LOG_COMPONENT` | `logging.component` | `false` | Include component name in text output |
 | `LOG_DIR` | `logging.log_dir` | - | Directory for file logging (disabled if unset) |
 | `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation |
-| `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep |
-| `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled) |
-| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on) |
+| `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep (not the audit log) |
+| `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled; not the audit log) |
+| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on). The server never deletes audit files: remove old ones yourself |
 | `LOG_AUDIT_TOOL_IO` | `logging.audit_tool_io` | `summary` | Audit request/result depth per tool call (scrubbed): `off`, `summary`, `full` |
 
 ## Telemetry (Experimental)

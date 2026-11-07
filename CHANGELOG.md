@@ -8,8 +8,51 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 --------------------------------------------------------------
 ## [1.5.1]
 
+> **Upgrade notes**
+> - **Node.js 22.23.4 or newer is required** (or 24.22.1+ / 26.12.1+). Older Node.js releases have a
+>   security flaw (Node2Shell, CVE-2026-111497). The Docker image already uses the newest Node.js 22.
+> - **Settings are checked strictly.** A config file with an unknown section or key is invalid. If you
+>   set it with `MCP_CONFIG_FILE_PATH`, the server does not start and lists every problem. Yes/no
+>   settings only accept `true`/`false`, `1`/`0`, `yes`/`no` or `on`/`off`. See
+>   [Strict Checking](config/README.md#strict-checking).
+> - **One signed-in user can have at most 50 sessions at a time**; more are refused. If many clients
+>   share one account, raise `MCP_MAX_SESSIONS_PER_PRINCIPAL`.
+> - **Audit log files are no longer deleted** by log rotation or retention. Remove old ones yourself.
+
+### Added
+
+- **Sign-in from desktop apps with their own link scheme.** After sign-in, clients may now also
+  return to app links in reverse-domain form (`com.example.app:/callback`). Short schemes of a single
+  app can be allowed with `MCP_AUTH_REDIRECT_SCHEMES`. See the
+  [configuration reference](config/README.md#mcp-server-authentication).
+- **`MCP_MAX_SESSIONS_PER_PRINCIPAL`**: how many sessions one signed-in user may hold at once (default 50).
+
+### Changed
+
+- **Stopping the server lets running calls finish**, for up to a few seconds, before it closes the
+  sessions. Before, a stop cut off every call in flight.
+- **`/ready` no longer reports session counts.** Its status code and `status` text are unchanged.
+
+### Security
+
+- **Compressed request bodies are refused** (`415`). Unpacking them was the way in for Node2Shell.
+- **A session can only be used by the user who opened it.** Before, any signed-in caller who knew a
+  session id could use that session.
+- **Sign-in is bound more tightly**: a login code only works for the client and request it was issued
+  for, sign-in pages are never cached, and failed logins are recorded in the audit log.
+- **Secret redaction covers more**: error messages of failed tools, secrets nested below a sensitive
+  key, and more formats in text (quoted, numeric and URL credentials).
+- **The audit log no longer loses records.** Rotation used to delete the oldest file, so a flood of
+  rejected requests could push older records out.
+
 ### Fixed
 
+- **A config file of another program in the working directory no longer stops the server** (#191). A
+  file found automatically that is invalid for this server is ignored, and the reasons are logged.
+- **Confirmation prompts reach clients without a separate event stream.** Destructive actions ask for
+  confirmation, and that question was sent where some clients never listen. It now arrives with the
+  tool call, and canceling the call also cancels the question.
+- **A session no longer expires while a call is running** or an event stream is open.
 - **Settings with fixed values accept any upper or lower case** (#191), in the environment and in the
   config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
 - **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the

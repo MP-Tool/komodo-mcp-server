@@ -190,6 +190,13 @@ auth:
   # required_scopes:
   #   - "mcp"
 
+  ## App link schemes a client may return to after sign-in, beyond https, http on this machine
+  ## and reverse-domain schemes like com.example.app (those are always allowed).
+  ## Env: MCP_AUTH_REDIRECT_SCHEMES (comma-separated)
+  ## Optional, no default.
+  # redirect_schemes:
+  #   - "claude"
+
   ## External OAuth providers (auth.providers.<name>) for Google/GitHub/OIDC federation are
   ## reserved for upcoming work and NOT wired in yet. Today, enabling auth offers local
   ## Komodo username/password login automatically.
@@ -408,11 +415,17 @@ session:
   ## Default: 200
   max_sessions: 200
 
+  ## Maximum concurrent sessions of one signed-in user; more are refused with 429.
+  ## Raise it when many clients share one account.
+  ## Env: MCP_MAX_SESSIONS_PER_PRINCIPAL
+  ## Default: 50
+  max_sessions_per_principal: 50
+
   ## Maximum concurrent Streamable HTTP sessions.
   ## Must be <= max_sessions.
   ## Env: MCP_MAX_STREAMABLE_HTTP_SESSIONS
-  ## Default: 100
-  max_streamable_http_sessions: 100
+  ## Default: same as max_sessions
+  # max_streamable_http_sessions: 200
 
   ## Maximum concurrent SSE sessions (legacy transport).
   ## Must be <= max_sessions.
@@ -465,13 +478,13 @@ logging:
   max_file_size: "10mb"
 
   ## Maximum number of rotated log files to keep.
-  ## Older rotated files beyond this count are deleted.
+  ## Older rotated files beyond this count are deleted (never the audit log).
   ## Env: LOG_MAX_FILES
   ## Default: 3
   max_files: 3
 
   ## Automatic log file retention in days.
-  ## Files older than this are deleted during cleanup sweeps.
+  ## Files older than this are deleted during cleanup sweeps (never the audit log).
   ## Set to 0 to disable time-based retention.
   ## Env: LOG_RETENTION_DAYS
   ## Default: 0 (disabled)
@@ -480,6 +493,7 @@ logging:
   ## Dedicated JSON-Lines audit-log file (always on; records who did what to which resource + outcome).
   ## Env: LOG_AUDIT_FILE
   ## Default: "<log dir or ./logs>/audit.log"
+  ## Audit files are never deleted automatically: remove old ones yourself.
   # audit_file: "/var/log/komodo-mcp/audit.log"
 
   ## How much request/result detail the audit log records for each tool call (always

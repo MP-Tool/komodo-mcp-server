@@ -169,7 +169,7 @@ export const resourceSyncActionTool = defineTool({
         abortSignal,
         reportProgress,
       );
-      const payload = buildActionResult(update, "deploy", "resource_sync", args.resource_sync);
+      const payload = buildActionResult(update, "run", "resource_sync", args.resource_sync);
       return structured(payload, {
         text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
       });

@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+## [1.5.1]
+
+### Fixed
+
+- **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
+  sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
+
+--------------------------------------------------------------
 ## [1.5.0]
 
 The main themes: **sign in with your own Komodo account**, **secure by default** over the network,

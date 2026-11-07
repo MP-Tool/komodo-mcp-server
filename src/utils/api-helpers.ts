@@ -120,6 +120,27 @@ export async function readCoreVersion(): Promise<string> {
 // Per-Resource Authorization (fail-early)
 // ============================================================================
 
+/**
+ * Komodo Core serializes a permission without specifics as a bare level string,
+ * and a permission with specifics as { level, specific }. The generated SDK
+ * return type only models the latter. Normalize both without trusting malformed
+ * values: an unknown permission must not be cached or treated as authorized.
+ */
+const PERMISSION_LEVELS = new Set<string>(Object.values(Types.PermissionLevel));
+
+export function parseGetPermissionLevel(result: unknown): Types.PermissionLevel {
+  const level =
+    typeof result === "string"
+      ? result
+      : result !== null && typeof result === "object" && "level" in result
+        ? result.level
+        : undefined;
+  if (typeof level !== "string" || !PERMISSION_LEVELS.has(level)) {
+    throw new Error("Unexpected Komodo GetPermission response: invalid permission level");
+  }
+  return level as Types.PermissionLevel;
+}
+
 /** Short-TTL cache of the current user's permission level per resource (avoids an extra call per tool). */
 interface CachedPermission {
   readonly level: Types.PermissionLevel;
@@ -249,7 +270,7 @@ export async function requireKomodoPermission(
     const result = await wrapApiCall(`check permission on ${target.type} '${target.id}'`, () =>
       client.client.read("GetPermission", { target }),
     );
-    level = result.level;
+    level = parseGetPermissionLevel(result);
     cachePermission(cacheKey, { level, expiresAt: now + PERMISSION_CACHE_TTL_MS });
   }
 

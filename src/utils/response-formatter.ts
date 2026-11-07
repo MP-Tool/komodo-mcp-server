@@ -14,17 +14,7 @@ import { RESPONSE_ICONS } from "../config/index.js";
 import { tryRegisterResource, type RegisterResourceOptions } from "./resource-link.js";
 
 export type ActionType =
-  | "deploy"
-  | "pull"
-  | "start"
-  | "restart"
-  | "pause"
-  | "unpause"
-  | "stop"
-  | "destroy"
-  | "create"
-  | "update"
-  | "remove";
+  "deploy" | "pull" | "start" | "restart" | "pause" | "unpause" | "stop" | "destroy" | "create" | "update" | "remove";
 
 export type ResourceType =
   | "stack"

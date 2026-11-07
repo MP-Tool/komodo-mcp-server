@@ -183,40 +183,29 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Check TypeScript errors
-        run: npx tsc --noEmit
+      - name: Lint
+        run: npm run lint
 
-      - name: Validate package.json
-        run: |
-          node -p "JSON.parse(require('fs').readFileSync('package.json', 'utf8'))" > /dev/null
-          echo "✅ package.json is valid JSON"
+      - name: Check formatting
+        run: npm run format:check
 
-  # NOTE: Unit tests temporarily disabled - moved to separate test workflow
-  # Uncomment when test suite is stable
-  # unit-and-fuzz-tests:
-  #   name: Unit and Fuzz Tests
-  #   runs-on: ubuntu-latest
-  #   timeout-minutes: 15
-  #   if: github.event.pull_request.draft == false
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v6
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v6
-  #       with:
-  #         node-version: '22'
-  #         cache: 'npm'
-  #
-  #     - name: Install dependencies
-  #       run: npm ci
-  #
-  #     - name: Run Unit Tests
-  #       run: npm test -- --coverage
-  #
-  #     - name: Upload Coverage Report
-  #       if: always()
-  #       uses: actions/upload-artifact@v4
-  #       with:
-  #         name: coverage-report
-  #         path: coverage/
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # Run always, even on draft PRs
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v6
+
+      - name: Setup Node.js
+        uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v6
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run unit tests
+        run: npm test

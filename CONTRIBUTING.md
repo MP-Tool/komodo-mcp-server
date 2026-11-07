@@ -11,7 +11,7 @@ npm install
 npm run build
 ```
 
-**Prerequisites**: Node.js 22+, Docker (for container testing), a Komodo v2 instance for testing tools.
+**Prerequisites**: Node.js 22.23.4+ (or 24.22.1+ / 26.12.1+), Docker (for container testing), a Komodo v2 instance for testing tools.
 
 ## Project Structure
 

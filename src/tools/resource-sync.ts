@@ -13,7 +13,7 @@
  * @module tools/resource-sync
  */
 
-import { defineTool, structured, text, z } from "mcp-server-framework";
+import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
 import { AppErrorFactory } from "../errors/index.js";
@@ -185,7 +185,16 @@ export const resourceSyncActionTool = defineTool({
       resourceType: "resource_sync",
       resourceId: args.resource_sync,
     });
-    return text(`${header} (pending preview refreshed)\n\n${JSON.stringify(result, null, 2)}`);
+    const payload = {
+      success: true,
+      status: "Complete",
+      action: "refresh",
+      resource_type: "resource_sync",
+      resource_id: args.resource_sync,
+    };
+    return structured(payload, {
+      text: `${header} (pending preview refreshed)\n\n${JSON.stringify(result, null, 2)}`,
+    });
   },
 });
 

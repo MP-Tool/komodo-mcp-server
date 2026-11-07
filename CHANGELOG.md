@@ -10,6 +10,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Settings with fixed values accept any upper or lower case** (#191), in the environment and in the
+  config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
 - **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
   sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
 

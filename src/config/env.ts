@@ -23,6 +23,7 @@ import {
   durationSchema,
   booleanFromEnv,
   optionalBooleanFromEnv,
+  caseInsensitiveEnum,
 } from "mcp-server-framework";
 
 // ============================================================================
@@ -104,7 +105,7 @@ export const appEnvSchema = z.object({
    * What to do when the client cannot prompt (no elicitation capability or stateless mode):
    * "deny" refuses the destructive call, "allow" executes it with a warning. Default: "deny"
    */
-  MCP_CONFIRM_FALLBACK: z.enum(["deny", "allow"]).default("deny"),
+  MCP_CONFIRM_FALLBACK: caseInsensitiveEnum(["deny", "allow"]).default("deny"),
 
   /**
    * How long to wait for the user to answer a confirmation prompt before giving up.
@@ -321,7 +322,7 @@ const toolsConfigFileSchema = z.object({
   /** Require manual confirmation before destructive tools execute. Env: MCP_CONFIRM_DESTRUCTIVE */
   confirm_destructive: z.boolean().optional(),
   /** Behavior when a client cannot prompt: "deny" or "allow". Env: MCP_CONFIRM_FALLBACK */
-  confirm_fallback: z.enum(["deny", "allow"]).optional(),
+  confirm_fallback: caseInsensitiveEnum(["deny", "allow"]).optional(),
   /** How long to wait for a confirmation answer as duration ('5m', '30s') or ms. Env: MCP_CONFIRM_TIMEOUT_MS */
   confirm_timeout: z.union([z.number().int().positive(), z.string()]).optional(),
 });

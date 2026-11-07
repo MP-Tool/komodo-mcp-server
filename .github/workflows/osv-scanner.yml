@@ -9,11 +9,13 @@ on:
     paths:
       - 'package.json'
       - 'package-lock.json'
+      - 'osv-scanner.toml'
   pull_request:
     branches: [main]
     paths:
       - 'package.json'
       - 'package-lock.json'
+      - 'osv-scanner.toml'
   schedule:
     # Run weekly on Monday at 10:00 UTC
     - cron: '0 10 * * 1'

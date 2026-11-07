@@ -1,0 +1,15 @@
+# OSV-Scanner exceptions: https://google.github.io/osv-scanner/configuration/
+# Every entry needs a reason that shows why we are not affected, and an expiry
+# date so it is checked again.
+
+# minimatch (dev only, through ESLint and typescript-eslint)
+[[IgnoredVulns]]
+id = "GHSA-g3hv-75wg-m249"
+ignoreUntil = 2027-02-07
+reason = """\
+  The pattern amplification only runs with optimizationLevel >= 2. ESLint, \
+  @eslint/config-array and @typescript-eslint/typescript-estree call minimatch \
+  with { dot: true } only (level 1), and only with this repository's own \
+  patterns. The fix exists only in minimatch 11, while ESLint 10 and \
+  typescript-eslint 8 require ^10. Recheck once they allow minimatch 11.\
+  """

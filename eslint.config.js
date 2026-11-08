@@ -105,11 +105,11 @@ export default [
     },
   },
 
-  // node:test files — top-level `test(...)` calls are intentionally
-  // fire-and-forget (the test runner awaits them internally), and `as any`
+  // node:test files (kept locally in __tests__ folders) — top-level `test(...)` calls are
+  // intentionally fire-and-forget (the test runner awaits them internally), and `as any`
   // casts on assertion results are acceptable for brevity.
   {
-    files: ["**/*.test.ts"],
+    files: ["**/__tests__/**/*.ts"],
     rules: {
       "@typescript-eslint/no-floating-promises": "off",
       "@typescript-eslint/no-explicit-any": "off",

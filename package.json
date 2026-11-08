@@ -16,7 +16,7 @@
     "start": "node build/index.js",
     "dev": "npm run build && node build/index.js",
     "test": "tsc -p tsconfig.test.json && rm -rf build-test/auth/assets && cp -r src/auth/assets build-test/auth/assets && node --test \"build-test/**/*.test.js\"",
-    "test:e2e": "npm run build && node e2e/auth.e2e.mjs",
+    "test:e2e": "npm run build && node __tests__/e2e/auth.e2e.mjs",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf build build-test coverage test-results *.tsbuildinfo",
     "clean:all": "rm -rf build build-test node_modules logs coverage test-results *.tsbuildinfo",

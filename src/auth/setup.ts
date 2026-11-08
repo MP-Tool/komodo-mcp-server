@@ -16,6 +16,15 @@
  * There is deliberately no row without a credential: a caller the server cannot identify
  * gets nothing here (and, with authentication switched off, read-only tools at most).
  *
+ * **Settings that work but are not documented for users.** The user docs cover what people
+ * need to sign in: password, API key (login page, client credentials) and the opt-in headers.
+ * The framework's other `[auth]` settings are honoured here but left out of those docs, and are
+ * described in the framework's README instead: registered clients (`[auth.clients.*]`,
+ * `MCP_AUTH_SERVICE_CLIENT_*`), identity providers (`[auth.providers.*]`, `MCP_AUTH_OIDC_*`,
+ * waiting for a Komodo Core with token exchange), token lifetimes (`MCP_AUTH_*_TOKEN_TTL`),
+ * and — both off unless switched on — client metadata documents (`MCP_AUTH_CLIENT_METADATA*`)
+ * and DPoP (`MCP_AUTH_DPOP`).
+ *
  * @module auth/setup
  */
 
@@ -354,16 +363,19 @@ export async function createKomodoAuth(options: KomodoAuthSetupOptions): Promise
     serviceClients.length > 0 ? ` + ${serviceClients.length} registered client(s)` : "",
     config.apiKeyHeader ? "on" : "off",
   );
-  // Said at start-up because one of them has a requirement an operator cannot see from the
-  // outside: looking up an application's web address needs outbound HTTPS.
-  const acceptedHosts = config.clientMetadata === false ? undefined : config.clientMetadata.allowedHosts;
-  logger.info(
-    "MCP clients — introduce themselves by web address: %s | tokens tied to the client (DPoP): %s",
-    config.clientMetadata === false
-      ? "off (clients register)"
-      : `on, from ${acceptedHosts ? acceptedHosts.join(", ") : "any website"} (needs outbound HTTPS; MCP_AUTH_CLIENT_METADATA=false turns it off)`,
-    config.dpop ? "on" : "off",
-  );
+  // Both are off unless switched on. Once one is on, it is said at start-up, because looking
+  // up an application's web address has a requirement an operator cannot see from the
+  // outside: outbound HTTPS.
+  if (config.clientMetadata !== false || config.dpop) {
+    const acceptedHosts = config.clientMetadata === false ? undefined : config.clientMetadata.allowedHosts;
+    logger.info(
+      "MCP clients — introduce themselves by web address: %s | tokens tied to the client (DPoP): %s",
+      config.clientMetadata === false
+        ? "off (clients register)"
+        : `on, from ${acceptedHosts ? acceptedHosts.join(", ") : "any website"} (needs outbound HTTPS; MCP_AUTH_CLIENT_METADATA=false turns it off)`,
+      config.dpop ? "on" : "off",
+    );
+  }
 
   return {
     auth: {

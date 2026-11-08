@@ -36,14 +36,11 @@ I release security updates for the latest version (main branch) only. Please kee
 - **Open servers are read-only**: if you disable authentication on a network transport, only read
   tools are available - write, delete and terminal tools are hidden and refused. No setting gives
   a caller without a credential write access.
-- **The server's own Komodo credentials are not lent out**: they serve stdio, the read-only open
-  mode, and machine clients you register explicitly with their own secret or key.
+- **The server's own Komodo credentials are not lent out**: they serve stdio and the read-only
+  open mode. A caller always signs in with a Komodo credential of its own.
 - **Tokens are the server's own**: opaque, stored only as digests, bound to the requesting client
   and to this server, with refresh tokens rotated on every use. A session belongs to the caller
-  that opened it. Clients that support DPoP get tokens tied to a key that never leaves them.
-- **Looking up an application's web address cannot be turned against your network**: the server
-  only connects to public internet addresses, follows no redirect and reads a few kilobytes at
-  most. Switch the lookup off with `MCP_AUTH_CLIENT_METADATA=false`.
+  that opened it.
 - **Per-resource permission checks** run before every action, enforced against the user's Komodo
   permissions.
 - **Confirmation for destructive actions** (delete, destroy, prune, terminal commands, and

@@ -105,11 +105,6 @@ In every case the client acts as the Komodo user behind the credential, with tha
 permissions. See [MCP-Server Authentication](../config/README.md#mcp-server-authentication) and
 the [machine-client examples](../examples/machine-clients/).
 
-> **Containers without internet access:** applications such as Claude Code and VS Code introduce
-> themselves by an address on their maker's website, which the server looks up over HTTPS. If the
-> container cannot reach the internet, set `MCP_AUTH_CLIENT_METADATA=false` - the applications then
-> register with the server directly, as they did before.
-
 > **One container per address:** sign-ins and sessions live in the server's memory. Run a single
 > instance behind an address - not several replicas behind a load balancer - and expect clients
 > to sign in again after a restart.

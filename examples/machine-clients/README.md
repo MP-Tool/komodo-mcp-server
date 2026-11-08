@@ -12,8 +12,7 @@ from those permissions: a read-only service user gets read tools only.
 | Your client can... | Use | Server setup |
 |--------------------|-----|--------------|
 | do OAuth client credentials | [Option 1](#option-1-oauth-client-credentials-with-a-komodo-api-key) | none beyond `KOMODO_URL` |
-| do OAuth client credentials, and the Komodo secret must stay on the server | [Option 2](#option-2-a-registered-client) | register the client (with a secret, or [with a key](#with-a-key-instead-of-a-secret)) |
-| only send fixed headers | [Option 3](#option-3-api-key-headers) | `MCP_AUTH_API_KEY_HEADER=true` |
+| only send fixed headers | [Option 2](#option-2-api-key-headers) | `MCP_AUTH_API_KEY_HEADER=true` |
 | only do the browser login | sign in once with the **API key** tab of the login page | none |
 
 All examples assume the server is reachable at `https://mcp.example.com`. OAuth requires HTTPS;
@@ -71,84 +70,7 @@ The access token is valid for one hour; clients request a new one when it expire
 in between - the sign-in endpoints are rate limited. A token that is no longer needed can be given
 back early: `curl -u "$KOMODO_API_KEY:$KOMODO_API_SECRET" -d "token=$TOKEN" https://mcp.example.com/revoke`.
 
-## Option 2: A registered client
-
-Use this when the Komodo credential should stay on the MCP server: the server keeps
-`KOMODO_API_KEY` / `KOMODO_API_SECRET` of a service user, and each client gets a secret of its own
-that can be limited and revoked without touching Komodo.
-
-Server (`config.toml`):
-
-```toml
-[komodo]
-url = "https://komodo.example.com:9120"
-# KOMODO_API_KEY / KOMODO_API_SECRET of the service user - via environment or Docker secrets
-
-[auth.clients.gateway]
-secret_file = "/run/secrets/mcp_gateway_secret"   # at least 32 characters
-scopes = ["komodo:read", "komodo:operate"]         # optional limit
-```
-
-or with environment variables only:
-
-```dotenv
-KOMODO_URL=https://komodo.example.com:9120
-KOMODO_API_KEY_FILE=/run/secrets/komodo_api_key
-KOMODO_API_SECRET_FILE=/run/secrets/komodo_api_secret
-MCP_AUTH_SERVICE_CLIENT_ID=gateway
-MCP_AUTH_SERVICE_CLIENT_SECRET_FILE=/run/secrets/mcp_gateway_secret
-```
-
-Generate a secret with `openssl rand -hex 32`. The client then uses client ID `gateway` and that
-secret exactly as in Option 1.
-
-### With a key instead of a secret
-
-If no shared secret should exist at all, give the client a key pair. The client keeps the private
-key and signs each token request with it; the server only gets the public key, which nobody can
-sign in with.
-
-```bash
-openssl genpkey -algorithm EC -pkeyopt ec_paramgen_curve:P-256 -out gateway.key.pem   # stays with the client
-openssl pkey -in gateway.key.pem -pubout -out gateway.pub.pem                          # goes to the server
-```
-
-Server:
-
-```toml
-[auth.clients.gateway]
-public_key_file = "/run/secrets/mcp_gateway.pub.pem"
-scopes = ["komodo:read", "komodo:operate"]
-```
-
-or `MCP_AUTH_SERVICE_CLIENT_ID=gateway` with
-`MCP_AUTH_SERVICE_CLIENT_PUBLIC_KEY_FILE=/run/secrets/mcp_gateway.pub.pem`.
-
-Client (**MCP TypeScript SDK**):
-
-```typescript
-import { readFileSync } from "node:fs";
-import { Client } from "@modelcontextprotocol/sdk/client/index.js";
-import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
-import { PrivateKeyJwtProvider } from "@modelcontextprotocol/sdk/client/auth-extensions.js";
-
-const transport = new StreamableHTTPClientTransport(new URL("https://mcp.example.com/mcp"), {
-  authProvider: new PrivateKeyJwtProvider({
-    clientId: "gateway",
-    privateKey: readFileSync("gateway.key.pem", "utf-8"),
-    algorithm: "ES256",
-  }),
-});
-
-const client = new Client({ name: "my-gateway", version: "1.0.0" }, { capabilities: {} });
-await client.connect(transport);
-```
-
-In other clients and gateways the setting is usually called "private key JWT" or
-`private_key_jwt`; the audience to configure, if asked, is the server's address with a trailing
-slash (`https://mcp.example.com/`).
-
-## Option 3: API-key headers
+## Option 2: API-key headers
 
 For clients that cannot do OAuth client credentials but can send fixed headers. Switch it on at
 the server:
@@ -219,5 +141,4 @@ only the tiers its Komodo permissions cover:
 | `komodo:admin` | create, update, delete, `komodo_exec` | Write, or Komodo admin |
 
 Each call is additionally checked against the user's permission on the specific resource, and
-Komodo enforces its own rules on top. A client can ask for less with the `scope` parameter, and a
-registered client can be capped with `scopes`.
+Komodo enforces its own rules on top. A client can ask for less with the `scope` parameter.

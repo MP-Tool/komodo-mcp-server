@@ -35,7 +35,7 @@ Run directly with Node.js - no Docker required. Works on Windows, macOS, and Lin
 Connect gateways, automation and other clients to a remote server over HTTP **without a browser
 login**.
 
-- OAuth client credentials with a Komodo API key or a registered client
+- OAuth client credentials with a Komodo API key
 - API-key headers for clients that can only send static headers
 - **Best for:** MCP gateways, CI/CD, service accounts on a private network
 

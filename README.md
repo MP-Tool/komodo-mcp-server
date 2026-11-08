@@ -185,9 +185,7 @@ user, with that user's permissions - never more:
 |------------------------------|-----------------|---------|
 | **Login page** - Komodo username + password | once | that user |
 | **Login page** - Komodo API key + secret (works for SSO-only and 2FA accounts) | once | the key's user |
-| **Login page** - your identity provider (OpenID Connect; needs a Komodo Core with token exchange) | once | the Komodo user linked to it |
 | **OAuth `client_credentials`** - `client_id` = API key, `client_secret` = API secret | no | the key's user |
-| **OAuth `client_credentials`** - a client registered in `[auth.clients]`, with a secret or a key | no | the `[komodo]` service account |
 | **`X-Api-Key` / `X-Api-Secret` headers** - opt-in with `MCP_AUTH_API_KEY_HEADER=true` | no | the key's user |
 
 For automation and gateways, create a Komodo **service user** with just the permissions it needs,

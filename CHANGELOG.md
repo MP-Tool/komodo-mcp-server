@@ -176,6 +176,10 @@ with authentication switched off behave as in 1.5.0.
   id. Both now follow what the user is allowed to do in Komodo.
 - **A config file of another program in the working directory no longer stops the server** (#191). A
   file found automatically that is invalid for this server is ignored, and the reasons are logged.
+- **A start that fails on its settings says why, in a few lines** (#191). Before, the error log of
+  your MCP client showed a stack trace or a raw validation dump. Now it lists each setting with its
+  problem and what to do, for example
+  `MCP_CONFIRM_FALLBACK: Invalid option: expected one of "deny"|"allow"`.
 - **Confirmation prompts reach clients without a separate event stream.** Destructive actions ask for
   confirmation, and that question was sent where some clients never listen. It now arrives with the
   tool call, and canceling the call also cancels the question.

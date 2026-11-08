@@ -4,7 +4,7 @@ import { buildApplyResult, buildDeleteResult, buildInfoResult } from "./response
 
 // The builders deliberately do NOT scrub: secret redaction happens centrally at
 // the framework's tool-result boundary (and on offloaded-resource registration),
-// wired in src/index.ts. These tests pin that contract plus the payload shapes.
+// wired in src/server.ts. These tests pin that contract plus the payload shapes.
 
 test("buildApplyResult passes the resource through verbatim (scrubbing is the boundary's job)", () => {
   const built = buildApplyResult("update", "stack", "s", { config: { environment: "API_KEY=abc123" } });

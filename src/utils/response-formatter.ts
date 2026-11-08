@@ -177,7 +177,7 @@ export function summarizeResource(result: unknown, fallbackName: string): { name
  *
  * Secret redaction is NOT this builder's job: inline results pass the
  * framework's central tool-result boundary, and offloaded content is scrubbed
- * on register by the `DynamicResourceRegistry` (both wired in `src/index.ts`).
+ * on register by the `DynamicResourceRegistry` (both wired in `src/server.ts`).
  *
  * Pairs with the various `*InfoOutputSchema` shapes across `tools/schemas`.
  */

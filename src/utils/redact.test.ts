@@ -8,7 +8,7 @@ import { REDACTED, KOMODO_SCRUB_ALLOW_KEYS, KOMODO_SCRUB_RULES } from "./redact.
 // Contract tests: the Komodo POLICY applied by the framework engine.
 //
 // The scrub implementation lives in the framework (tool-result boundary +
-// dynamic-resource registry + log notifications, wired in src/index.ts). These
+// dynamic-resource registry + log notifications, wired in src/server.ts). These
 // tests pin the contract: the engine, configured with exactly the policy this
 // module declares, redacts Komodo's domain shapes and spares benign fields.
 // ============================================================================

@@ -29,7 +29,7 @@
  *
  * How to remove:
  *   1. Delete this file: `src/polyfills.ts`
- *   2. Remove the import in `src/index.ts`: `import "./polyfills.js";`
+ *   2. Remove the import in `src/server.ts`: `import "./polyfills.js";`
  *   3. Rebuild. If no localStorage error → upstream is fixed.
  *
  * @module polyfills

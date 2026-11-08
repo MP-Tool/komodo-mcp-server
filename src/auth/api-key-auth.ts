@@ -46,33 +46,43 @@ export function isKomodoApiSecret(value: string): boolean {
 // Verification
 // ============================================================================
 
-/** Resolves the Komodo session an API key stands for, or `null` when it is not valid. */
-export type ApiKeyVerifier = (key: string, secret: string) => Promise<KomodoSessionContext | null>;
+/**
+ * Resolves the Komodo session an API key stands for, or `null` when it is not valid.
+ * `callerAddress` is who presented the key — Komodo counts a failed check against it.
+ */
+export type ApiKeyVerifier = (
+  key: string,
+  secret: string,
+  callerAddress: string | undefined,
+) => Promise<KomodoSessionContext | null>;
 
 /**
  * Verify a Komodo API key and secret against Komodo Core.
  *
  * Anything that is not shaped like a Komodo key is turned down without contacting Komodo.
- * That matters beyond saving a round-trip: Komodo rate-limits failed authentications by
- * source address, and from Komodo's side every attempt comes from this server — junk
- * relayed on a caller's behalf would count against everyone using the MCP server.
+ * Everything else is checked in the caller's name: Komodo rate-limits failed authentications
+ * by client address, and the check tells it the caller's (see `forwardingHeaders`), so a
+ * caller's failures count against that caller and not against everyone using this server.
  *
  * @param komodoUrl - Komodo Core base URL
  * @param key - The presented API key
  * @param secret - The presented API secret
+ * @param callerAddress - Who presented the key: Komodo counts a failed check against that address
  * @returns The session context, or `null` when Komodo does not accept the pair
+ * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
  * @throws {ConnectionError} when Komodo cannot be reached — not a verdict on the key
  */
 export async function verifyApiKey(
   komodoUrl: string,
   key: string,
   secret: string,
+  callerAddress: string | undefined,
 ): Promise<KomodoSessionContext | null> {
   if (!isKomodoApiKey(key) || !isKomodoApiSecret(secret)) return null;
 
   try {
     const client = KomodoClient.connectWithApiKey(komodoUrl, key, secret);
-    return await buildKomodoContext(client, { type: "api-key", key, secret }, "api-key");
+    return await buildKomodoContext(client, { type: "api-key", key, secret }, "api-key", { callerAddress });
   } catch (error) {
     if (error instanceof AuthenticationError) return null;
     throw error;
@@ -139,7 +149,7 @@ export function createApiKeyHeaderAuthenticator(
       return key === undefined ? undefined : `${key}\0${headerValue(headers[SECRET_HEADER]) ?? ""}`;
     },
 
-    async authenticate(headers) {
+    async authenticate(headers, caller) {
       const key = headerValue(headers[KEY_HEADER]);
       const secret = headerValue(headers[SECRET_HEADER]);
       if (!key || !secret) return null;
@@ -148,7 +158,7 @@ export function createApiKeyHeaderAuthenticator(
       const cached = verified.get(cacheKey);
       if (cached && cached.expiresAt > now()) return komodoAuthInfo(cached.context);
 
-      const context = await verify(key, secret);
+      const context = await verify(key, secret, caller.remoteAddress);
       if (!context) {
         verified.delete(cacheKey);
         return null;

@@ -290,17 +290,21 @@ export interface KomodoSessionContext {
  * @param client - A Komodo client that authenticates with `credential`
  * @param credential - What the resulting session will use for its Komodo API calls
  * @param method - How the caller authenticated
- * @param oauthClientId - For `service-client` sessions: the registered client that is acting
+ * @param options.oauthClientId - For `service-client` sessions: the registered client that is acting
+ * @param options.callerAddress - Whose credential is checked, when it is a caller's: Komodo
+ *   counts a failed check against that address, not against this server
  * @throws {AuthenticationError} when Komodo rejects the credential or the user is disabled
+ * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
  * @throws {ConnectionError} when Komodo cannot be reached
  */
 export async function buildKomodoContext(
   client: KomodoClient,
   credential: KomodoCredential,
   method: KomodoAuthMethod,
-  oauthClientId?: string,
+  options: { readonly oauthClientId?: string; readonly callerAddress?: string | undefined } = {},
 ): Promise<KomodoSessionContext> {
-  const user = await client.getUser();
+  const { oauthClientId } = options;
+  const user = await client.getUser(options.callerAddress);
 
   if (user.enabled === false) {
     logAuditEvent({

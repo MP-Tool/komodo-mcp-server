@@ -92,6 +92,14 @@ with authentication switched off behave as in 1.5.0.
   as guessing, so it does not lock out others behind the same address, and keys that worked before
   keep working during a lockout. Input that does not look like a Komodo API key is rejected without
   being forwarded to Komodo.
+- **One caller's wrong guesses no longer lock everyone out.** Komodo blocks an address for a short
+  while after a few failed sign-ins. The MCP server checks every caller's password or API key at
+  Komodo, so until now Komodo saw all of them under the MCP server's address, and a few wrong keys
+  from anyone blocked every user. The server now tells Komodo who is signing in, the way a reverse
+  proxy does (`Forwarded` and `X-Forwarded-For`), so only the address that guessed is blocked. If the
+  MCP server itself runs behind a reverse proxy, set `MCP_TRUST_PROXY` so it knows the real address.
+- **A blocked sign-in says so.** When Komodo turns sign-ins away for now, clients get "too many
+  attempts" (HTTP 429) with the time to wait, instead of a server error.
 - **Failed sign-ins on the login page are recorded in the audit log** (without what was typed).
 - **Sign-in pages are never stored** by the browser or a proxy in between.
 - **A token can only be revoked by the client it was issued to.**

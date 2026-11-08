@@ -16,8 +16,8 @@
  */
 
 import { LoginDeniedError, logger as baseLogger } from "mcp-server-framework";
-import type { UpstreamLogin, UpstreamLoginConfig, RevalidatePrincipal } from "mcp-server-framework";
-import { KomodoClient } from "../client.js";
+import type { CallerInfo, UpstreamLogin, UpstreamLoginConfig, RevalidatePrincipal } from "mcp-server-framework";
+import { forwardingHeaders, KomodoClient, tooManyAttempts } from "../client.js";
 import { config } from "../config/index.js";
 import { AuthenticationError, ConnectionError } from "../errors/index.js";
 import { auditLogin, buildKomodoContext, komodoAuthInfo } from "./komodo-identity.js";
@@ -59,11 +59,16 @@ export class KomodoExchangeError extends Error {
   }
 }
 
-async function postForm(url: string, fields: Record<string, string>, timeoutMs: number): Promise<Response> {
+async function postForm(
+  url: string,
+  fields: Record<string, string>,
+  timeoutMs: number,
+  headers: Record<string, string> = {},
+): Promise<Response> {
   try {
     return await fetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+      headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json", ...headers },
       body: new URLSearchParams(fields).toString(),
       signal: AbortSignal.timeout(timeoutMs),
     });
@@ -123,11 +128,17 @@ async function jsonObject(response: Response): Promise<Record<string, unknown> |
  *
  * @param komodoUrl - Komodo Core base URL
  * @param idToken - The validated ID token of the person who signed in
+ * @param callerAddress - Whose sign-in this is: Komodo counts a refused exchange against that address
  * @returns The Komodo JWT
  * @throws {KomodoExchangeError} when Komodo refuses the token or has no token exchange
+ * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
  * @throws {ConnectionError} when Komodo cannot be reached or answers unusably
  */
-export async function exchangeIdTokenForKomodoJwt(komodoUrl: string, idToken: string): Promise<string> {
+export async function exchangeIdTokenForKomodoJwt(
+  komodoUrl: string,
+  idToken: string,
+  callerAddress: string | undefined,
+): Promise<string> {
   const url = tokenEndpoint(komodoUrl);
   const response = await postForm(
     url,
@@ -138,8 +149,10 @@ export async function exchangeIdTokenForKomodoJwt(komodoUrl: string, idToken: st
       requested_token_type: ACCESS_TOKEN_TYPE,
     },
     config.KOMODO_API_TIMEOUT_MS,
+    forwardingHeaders(callerAddress),
   );
   const body = await jsonObject(response);
+  if (response.status === 429) throw tooManyAttempts(response, body);
 
   if (response.ok) {
     const jwt = body?.["access_token"];
@@ -221,7 +234,7 @@ const Hints = {
 export function createSsoLogin(komodoUrl: string, revalidate: RevalidatePrincipal): UpstreamLoginConfig {
   return {
     revalidate,
-    resolve: async (login: UpstreamLogin) => {
+    resolve: async (login: UpstreamLogin, caller: CallerInfo) => {
       const provider = login.provider.name;
       // Only an ID token can be exchanged: it is signed by the provider and names the client
       // it was issued to, which is what lets Komodo decide whether to trust it.
@@ -229,7 +242,7 @@ export function createSsoLogin(komodoUrl: string, revalidate: RevalidatePrincipa
 
       let jwt: string;
       try {
-        jwt = await exchangeIdTokenForKomodoJwt(komodoUrl, login.idToken);
+        jwt = await exchangeIdTokenForKomodoJwt(komodoUrl, login.idToken, caller.remoteAddress);
       } catch (error) {
         if (!(error instanceof KomodoExchangeError)) throw error;
         if (error.kind === "unsupported") {
@@ -244,7 +257,9 @@ export function createSsoLogin(komodoUrl: string, revalidate: RevalidatePrincipa
 
       try {
         const client = KomodoClient.connectWithJwt(komodoUrl, jwt);
-        const context = await buildKomodoContext(client, { type: "jwt", jwt }, "sso");
+        const context = await buildKomodoContext(client, { type: "jwt", jwt }, "sso", {
+          callerAddress: caller.remoteAddress,
+        });
         auditLogin(context, `provider:${provider}`);
         return komodoAuthInfo(context);
       } catch (error) {

@@ -7,9 +7,10 @@
  * @module client
  */
 
+import { isIPv6 } from "node:net";
 import { KomodoClient as createKomodoClient } from "komodo_client";
 import type { Types } from "komodo_client";
-import { logger as baseLogger } from "mcp-server-framework";
+import { logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
 import {
   AuthenticationError,
   ClientNotConfiguredError,
@@ -75,6 +76,82 @@ async function withTimeout<T>(url: string, timeoutMs: number, operation: Promise
 }
 
 // ============================================================================
+// Checks in the Caller's Name
+// ============================================================================
+
+/**
+ * Headers that name the caller of a credential check, as a proxy does: `Forwarded` (RFC 7239)
+ * and the widespread `X-Forwarded-For`.
+ *
+ * Komodo slows down failed sign-ins per client address. This server checks credentials on its
+ * callers' behalf; without these headers Komodo would count every caller's failures against
+ * this server, and a few wrong guesses from anyone would lock out everyone. The address is the
+ * one the framework determined — the connection's peer, or the client a trusted proxy names —
+ * never a forwarding header a client set itself.
+ *
+ * @param callerAddress - The caller's address; nothing is forwarded without one
+ */
+export function forwardingHeaders(callerAddress: string | undefined): Record<string, string> {
+  if (!callerAddress) return {};
+  // RFC 7239 §6: an IPv6 address is bracketed, and quoted because it contains ":".
+  const node = isIPv6(callerAddress) ? `"[${callerAddress}]"` : callerAddress;
+  return { Forwarded: `for=${node}`, "X-Forwarded-For": callerAddress };
+}
+
+/** Komodo's "too many attempts", with the wait it names — `Retry-After`, or "Try again in 15s". */
+export function tooManyAttempts(response: Response, body: unknown): TooManyAttemptsError {
+  const header = Number(response.headers.get("retry-after"));
+  const text = typeof body === "object" && body !== null ? (body as Record<string, unknown>)["error"] : undefined;
+  const named = typeof text === "string" ? /try again in (\d+) ?s/i.exec(text)?.[1] : undefined;
+  const wait = Number.isFinite(header) && header > 0 ? header : named !== undefined ? Number(named) : undefined;
+  return new TooManyAttemptsError(wait, "Komodo refuses further sign-in attempts for now");
+}
+
+/** The headers that authenticate a request as the holder of `credential`, as komodo_client sends them. */
+function credentialHeaders(credential: KomodoUserCredential): Record<string, string> {
+  return credential.type === "jwt"
+    ? { Authorization: credential.jwt }
+    : { "X-Api-Key": credential.key, "X-Api-Secret": credential.secret };
+}
+
+/**
+ * Sends a request that checks a credential — in the caller's name ({@link forwardingHeaders}),
+ * which komodo_client has no way to add.
+ *
+ * @param body - JSON body of a POST; without one the request is a GET
+ * @returns Komodo's answer
+ * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
+ * @throws {AuthenticationError} when Komodo rejects the credential
+ * @throws {ConnectionError} when Komodo cannot be reached or answers otherwise
+ */
+async function credentialCheck(
+  url: string,
+  path: string,
+  body: object | undefined,
+  headers: Record<string, string>,
+): Promise<unknown> {
+  let response: Response;
+  try {
+    response = await fetch(`${url}${path}`, {
+      method: body === undefined ? "GET" : "POST",
+      headers: { ...(body !== undefined && { "Content-Type": "application/json" }), ...headers },
+      ...(body !== undefined && { body: JSON.stringify(body) }),
+      signal: AbortSignal.timeout(config.KOMODO_API_TIMEOUT_MS),
+      redirect: "error",
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "TimeoutError") throw ConnectionError.timeout(url);
+    throw ConnectionError.failed(url, error instanceof Error ? error.message : String(error));
+  }
+  const result: unknown = await response.json().catch(() => undefined);
+  if (response.status === 200) return result;
+  if (response.status === 429) throw tooManyAttempts(response, result);
+  const rejection = { status: response.status, result };
+  if (isAuthRejection(rejection)) throw AuthenticationError.invalidCredentials();
+  throw ConnectionError.failed(url, extractKomodoError(rejection));
+}
+
+// ============================================================================
 // Client Type
 // ============================================================================
 
@@ -88,16 +165,12 @@ type KomodoClientInstance = ReturnType<typeof createKomodoClient>;
 export class KomodoClient {
   private readonly _client: KomodoClientInstance;
   private readonly _url: string;
-  private readonly _apiKeyCredentials?: Readonly<{ key: string; secret: string }>;
+  private readonly _credential: KomodoUserCredential;
 
-  private constructor(
-    url: string,
-    client: KomodoClientInstance,
-    apiKeyCredentials?: Readonly<{ key: string; secret: string }>,
-  ) {
+  private constructor(url: string, client: KomodoClientInstance, credential: KomodoUserCredential) {
     this._url = url;
     this._client = client;
-    if (apiKeyCredentials) this._apiKeyCredentials = apiKeyCredentials;
+    this._credential = credential;
   }
 
   /** The raw komodo_client SDK instance. */
@@ -120,14 +193,14 @@ export class KomodoClient {
    * /auth/manage on service-account connections.
    */
   async createApiKey(name: string, expires: number): Promise<{ key: string; secret: string }> {
-    if (!this._apiKeyCredentials) {
+    if (this._credential.type !== "api-key") {
       return this._client.auth.manage("CreateApiKey", { name, expires });
     }
     return this.apiKeyAuthManage<{ key: string; secret: string }>("CreateApiKey", { name, expires });
   }
 
   async deleteApiKey(key: string): Promise<void> {
-    if (!this._apiKeyCredentials) {
+    if (this._credential.type !== "api-key") {
       await this._client.auth.manage("DeleteApiKey", { key });
       return;
     }
@@ -135,8 +208,8 @@ export class KomodoClient {
   }
 
   private async apiKeyAuthManage<T>(method: "CreateApiKey" | "DeleteApiKey", params: object): Promise<T> {
-    const credentials = this._apiKeyCredentials;
-    if (!credentials) throw new Error("API-key credentials are not configured");
+    const credentials = this._credential;
+    if (credentials.type !== "api-key") throw new Error("API-key credentials are not configured");
 
     const response = await fetch(`${this._url}/auth/manage/${method}`, {
       method: "POST",
@@ -190,46 +263,41 @@ export class KomodoClient {
   }
 
   /**
-   * Login with username/password via komodo_client auth API, returning the Komodo JWT.
+   * Login with username/password (Komodo's `LoginLocalUser`), returning the Komodo JWT.
    *
-   * Creates an unauthenticated temporary client (empty JWT → no Authorization header) and
-   * calls LoginLocalUser. Used both for the global username/password connection and for the
-   * per-user local-login flow (where the JWT is bound to the user's MCP session).
+   * Used both for the global username/password connection and for the per-user local-login
+   * flow (where the JWT is bound to the user's MCP session).
    *
+   * @param callerAddress - Whose sign-in this is, when it is a caller's (see {@link forwardingHeaders})
    * @throws {AuthenticationError} on invalid credentials / unsupported 2FA
+   * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
    * @throws {ConnectionError} on network failure / timeout
    */
-  static async loginForJwt(baseUrl: string, username: string, password: string): Promise<string> {
+  static async loginForJwt(
+    baseUrl: string,
+    username: string,
+    password: string,
+    callerAddress?: string,
+  ): Promise<string> {
     const url = KomodoClient.normalizeUrl(baseUrl);
-    const timeoutMs = config.KOMODO_API_TIMEOUT_MS;
-
     logger.trace('Authenticating as "%s" at %s', username, url);
 
-    // Unauthenticated client: empty JWT means no Authorization header is sent,
-    // which is required for the LoginLocalUser endpoint.
-    const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
+    const result = (await credentialCheck(
+      url,
+      "/auth/login/LoginLocalUser",
+      { username, password },
+      forwardingHeaders(callerAddress),
+    )) as { type?: unknown; data?: { jwt?: unknown } } | undefined;
 
-    try {
-      const result = await withTimeout(url, timeoutMs, tempClient.auth.login("LoginLocalUser", { username, password }));
-
-      if (result.type !== "Jwt") {
-        throw AuthenticationError.failed(
-          `Two-factor authentication (${result.type}) is not supported by the MCP server`,
-        );
-      }
-
-      if (!result.data.jwt) throw AuthenticationError.noToken();
-
-      logger.info("Successfully authenticated to %s", url);
-      return result.data.jwt;
-    } catch (error) {
-      if (error instanceof AuthenticationError || error instanceof ConnectionError) throw error;
-      // Detect auth failures from komodo_client plain object rejections
-      if (isAuthRejection(error)) {
-        throw AuthenticationError.invalidCredentials();
-      }
-      throw ConnectionError.failed(url, extractKomodoError(error));
+    if (result?.type !== "Jwt") {
+      throw AuthenticationError.failed(
+        `Two-factor authentication (${String(result?.type)}) is not supported by the MCP server`,
+      );
     }
+    if (typeof result.data?.jwt !== "string" || result.data.jwt === "") throw AuthenticationError.noToken();
+
+    logger.info("Successfully authenticated to %s", url);
+    return result.data.jwt;
   }
 
   /**
@@ -272,7 +340,7 @@ export class KomodoClient {
     const url = KomodoClient.normalizeUrl(baseUrl);
     logger.trace("Creating API-Key client for %s", url);
     const client = createKomodoClient(url, { type: "api-key", params: { key, secret } });
-    return new KomodoClient(url, client, { key, secret });
+    return new KomodoClient(url, client, { type: "api-key", key, secret });
   }
 
   /**
@@ -285,7 +353,7 @@ export class KomodoClient {
     const url = KomodoClient.normalizeUrl(baseUrl);
     logger.trace("Creating JWT client for %s", url);
     const client = createKomodoClient(url, { type: "jwt", params: { jwt } });
-    return new KomodoClient(url, client);
+    return new KomodoClient(url, client, { type: "jwt", jwt });
   }
 
   /**
@@ -301,18 +369,16 @@ export class KomodoClient {
   /**
    * The Komodo user this client authenticates as — the round-trip that proves a credential.
    *
+   * @param callerAddress - Whose credential this is, when it is a caller's (see {@link forwardingHeaders})
    * @throws {AuthenticationError} when Komodo rejects the credential (unknown or expired API
    *   key, wrong secret, expired JWT, disabled user)
+   * @throws {TooManyAttemptsError} when Komodo refuses further attempts for now
    * @throws {ConnectionError} on network failure / timeout
    */
-  async getUser(): Promise<Types.User> {
-    try {
-      return await withTimeout(this._url, config.KOMODO_API_TIMEOUT_MS, this._client.getUser());
-    } catch (error) {
-      if (error instanceof ConnectionError) throw error;
-      if (isAuthRejection(error)) throw AuthenticationError.invalidCredentials();
-      throw ConnectionError.failed(this._url, extractKomodoError(error));
-    }
+  async getUser(callerAddress?: string): Promise<Types.User> {
+    const headers = { ...credentialHeaders(this._credential), ...forwardingHeaders(callerAddress) };
+    // komodo_client's getUser(): GET /user.
+    return (await credentialCheck(this._url, "/user", undefined, headers)) as Types.User;
   }
 
   /**

@@ -32,6 +32,7 @@ import { createOAuthProvider, logAuditEvent, logger as baseLogger } from "mcp-se
 import type {
   AuthInfo,
   AuthOptions,
+  CallerInfo,
   ClientCredentialsConfig,
   LocalLoginConfig,
   OAuthProviderConfig,
@@ -69,12 +70,14 @@ export const LoginMethods = { PASSWORD: "password", API_KEY: "api-key" } as cons
  * Komodo does not (the error propagates and the client retries).
  */
 function revalidateAgainstKomodo(komodoUrl: string): RevalidatePrincipal {
-  return async (authInfo: AuthInfo): Promise<AuthInfo | null> => {
+  return async (authInfo: AuthInfo, caller: CallerInfo): Promise<AuthInfo | null> => {
     const identity = komodoIdentity.read(authInfo);
     if (!identity || identity.credential.type === "service") return null;
     try {
       const client = KomodoClient.connectWithCredential(komodoUrl, identity.credential);
-      return komodoAuthInfo(await buildKomodoContext(client, identity.credential, identity.method));
+      return komodoAuthInfo(
+        await buildKomodoContext(client, identity.credential, identity.method, { callerAddress: caller.remoteAddress }),
+      );
     } catch (error) {
       if (error instanceof AuthenticationError) return null;
       throw error;
@@ -89,11 +92,13 @@ function passwordLogin(komodoUrl: string): LocalLoginConfig {
     displayName: "Password",
     identifierLabel: "Username",
     secretLabel: "Password",
-    verify: async (username, password) => {
+    verify: async (username, password, caller) => {
       try {
-        const jwt = await KomodoClient.loginForJwt(komodoUrl, username, password);
+        const jwt = await KomodoClient.loginForJwt(komodoUrl, username, password, caller.remoteAddress);
         const client = KomodoClient.connectWithJwt(komodoUrl, jwt);
-        const context = await buildKomodoContext(client, { type: "jwt", jwt }, "password");
+        const context = await buildKomodoContext(client, { type: "jwt", jwt }, "password", {
+          callerAddress: caller.remoteAddress,
+        });
         auditLogin(context, "login-page");
         return komodoAuthInfo(context);
       } catch (error) {
@@ -112,8 +117,8 @@ function apiKeyLogin(komodoUrl: string): LocalLoginConfig {
     displayName: "API key",
     identifierLabel: "API key",
     secretLabel: "API secret",
-    verify: async (key, secret) => {
-      const context = await verifyApiKey(komodoUrl, key.trim(), secret.trim());
+    verify: async (key, secret, caller) => {
+      const context = await verifyApiKey(komodoUrl, key.trim(), secret.trim(), caller.remoteAddress);
       if (!context) return null;
       auditLogin(context, "login-page");
       return komodoAuthInfo(context);
@@ -165,7 +170,7 @@ export interface ClientAuthenticatorDeps {
  * Nothing else is recognised.
  */
 export function createClientAuthenticator(deps: ClientAuthenticatorDeps): ClientCredentialsConfig["authenticate"] {
-  return async ({ clientId, clientSecret, registered, purpose }) => {
+  return async ({ clientId, clientSecret, registered, purpose, caller }) => {
     // A client that only revokes a token it holds is not signing in: nothing is recorded as a login.
     const signingIn = purpose === "token";
     if (registered) {
@@ -175,7 +180,7 @@ export function createClientAuthenticator(deps: ClientAuthenticatorDeps): Client
     }
 
     if (clientSecret === undefined) return null;
-    const context = await deps.verifyApiKey(clientId, clientSecret);
+    const context = await deps.verifyApiKey(clientId, clientSecret, caller.remoteAddress);
     if (!context) return null;
     if (signingIn) auditLogin(context, "client-credentials");
     return komodoAuthInfo(context);
@@ -186,7 +191,7 @@ export function createClientAuthenticator(deps: ClientAuthenticatorDeps): Client
 async function serviceAccountContext(clientId: string): Promise<KomodoSessionContext> {
   const client = getGlobalClient();
   if (!client) throw ClientNotConfiguredError.notConnected();
-  return buildKomodoContext(client, { type: "service" }, "service-client", clientId);
+  return buildKomodoContext(client, { type: "service" }, "service-client", { oauthClientId: clientId });
 }
 
 /**
@@ -334,7 +339,7 @@ export async function createKomodoAuth(options: KomodoAuthSetupOptions): Promise
     clientCredentials: {
       clients: serviceClients,
       authenticate: createClientAuthenticator({
-        verifyApiKey: (key, secret) => verifyApiKey(komodoUrl, key, secret),
+        verifyApiKey: (key, secret, callerAddress) => verifyApiKey(komodoUrl, key, secret, callerAddress),
         serviceAccountContext,
       }),
     },
@@ -384,7 +389,11 @@ export async function createKomodoAuth(options: KomodoAuthSetupOptions): Promise
       issuerUrl: new URL(serverUrl),
       scopesSupported: Object.values(ToolScopes),
       ...(config.apiKeyHeader && {
-        requestAuthenticators: [createApiKeyHeaderAuthenticator((key, secret) => verifyApiKey(komodoUrl, key, secret))],
+        requestAuthenticators: [
+          createApiKeyHeaderAuthenticator((key, secret, callerAddress) =>
+            verifyApiKey(komodoUrl, key, secret, callerAddress),
+          ),
+        ],
       }),
       // Show each signed-in user only the tools their Komodo permissions actually
       // allow. Scopes are derived from real Komodo permissions, so without this a

@@ -55,6 +55,10 @@ with authentication switched off behave as in 1.5.0.
   app can be allowed with `MCP_AUTH_REDIRECT_SCHEMES`. See the
   [configuration reference](config/README.md#mcp-server-authentication).
 - **`MCP_MAX_SESSIONS_PER_PRINCIPAL`**: how many sessions one signed-in user may hold at once (default 50).
+- **The container list shows resource usage.** `komodo_container_list` now includes each container's
+  CPU, memory, network and disk usage and its process count whenever Komodo has collected them - no
+  extra calls, no extra permissions. Requested in [#201](https://github.com/MP-Tool/komodo-mcp-server/issues/201), contributed
+  by **htazq** in [#227](https://github.com/MP-Tool/komodo-mcp-server/pull/227) - thank you!
 
 ### Changed
 
@@ -116,7 +120,8 @@ with authentication switched off behave as in 1.5.0.
 - **Tools on a single resource work for non-admin users.** In 1.5.0, tools that look at or act on one
   specific resource (info, logs, start/stop, update, ...) could refuse a signed-in Komodo user who is
   not an admin with `requires ..., but you have undefined` - even though Komodo itself would have
-  allowed the call. Listing was not affected. Reported in #217 and fixed by **htazq** in #226 - thank you!
+  allowed the call. Listing was not affected. Reported in [#217](https://github.com/MP-Tool/komodo-mcp-server/issues/217) and fixed by **htazq** in
+  [#226](https://github.com/MP-Tool/komodo-mcp-server/pull/226) - thank you!
 - **Permissions granted on one specific resource are honoured.** A user who may, for example, operate
   a single deployment was turned away when the deployment was addressed by its name instead of its
   id. Both now follow what the user is allowed to do in Komodo.
@@ -134,6 +139,18 @@ with authentication switched off behave as in 1.5.0.
   config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
 - **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
   sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
+- **Refreshing a resource sync works in strict clients.** `komodo_resource_sync_action` with `refresh`
+  answered with text only, although the tool promises a structured result, so strict clients refused
+  the answer (`Output validation error`). Fixed by **Shyrka973** in [#192](https://github.com/MP-Tool/komodo-mcp-server/pull/192) - thank you!
+- **Creating and deleting API keys works when the server connects to Komodo with an API key.**
+  `komodo_user_create_api_key` and `komodo_user_delete_api_key` failed in that setup. Fixed by
+  **htazq** in [#223](https://github.com/MP-Tool/komodo-mcp-server/pull/223) - thank you!
+
+### Dependencies
+
+- `mcp-server-framework` 1.2.0 → 1.3.0, which brings the sign-in changes above and Zod 4. Zod is no
+  longer a dependency of its own.
+- All other dependencies updated to their latest versions.
 
 ### Notes
 

@@ -8,7 +8,13 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { pageOutputSchema, resourceLinkSchema, maintenanceWindowSchema, resourceTargetSchema } from "./shared.js";
+import {
+  pageOutputSchema,
+  resourceLinkSchema,
+  maintenanceWindowSchema,
+  resourceTargetSchema,
+  komodoObjectSchema,
+} from "./shared.js";
 
 /** Alerter identifier (id or name) accepted by the Komodo API. */
 export const alerterIdSchema = z.string().min(1);
@@ -33,7 +39,7 @@ export const alerterListOutputSchema = z
 export const alerterInfoOutputSchema = z
   .object({
     summary: alerterSummarySchema,
-    info: z.unknown().optional().describe("Full Alerter resource (only when not offloaded as a resource link)"),
+    info: komodoObjectSchema.optional().describe("Full Alerter resource (only when not offloaded as a resource link)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Alerter summary + optional full resource");

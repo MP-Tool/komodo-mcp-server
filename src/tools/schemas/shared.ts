@@ -9,6 +9,12 @@
 import { z } from "mcp-server-framework";
 
 /**
+ * A JSON object Komodo returns as it is — a resource, an update, a Docker inspect payload.
+ * Declared as an object rather than "any value", so clients know what they get.
+ */
+export const komodoObjectSchema = z.record(z.string(), z.unknown());
+
+/**
  * A Komodo `ResourceTarget` — `{ type, id }`. `type` is a resource-type string
  * (Server, Stack, Deployment, …), validated server-side by Komodo. Typed here
  * instead of a loose `z.record` so callers get the shape and light validation.
@@ -129,10 +135,7 @@ export const applyResultSchema = z
     action: z.enum(["create", "update"]).describe("Which apply action was performed"),
     resource_type: z.string().describe("Target resource type"),
     resource_id: z.string().describe("Resource id or name affected"),
-    resource: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe("Full resource returned by Komodo (when available)"),
+    resource: komodoObjectSchema.optional().describe("Full resource returned by Komodo (when available)"),
   })
   .describe("Outcome envelope for *_apply tools");
 
@@ -147,10 +150,7 @@ export const deleteResultSchema = z
     action: z.literal("remove").describe("Always 'remove' for delete tools"),
     resource_type: z.string().describe("Target resource type"),
     resource_id: z.string().describe("Resource id or name that was removed"),
-    resource: z
-      .record(z.string(), z.unknown())
-      .optional()
-      .describe("Snapshot of the deleted resource (when available)"),
+    resource: komodoObjectSchema.optional().describe("Snapshot of the deleted resource (when available)"),
   })
   .describe("Outcome envelope for *_delete tools");
 

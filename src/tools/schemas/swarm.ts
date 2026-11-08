@@ -12,7 +12,13 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { actionResultSchema, maintenanceWindowSchema, pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import {
+  actionResultSchema,
+  maintenanceWindowSchema,
+  pageOutputSchema,
+  resourceLinkSchema,
+  komodoObjectSchema,
+} from "./shared.js";
 
 /** Swarm identifier (id or name) accepted by the Komodo API. */
 export const swarmIdSchema = z.string().min(1);
@@ -42,7 +48,7 @@ export const swarmListOutputSchema = z
 export const swarmInfoOutputSchema = z
   .object({
     summary: swarmSummarySchema,
-    info: z.unknown().optional().describe("Full Swarm resource (only when not offloaded as a resource link)"),
+    info: komodoObjectSchema.optional().describe("Full Swarm resource (only when not offloaded as a resource link)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Swarm summary + optional full resource");

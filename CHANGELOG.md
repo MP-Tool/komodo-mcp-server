@@ -146,6 +146,11 @@ with authentication switched off behave as in 1.5.0.
 - **A session no longer expires while a call is running** or an event stream is open.
 - **Settings with fixed values accept any upper or lower case** (#191), in the environment and in the
   config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
+- **Tool descriptions pass MCP Inspector's checks.** Some tools described free-form data and values that
+  may be empty in a way that MCP Inspector warns about and that some clients (for example ones that
+  hand tools on to Gemini) may reject. They now use the form every client understands, and the full
+  resource of an `*_info` tool and the Docker data of an `*_inspect` tool are declared as objects.
+  The results themselves are unchanged.
 - **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
   sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
 - **Refreshing a resource sync works in strict clients.** `komodo_resource_sync_action` with `refresh`

@@ -7,7 +7,7 @@
  */
 
 import { z } from "mcp-server-framework";
-import { pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import { pageOutputSchema, resourceLinkSchema, komodoObjectSchema } from "./shared.js";
 
 export const updateIdSchema = z.string().min(1).describe("Update id (MongoDB ObjectId hex)");
 
@@ -33,7 +33,7 @@ export const updateListOutputSchema = z
 export const updateInfoOutputSchema = z
   .object({
     summary: updateSummarySchema,
-    info: z.unknown().optional().describe("Full update payload (with stage logs) when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full update payload (with stage logs) when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed update information including per-stage logs");

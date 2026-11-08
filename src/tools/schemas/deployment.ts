@@ -16,7 +16,7 @@ import {
   CONFIG_DESCRIPTIONS,
 } from "../../config/index.js";
 import { deploymentIdSchema, serverIdSchema, resourceNameSchema } from "./validators.js";
-import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { resourceLinkSchema, pageOutputSchema, komodoObjectSchema } from "./shared.js";
 
 /** Container restart policy */
 const restartModeSchema = z
@@ -165,7 +165,7 @@ export const deploymentListOutputSchema = z
 export const deploymentInfoOutputSchema = z
   .object({
     summary: deploymentSummarySchema,
-    info: z.unknown().optional().describe("Full deployment resource payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full deployment resource payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a deployment");

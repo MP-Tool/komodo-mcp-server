@@ -15,6 +15,7 @@ import {
   systemCommandSchema,
   versionSchema,
   imageRegistryConfigSchema,
+  komodoObjectSchema,
 } from "./shared.js";
 
 /** Build identifier (id or name) accepted by the Komodo API. */
@@ -48,7 +49,7 @@ export const buildListOutputSchema = z
 export const buildInfoOutputSchema = z
   .object({
     summary: buildSummarySchema,
-    info: z.unknown().optional().describe("Full build resource payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full build resource payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a build");

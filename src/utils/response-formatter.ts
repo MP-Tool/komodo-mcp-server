@@ -181,10 +181,21 @@ export function summarizeResource(result: unknown, fallbackName: string): { name
  *
  * Pairs with the various `*InfoOutputSchema` shapes across `tools/schemas`.
  */
-export type InfoResultPayload<S> = { summary: S } & ({ info: unknown } | { resourceLink: ResourceLinkSpec });
+export type InfoResultPayload<S> = { summary: S } & (
+  { info: Record<string, unknown> } | { resourceLink: ResourceLinkSpec }
+);
+
+/**
+ * A Komodo answer as the JSON object the output schemas declare (`komodoObjectSchema`). Komodo's
+ * resources, updates and Docker inspect payloads are objects; their generated types just do not
+ * say "any property", so the one conversion lives here.
+ */
+export function komodoObject(value: object): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
 
 export function buildInfoResult<S extends object>(input: {
-  result: unknown;
+  result: object;
   summary: S;
   register: {
     ctx: { sessionId?: string | undefined };
@@ -207,6 +218,6 @@ export function buildInfoResult<S extends object>(input: {
   } satisfies RegisterResourceOptions);
   const payload: InfoResultPayload<S> = link
     ? { summary: input.summary, resourceLink: link }
-    : { summary: input.summary, info: input.result };
+    : { summary: input.summary, info: komodoObject(input.result) };
   return structured(payload, { text: input.render(payload), ...(link ? { links: [link] } : {}) });
 }

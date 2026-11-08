@@ -10,7 +10,7 @@
  */
 
 import { z } from "mcp-server-framework";
-import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { resourceLinkSchema, pageOutputSchema, komodoObjectSchema } from "./shared.js";
 
 // ============================================================================
 // Images
@@ -43,7 +43,7 @@ const imageInspectSummarySchema = z.object({
 export const imageInspectOutputSchema = z
   .object({
     summary: imageInspectSummarySchema,
-    inspect: z.unknown().optional().describe("Raw Docker image inspect payload, when returned inline"),
+    inspect: komodoObjectSchema.optional().describe("Raw Docker image inspect payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Docker inspect data for an image");
@@ -92,7 +92,7 @@ const networkInspectSummarySchema = z.object({
 export const networkInspectOutputSchema = z
   .object({
     summary: networkInspectSummarySchema,
-    inspect: z.unknown().optional().describe("Raw Docker network inspect payload, when returned inline"),
+    inspect: komodoObjectSchema.optional().describe("Raw Docker network inspect payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Docker inspect data for a network");
@@ -125,7 +125,7 @@ const volumeInspectSummarySchema = z.object({
 export const volumeInspectOutputSchema = z
   .object({
     summary: volumeInspectSummarySchema,
-    inspect: z.unknown().optional().describe("Raw Docker volume inspect payload, when returned inline"),
+    inspect: komodoObjectSchema.optional().describe("Raw Docker volume inspect payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Docker inspect data for a volume");

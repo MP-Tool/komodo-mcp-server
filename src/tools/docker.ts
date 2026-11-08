@@ -30,6 +30,7 @@ import {
   renderNetworkInspect,
   renderVolumeList,
   renderVolumeInspect,
+  komodoObject,
 } from "../utils/index.js";
 import {
   serverIdSchema,
@@ -137,7 +138,7 @@ export const inspectDockerImageTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for image ${args.image} on ${args.server}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: komodoObject(result) };
     return structured(payload, { text: renderImageInspect(payload), ...(link ? { links: [link] } : {}) });
   },
 });
@@ -258,7 +259,7 @@ export const inspectDockerNetworkTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for network ${args.network} on ${args.server}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: komodoObject(result) };
     return structured(payload, { text: renderNetworkInspect(payload), ...(link ? { links: [link] } : {}) });
   },
 });
@@ -334,7 +335,7 @@ export const inspectDockerVolumeTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for volume ${args.volume} on ${args.server}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: komodoObject(result) };
     return structured(payload, { text: renderVolumeInspect(payload), ...(link ? { links: [link] } : {}) });
   },
 });

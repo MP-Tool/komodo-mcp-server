@@ -12,7 +12,7 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { actionResultSchema, pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import { actionResultSchema, pageOutputSchema, resourceLinkSchema, komodoObjectSchema } from "./shared.js";
 
 /** Action identifier (id or name) accepted by the Komodo API. */
 export const actionIdSchema = z.string().min(1);
@@ -43,7 +43,7 @@ export const actionListOutputSchema = z
 export const actionInfoOutputSchema = z
   .object({
     summary: actionSummarySchema,
-    info: z.unknown().optional().describe("Full Action resource (only when not offloaded as a resource link)"),
+    info: komodoObjectSchema.optional().describe("Full Action resource (only when not offloaded as a resource link)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Action summary + optional full resource");

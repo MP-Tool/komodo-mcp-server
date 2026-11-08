@@ -33,6 +33,7 @@ import {
   renderActionResult,
   renderBuilderList,
   renderBuilderInfo,
+  komodoObject,
 } from "../utils/index.js";
 import {
   builderIdSchema,
@@ -116,7 +117,7 @@ export const getBuilderInfoTool = defineTool({
       inlineFull: args.inline_full,
       description: `Full builder resource for ${result.name}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: komodoObject(result) };
     return structured(payload, { text: renderBuilderInfo(payload), ...(link ? { links: [link] } : {}) });
   },
 });

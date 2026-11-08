@@ -9,7 +9,7 @@
 import { z } from "mcp-server-framework";
 import { PARAM_DESCRIPTIONS } from "../../config/index.js";
 import { serverIdSchema, containerNameSchema } from "./validators.js";
-import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { resourceLinkSchema, pageOutputSchema, komodoObjectSchema } from "./shared.js";
 
 /** Identifies a container for lifecycle operations (start, stop, restart, pause, unpause) */
 export const containerActionSchema = z
@@ -68,7 +68,7 @@ export const containerListOutputSchema = z
 export const containerInspectOutputSchema = z
   .object({
     summary: containerSummarySchema,
-    inspect: z.unknown().optional().describe("Raw Docker inspect payload, when returned inline"),
+    inspect: komodoObjectSchema.optional().describe("Raw Docker inspect payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Docker inspect data for a container");

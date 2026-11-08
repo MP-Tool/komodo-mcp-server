@@ -9,7 +9,13 @@
 import { z } from "mcp-server-framework";
 import { PARAM_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../../config/index.js";
 import { resourceNameSchema } from "./validators.js";
-import { actionResultSchema, pageOutputSchema, resourceLinkSchema, systemCommandSchema } from "./shared.js";
+import {
+  actionResultSchema,
+  pageOutputSchema,
+  resourceLinkSchema,
+  systemCommandSchema,
+  komodoObjectSchema,
+} from "./shared.js";
 
 export const repoIdSchema = z.string().min(1);
 
@@ -38,7 +44,7 @@ export const repoListOutputSchema = z
 export const repoInfoOutputSchema = z
   .object({
     summary: repoSummarySchema,
-    info: z.unknown().optional().describe("Full repo resource payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full repo resource payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a repo");

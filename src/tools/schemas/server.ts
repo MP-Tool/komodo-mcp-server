@@ -11,7 +11,7 @@ import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ALERT_DESCRIPTIONS, THRESHOLD_DESCRIPTIONS, CONFIG_DESCRIPTIONS } from "../../config/index.js";
 import { serverIdSchema, resourceNameSchema } from "./validators.js";
-import { actionResultSchema, resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { actionResultSchema, resourceLinkSchema, pageOutputSchema, komodoObjectSchema } from "./shared.js";
 
 /** Scheduled maintenance window for alert suppression */
 const maintenanceWindowSchema = z
@@ -109,7 +109,7 @@ export const serverListOutputSchema = z
 export const serverInfoOutputSchema = z
   .object({
     summary: serverSummarySchema,
-    info: z.unknown().optional().describe("Full server resource payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full server resource payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a server");

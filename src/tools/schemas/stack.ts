@@ -17,6 +17,7 @@ import {
   webhookSchema,
   resourceLinkSchema,
   pageOutputSchema,
+  komodoObjectSchema,
 } from "./shared.js";
 
 /** Additional config file dependency for the Stack */
@@ -156,7 +157,7 @@ export const stackListOutputSchema = z
 export const stackInfoOutputSchema = z
   .object({
     summary: stackSummarySchema,
-    info: z.unknown().optional().describe("Full stack resource payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full stack resource payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a stack");

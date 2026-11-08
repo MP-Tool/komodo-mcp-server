@@ -39,6 +39,7 @@ import {
   renderContainerSearchLogs,
   renderActionResult,
   tryRegisterResource,
+  komodoObject,
 } from "../utils/index.js";
 import {
   containerActionInputSchema,
@@ -159,7 +160,7 @@ export const inspectContainerTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: komodoObject(result) };
     return structured(payload, {
       text: renderContainerInspect(payload),
       ...(link ? { links: [link] } : {}),

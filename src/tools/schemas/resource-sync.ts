@@ -11,7 +11,7 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { actionResultSchema, pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import { actionResultSchema, pageOutputSchema, resourceLinkSchema, komodoObjectSchema } from "./shared.js";
 
 export const resourceSyncIdSchema = z.string().min(1);
 
@@ -37,7 +37,7 @@ export const resourceSyncListOutputSchema = z
 export const resourceSyncInfoOutputSchema = z
   .object({
     summary: resourceSyncSummarySchema,
-    info: z.unknown().optional().describe("Full resource sync payload, when returned inline"),
+    info: komodoObjectSchema.optional().describe("Full resource sync payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Detailed information about a resource sync");

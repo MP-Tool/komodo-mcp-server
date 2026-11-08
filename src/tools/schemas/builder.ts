@@ -16,7 +16,7 @@
 import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { resourceNameSchema } from "./validators.js";
-import { pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import { pageOutputSchema, resourceLinkSchema, komodoObjectSchema } from "./shared.js";
 
 /** Builder identifier (id or name) accepted by the Komodo API. */
 export const builderIdSchema = z.string().min(1);
@@ -42,7 +42,7 @@ export const builderListOutputSchema = z
 export const builderInfoOutputSchema = z
   .object({
     summary: builderSummarySchema,
-    info: z.unknown().optional().describe("Full Builder resource (only when not offloaded as a resource link)"),
+    info: komodoObjectSchema.optional().describe("Full Builder resource (only when not offloaded as a resource link)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Builder summary + optional full resource");

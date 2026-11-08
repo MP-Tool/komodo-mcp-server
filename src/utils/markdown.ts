@@ -709,6 +709,7 @@ interface HealthCheckPayload {
   readonly server?: string;
   readonly komodo_version?: string;
   readonly mcp_server_version: string;
+  readonly framework_version: string;
   readonly error?: string;
 }
 
@@ -718,6 +719,7 @@ export function renderHealthCheck(payload: HealthCheckPayload): string {
       `${RESPONSE_ICONS.WARNING} Komodo not configured.`,
       "",
       `MCP server: v${payload.mcp_server_version}`,
+      `Framework: v${payload.framework_version}`,
       "",
       "_Set `[komodo]` in config.toml (or `KOMODO_URL`/`KOMODO_API_KEY` etc. env vars) and restart, " +
         "or sign in via local login if per-user authentication is enabled._",
@@ -731,6 +733,7 @@ export function renderHealthCheck(payload: HealthCheckPayload): string {
   const lines = [`${icon} Komodo ${verdict} — ${server}`, ""];
   if (payload.komodo_version) lines.push(`• Komodo version: v${payload.komodo_version}`);
   lines.push(`• MCP server version: v${payload.mcp_server_version}`);
+  lines.push(`• Framework version: v${payload.framework_version}`);
   if (payload.error) lines.push(`• Error: ${payload.error}`);
   return lines.join("\n");
 }

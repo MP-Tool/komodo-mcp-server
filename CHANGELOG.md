@@ -55,6 +55,8 @@ with authentication switched off behave as in 1.5.0.
   app can be allowed with `MCP_AUTH_REDIRECT_SCHEMES`. See the
   [configuration reference](config/README.md#mcp-server-authentication).
 - **`MCP_MAX_SESSIONS_PER_PRINCIPAL`**: how many sessions one signed-in user may hold at once (default 50).
+- **The health check names the framework version** the server runs on, next to its own version - useful
+  when reporting a problem.
 - **The container list shows resource usage.** `komodo_container_list` now includes each container's
   CPU, memory, network and disk usage and its process count whenever Komodo has collected them - no
   extra calls, no extra permissions. Requested in [#201](https://github.com/MP-Tool/komodo-mcp-server/issues/201), contributed

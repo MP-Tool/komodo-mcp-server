@@ -9,7 +9,7 @@
 import { z } from "mcp-server-framework";
 import { PARAM_DESCRIPTIONS } from "../../config/index.js";
 import { serverIdSchema, containerNameSchema } from "./validators.js";
-import { resourceLinkSchema, pageOutputSchema } from "./shared.js";
+import { resourceLinkSchema, pageOutputSchema, komodoObjectSchema } from "./shared.js";
 
 /** Identifies a container for lifecycle operations (start, stop, restart, pause, unpause) */
 export const containerActionSchema = z
@@ -37,11 +37,23 @@ export const containerActionInputSchema = z.object({
 // Output Schemas
 // ============================================================================
 
+/** Container stats are formatted strings from Komodo/Periphery (e.g. "1.25%", "24MiB / 1GiB"). */
+export const containerStatsSchema = z.object({
+  name: z.string().describe("Container name from the stats response"),
+  cpu_perc: z.string().describe("CPU utilization as a formatted percentage"),
+  mem_perc: z.string().describe("Memory utilization as a formatted percentage"),
+  mem_usage: z.string().describe("Formatted memory usage and limit"),
+  net_io: z.string().describe("Formatted network receive/transmit I/O"),
+  block_io: z.string().describe("Formatted block read/write I/O"),
+  pids: z.string().describe("Process count as a formatted string"),
+});
+
 /** Compact summary of a single container as returned in list/inspect responses. */
 export const containerSummarySchema = z.object({
   name: z.string().describe("Container name"),
   state: z.string().optional().describe("Container runtime state (running, exited, paused, ...) when known"),
   image: z.string().optional().describe("Image reference the container is running"),
+  stats: containerStatsSchema.optional().describe("Recent per-container stats, if collected by Periphery"),
 });
 
 /** Output of `komodo_container_list`. */
@@ -56,7 +68,7 @@ export const containerListOutputSchema = z
 export const containerInspectOutputSchema = z
   .object({
     summary: containerSummarySchema,
-    inspect: z.unknown().optional().describe("Raw Docker inspect payload, when returned inline"),
+    inspect: komodoObjectSchema.optional().describe("Raw Docker inspect payload, when returned inline"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Docker inspect data for a container");

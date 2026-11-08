@@ -7,7 +7,7 @@
  * objects), and forwarded log notifications all apply this same policy.
  * Values masked in structured content are also purged from the rendered text
  * of the same result (the boundary's value collector), so the declarative
- * rules below reach every representation. Wired in `src/index.ts` together
+ * rules below reach every representation. Wired in `src/server.ts` together
  * with the `MCP_SECRET_SCRUB_*` env extensions.
  *
  * There is deliberately no redaction CODE in Komodo anymore — supersedes the

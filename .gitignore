@@ -12,6 +12,9 @@ build/
 build-test/
 dist/
 
+# Tests are kept locally, like the framework's
+**/__tests__
+
 # Environment variables
 .env
 .env.local

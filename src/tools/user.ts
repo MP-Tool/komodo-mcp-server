@@ -15,7 +15,7 @@
 import { defineTool, structured } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { NotFoundError, ValidationError } from "../errors/index.js";
 import {
   requireClient,
   recordAffected,
@@ -93,11 +93,7 @@ export const createApiKeyTool = defineTool({
 
     const expires = args.expires_in_days > 0 ? Date.now() + args.expires_in_days * 24 * 60 * 60 * 1000 : 0;
 
-    const result = await wrapApiCall(
-      "createApiKey",
-      () => komodo.client.auth.manage("CreateApiKey", { name: args.name, expires }),
-      abortSignal,
-    );
+    const result = await wrapApiCall("createApiKey", () => komodo.createApiKey(args.name, expires), abortSignal);
 
     const payload = {
       name: args.name,
@@ -143,15 +139,15 @@ export const deleteApiKeyTool = defineTool({
       const matches = keys.filter((k) => k.name === input);
 
       if (matches.length === 0) {
-        throw AppErrorFactory.notFound.resource(input, "API key");
+        throw NotFoundError.resource(input, "API key");
       }
       if (matches.length > 1) {
-        throw AppErrorFactory.validation.fieldRequired(
+        throw ValidationError.fieldRequired(
           `Multiple API keys named "${input}" exist. Provide the full K_... key string instead.`,
         );
       }
       const match = matches[0];
-      if (!match) throw AppErrorFactory.notFound.resource(input, "API key");
+      if (!match) throw NotFoundError.resource(input, "API key");
       resolvedKey = match.key;
       resolvedName = match.name;
     }
@@ -163,11 +159,7 @@ export const deleteApiKeyTool = defineTool({
       detail: "Clients authenticating with this key will lose access immediately.",
     });
 
-    await wrapApiCall(
-      "deleteApiKey",
-      () => komodo.client.auth.manage("DeleteApiKey", { key: resolvedKey }),
-      abortSignal,
-    );
+    await wrapApiCall("deleteApiKey", () => komodo.deleteApiKey(resolvedKey), abortSignal);
 
     const label = resolvedName
       ? `**Name:** ${resolvedName}\n\n**Key:** \`${resolvedKey}\``

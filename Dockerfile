@@ -12,6 +12,12 @@
 # - Runtime uses built-in node user (UID 1000) with nologin shell
 # - Build artifacts owned by root (immutable for runtime user)
 # - Tini as init system for proper signal handling
+#
+# Node.js:
+# - node:22-alpine follows the newest Node.js 22 release on every build
+# - The minimum version is the "engines" range in package.json; npm ci enforces
+#   it through .npmrc (engine-strict), together with ignore-scripts and the
+#   pinned registry
 # =============================================================================
 
 # Build arguments for metadata (passed from CI/docker build)
@@ -27,8 +33,8 @@ RUN apk upgrade --no-cache
 
 WORKDIR /app
 
-# Copy package files first (better layer caching)
-COPY package*.json ./
+# Copy package files and npm settings first (better layer caching)
+COPY package*.json .npmrc ./
 
 # Install all dependencies (including devDependencies for TypeScript build)
 RUN npm ci
@@ -62,7 +68,7 @@ USER node
 
 # Pre-install dependencies (preserved in anonymous volume by devcontainer).
 # Runs as node user so node_modules has correct ownership for postCreateCommand.
-COPY --chown=node:node package*.json ./
+COPY --chown=node:node package*.json .npmrc ./
 RUN npm ci
 
 # Environment variables for development

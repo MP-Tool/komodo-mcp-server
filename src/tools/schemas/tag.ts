@@ -8,7 +8,7 @@
  * @module tools/schemas/tag
  */
 
-import { z } from "zod";
+import { z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { resourceNameSchema } from "./validators.js";
 import { pageOutputSchema } from "./shared.js";
@@ -17,7 +17,7 @@ import { pageOutputSchema } from "./shared.js";
 export const tagIdSchema = z.string().min(1);
 
 /** Tag color — mirrors `Types.TagColor` (a large string enum). Used for OUTPUT (what Komodo returns). */
-export const tagColorSchema = z.nativeEnum(Types.TagColor);
+export const tagColorSchema = z.enum(Types.TagColor);
 
 /** Every valid tag color, for input validation + guidance. */
 export const TAG_COLOR_VALUES = Object.values(Types.TagColor) as string[];

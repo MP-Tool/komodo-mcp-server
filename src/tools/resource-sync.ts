@@ -13,10 +13,10 @@
  * @module tools/resource-sync
  */
 
-import { defineTool, structured, text, z } from "mcp-server-framework";
+import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -103,7 +103,7 @@ export const getResourceSyncInfoTool = defineTool({
     .object({
       resource_sync: resourceSyncIdSchema.describe("ResourceSync id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: resourceSyncInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.RESOURCE_SYNC },
@@ -169,7 +169,7 @@ export const resourceSyncActionTool = defineTool({
         abortSignal,
         reportProgress,
       );
-      const payload = buildActionResult(update, "deploy", "resource_sync", args.resource_sync);
+      const payload = buildActionResult(update, "run", "resource_sync", args.resource_sync);
       return structured(payload, {
         text: renderActionResult(payload, { updateId: extractUpdateId(update), logs: update.logs }),
       });
@@ -185,7 +185,16 @@ export const resourceSyncActionTool = defineTool({
       resourceType: "resource_sync",
       resourceId: args.resource_sync,
     });
-    return text(`${header} (pending preview refreshed)\n\n${JSON.stringify(result, null, 2)}`);
+    const payload = {
+      success: true,
+      status: "Complete",
+      action: "refresh",
+      resource_type: "resource_sync",
+      resource_id: args.resource_sync,
+    };
+    return structured(payload, {
+      text: `${header} (pending preview refreshed)\n\n${JSON.stringify(result, null, 2)}`,
+    });
   },
 });
 
@@ -209,7 +218,7 @@ export const applyResourceSyncTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("ResourceSync");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
         "createResourceSync",
@@ -221,7 +230,7 @@ export const applyResourceSyncTool = defineTool({
       const built = buildApplyResult("create", "resource_sync", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.resource_sync) throw AppErrorFactory.validation.fieldRequired("resource_sync");
+    if (!args.resource_sync) throw ValidationError.fieldRequired("resource_sync");
     await requireKomodoPermission({ type: "ResourceSync", id: args.resource_sync }, Types.PermissionLevel.Write);
     const syncId = args.resource_sync;
     const result = await wrapApiCall(

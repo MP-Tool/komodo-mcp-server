@@ -22,6 +22,7 @@ export const healthCheckOutputSchema = z
     server: z.string().optional().describe("Komodo Core URL the client is bound to, when configured"),
     komodo_version: z.string().optional().describe("Komodo Core version reported by the health probe"),
     mcp_server_version: z.string().describe("Version of this MCP server"),
+    framework_version: z.string().describe("Version of mcp-server-framework this MCP server runs on"),
     error: z.string().optional().describe("Error message when the health probe failed"),
   })
   .describe("Connection and health status of the Komodo MCP server");

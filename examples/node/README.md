@@ -5,7 +5,7 @@ Run the Komodo MCP Server directly with Node.js - no Docker required. Perfect fo
 ## 🚀 Quick Start
 
 ### Prerequisites
-- [Node.js](https://nodejs.org/) v22 or later installed
+- [Node.js](https://nodejs.org/) 22.23.4 or later (or 24.22.1+ / 26.12.1+). Older releases have a security flaw (Node2Shell, CVE-2026-111497)
 
 ### Option 1: npx (No Installation)
 
@@ -199,7 +199,7 @@ Then connect your MCP client to: `http://localhost:8000/mcp`
 ### "command not found: npx"
 Make sure Node.js is installed and in your PATH:
 ```bash
-node --version  # Should show v22.x or later
+node --version  # Should show v22.23.4 or later (or v24.22.1+ / v26.12.1+)
 npm --version   # Should show npm version
 ```
 

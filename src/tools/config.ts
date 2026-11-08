@@ -8,7 +8,7 @@
  * @module tools/config
  */
 
-import { defineTool, structured, z } from "mcp-server-framework";
+import { defineTool, FRAMEWORK_VERSION, structured, z } from "mcp-server-framework";
 import { logger as baseLogger } from "mcp-server-framework";
 import { SERVER_VERSION, ToolCategories, ToolScopes } from "../config/index.js";
 import { AuthenticationError } from "../errors/index.js";
@@ -18,6 +18,9 @@ import type { KomodoClient } from "../client.js";
 
 const logger = baseLogger.child({ component: "config-tools" });
 
+/** What is at work here: this MCP server, and the framework it runs on. */
+const VERSIONS = { mcp_server_version: SERVER_VERSION, framework_version: FRAMEWORK_VERSION } as const;
+
 // ============================================================================
 // Health Check
 // ============================================================================
@@ -25,7 +28,8 @@ const logger = baseLogger.child({ component: "config-tools" });
 export const healthCheckTool = defineTool({
   name: "komodo_health_check",
   description:
-    "Check the Komodo connection status. Returns health, authentication status, and API version. " +
+    "Check the Komodo connection status. Returns health, authentication status, the Komodo version, and the " +
+    "versions of this MCP server and its framework. " +
     "Works without an active connection (reports unconfigured state).",
   input: z.object({}),
   output: healthCheckOutputSchema,
@@ -46,7 +50,7 @@ export const healthCheckTool = defineTool({
       const payload = {
         configured: false,
         healthy: false,
-        mcp_server_version: SERVER_VERSION,
+        ...VERSIONS,
       };
       return structured(payload, { text: renderHealthCheck(payload) });
     }
@@ -60,7 +64,7 @@ export const healthCheckTool = defineTool({
           healthy: true,
           server: client.url,
           ...(health.version ? { komodo_version: health.version } : {}),
-          mcp_server_version: SERVER_VERSION,
+          ...VERSIONS,
         };
         return structured(payload, { text: renderHealthCheck(payload) });
       }
@@ -70,7 +74,7 @@ export const healthCheckTool = defineTool({
         configured: true,
         healthy: false,
         server: client.url,
-        mcp_server_version: SERVER_VERSION,
+        ...VERSIONS,
         ...(health.error ? { error: health.error } : {}),
       };
       return structured(payload, { text: renderHealthCheck(payload) });
@@ -84,7 +88,7 @@ export const healthCheckTool = defineTool({
         configured: true,
         healthy: false,
         server: client.url,
-        mcp_server_version: SERVER_VERSION,
+        ...VERSIONS,
         error: errMsg,
       };
       return structured(payload, { text: renderHealthCheck(payload) });

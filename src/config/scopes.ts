@@ -6,8 +6,9 @@
  * authenticated session's `AuthContext.permissions` using a subset check
  * (`hasAllRequiredScopes`).
  *
- * **Active**: When MCP OAuth 2.1 is configured, `mapUserInfo` in `src/index.ts`
- * grants all three scopes to every authenticated user. Komodo enforces
+ * **Who gets which scope**: an authenticated session holds the tiers its Komodo user's
+ * permissions cover (`deriveKomodoScopes` in `src/auth/komodo-identity.ts`); an anonymous
+ * network caller — authentication switched off — holds `komodo:read` only. Komodo enforces
  * fine-grained permissions server-side; these scopes act as a coarse pre-screen.
  *
  * **Tier semantics** (lowest sufficient tier per tool):
@@ -15,9 +16,9 @@
  * - `komodo:operate`  — lifecycle operations (`*_action` tools)
  * - `komodo:admin`    — destructive / structural changes (create, update, delete, prune, exec)
  *
- * Tier inclusion (admin > operate > read) is **not** enforced by the
- * framework — it must be expressed by the IdP (e.g. an `admin` user gets
- * all three scopes in the token), or by a future scope-expansion helper.
+ * Tier inclusion (admin > operate > read) is **not** enforced by the framework, which
+ * compares scope strings literally. `deriveKomodoScopes` expresses it instead: a user
+ * entitled to a tier is granted every tier below it as well.
  *
  * @module config/scopes
  */

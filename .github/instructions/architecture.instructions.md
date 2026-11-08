@@ -13,7 +13,8 @@ Komodo MCP Server is a consumer of the `mcp-server-framework` package. The frame
 
 ```
 src/
-├── index.ts              # Entry point - createServer() + lifecycle hooks
+├── index.ts              # Entry point - loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + lifecycle hooks
 ├── client.ts             # KomodoClient wrapper + connection monitoring
 ├── config/
 │   ├── index.ts          # Barrel export
@@ -24,7 +25,6 @@ src/
 ├── errors/
 │   ├── index.ts          # Barrel export
 │   ├── classes.ts        # ApiError, ConnectionError, AuthenticationError, etc.
-│   ├── factory.ts        # AppErrorFactory (extends FrameworkErrorFactory)
 │   ├── messages.ts       # AppMessages registry + getAppMessage()
 │   └── extraction.ts     # Error parsing from komodo_client responses
 ├── tools/
@@ -54,13 +54,13 @@ src/
 ## Layers
 
 ```
-Entry Point (index.ts)
+Entry Point (index.ts → server.ts)
   └─ createServer() from mcp-server-framework
        ├─ Config (config/) - env vars, descriptions, defaults
        ├─ Tools (tools/) - defineTool() with auto-registration
        │    └─ Utils (utils/) - requireClient(), wrapApiCall(), formatters
        │         └─ API Client (client.ts) - KomodoClient wrapping komodo_client
-       └─ Errors (errors/) - AppErrorFactory, AppMessages, error classes
+       └─ Errors (errors/) - error classes, AppMessages
 ```
 
 ## Framework Dependency
@@ -75,7 +75,7 @@ The `mcp-server-framework` package provides:
 | Duration parsing | `durationSchema`, `parseDuration` |
 | Config integration | `registerConfigSection`, `getAppConfig` |
 | Logging | `logger` |
-| Error base classes | `FrameworkErrorFactory`, `AppError`, `OperationCancelledError` |
+| Error base classes | `AppError`, `ValidationError`, `OperationCancelledError` |
 | Message interpolation | `interpolate` |
 
 All framework features are imported from `mcp-server-framework` - no deep imports into framework internals.
@@ -98,7 +98,7 @@ import "./container.js";
 import "./server.js";
 // ...
 
-// index.ts - side-effect import triggers registration before createServer()
+// server.ts - side-effect import triggers registration before createServer()
 import "./tools/index.js";
 ```
 

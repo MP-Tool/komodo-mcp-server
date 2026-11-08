@@ -2,14 +2,14 @@
 
 Central reference for how the Komodo MCP Server behaves and how to configure it.
 
-The server is configured through **environment variables**, a **config file** (TOML, YAML, JSON), or both (env wins). This page covers the server's behavior, the priority chain, and the most important settings. For the **complete per-setting reference**, see [`example.config.toml`](./example.config.toml) (and the `.yaml` / `.env` variants). For client- and deployment-specific setup, see [`examples/`](../examples/README.md) and [`docker/`](../docker/README.md).
+The server is configured through **environment variables**, a **config file** (TOML, YAML, JSON), or both (env wins). This page covers the server's behavior, the priority chain, and the most important settings. For the **per-setting reference**, see [`example.config.toml`](./example.config.toml) (and the `.yaml` / `.env` variants). For client- and deployment-specific setup, see [`examples/`](../examples/README.md) and [`docker/`](../docker/README.md).
 
 ## How the Server Behaves
 
 Since 1.5.0 the server is **secure by default**:
 
-- **Authentication is on by default** for `http`/`https`. Clients sign in (browser username/password against Komodo), and each user acts as their **own** Komodo identity with their own permissions - never a shared account. Turn it off with `MCP_AUTH_ENABLED=false`.
-- **An open network server is read-only.** If you disable auth on `http`/`https`, anonymous callers get **read-only** access - every write/exec/delete tool (including `komodo_exec`) is hidden and rejected. The only way to write over the network is to enable auth. **stdio** is local and always fully capable.
+- **Authentication is on by default** for `http`/`https`. Every caller authenticates with a Komodo credential - in a browser (username/password or API key) or without one (OAuth `client_credentials`) - and acts as that Komodo user with that user's permissions. Turn it off with `MCP_AUTH_ENABLED=false`.
+- **An open network server is read-only.** If you disable auth on `http`/`https`, anonymous callers get **read-only** access - every write/exec/delete tool (including `komodo_exec`) is hidden and rejected. The only way to write over the network is to authenticate; no setting lifts this. **stdio** is local and always fully capable.
 - **Fail-closed on misconfiguration.** If auth is on but no Komodo URL/credentials are configured, the server rejects every request instead of running open.
 - **Per-resource permission checks.** Authenticated calls verify the user's Komodo permission on the target resource *before* running.
 - **Destructive actions ask first.** Deletes, `destroy`, prune, `komodo_exec`, and procedure/action/sync runs require explicit confirmation in the client (MCP elicitation), fail-closed.
@@ -63,6 +63,16 @@ Override auto-discovery by setting the config file path:
 ```bash
 MCP_CONFIG_FILE_PATH=/path/to/my-config.toml
 ```
+
+### Strict Checking
+
+Settings are checked when the server starts, so a typo does not silently fall back to a default:
+
+- **Unknown sections or keys make a config file invalid.**
+  - A file set via `MCP_CONFIG_FILE_PATH` stops the start, and the error lists every problem.
+  - A file found automatically in the working directory is ignored instead: the problems are logged and the server starts without it. Such a file may belong to another program. A found file that contains `[auth]` or `[security]` stops the start, so a broken security setting never goes unnoticed.
+- **Yes/no settings** accept `true`/`false`, `1`/`0`, `yes`/`no` or `on`/`off`. Anything else stops the start, and an empty value counts as not set.
+- **Settings with fixed values** accept any upper or lower case: `LOG_LEVEL=INFO` works like `info`.
 
 ### Example Files
 
@@ -172,27 +182,123 @@ secrets:
 
 ## MCP-Server Authentication
 
-Controls whether **clients** must authenticate to the MCP server - distinct from the Komodo
-connection above. Only applies to `http`/`https`; `stdio` is local and never authenticated.
+Controls how **clients** authenticate to the MCP server - distinct from the Komodo connection
+above. Only applies to `http`/`https`; `stdio` is local and never authenticated.
+
+The rule behind every option: a caller presents a Komodo credential, the server asks Komodo whose
+it is, and the session acts as **that Komodo user** - with that user's permissions and nothing
+more. The MCP server never lends its own `[komodo]` credentials to a caller it cannot identify.
 
 | Variable | Config Key | Default | Description |
 |----------|-----------|---------|-------------|
-| `MCP_AUTH_ENABLED` | `auth.enabled` | `true` | Require clients to sign in |
+| `MCP_AUTH_ENABLED` | `auth.enabled` | `true` | Require clients to authenticate |
+| `MCP_AUTH_API_KEY_HEADER` | `auth.api_key_header` | `false` | Also accept `X-Api-Key` / `X-Api-Secret` request headers |
 | `MCP_AUTH_REQUIRED_SCOPES` | `auth.required_scopes` | - | Required scopes for `/mcp` (advanced) |
+| `MCP_AUTH_REDIRECT_SCHEMES` | `auth.redirect_schemes` | - | Comma-separated app link schemes a client may return to after sign-in, beyond the ones that are always allowed (see below) |
 
 > The RFC 9728 Protected Resource Metadata URL is derived automatically from the public base URL
 > (`MCP_BASE_URL`) — there is no separate setting.
 
-**Enabled (default):** clients sign in via a browser username/password login against Komodo; each
-user gets an isolated, per-user Komodo session with their own permissions, and every tool call is
-permission-checked on Komodo before it runs.
+### Signing in with a browser
 
-**Disabled (`MCP_AUTH_ENABLED=false`) on a network transport:** the server runs **read-only** for
-anonymous callers - write/exec/delete tools (including `komodo_exec`) are hidden from `tools/list`
-and rejected on call. Enable auth to allow write access. `stdio` is unaffected (fully capable).
+MCP clients that support OAuth (Claude, VS Code, Cursor, MCP Inspector, ...) open the server's login
+page. It shows which client is asking and where you will be sent back to, and offers these ways to
+sign in:
 
-> External OAuth providers (`[auth.providers.*]` - Google/GitHub/OIDC) are reserved for upcoming
-> work and not wired in yet; enabling auth today offers local Komodo login.
+- **Password** - your Komodo username and password. Hidden automatically when Komodo itself has
+  local login disabled.
+- **API key** - a Komodo API key and secret (create one in the Komodo UI under your profile). Use
+  this when your account signs in to Komodo through SSO, has two-factor authentication, or when you
+  want the client to act as a dedicated service user. Keys created with Komodo 1.x (`K-...` /
+  `S-...`) work just like the ones Komodo creates today (`K_..._K` / `S_..._S`).
+
+The client then holds an access token that lasts an hour, plus a refresh token that is rotated on
+every use and expires after 30 days without use. A password session ends when the Komodo login
+behind it expires (Komodo's `jwt_ttl`, one day by default); an API-key session lasts as long as the
+key is valid and is re-checked against Komodo on every refresh. Sessions are kept in memory, so clients sign in again after a server restart. For
+the same reason, run **one** instance of the server per address: several replicas behind a load
+balancer would not know each other's sign-ins.
+
+**Where a client may return after sign-in:** to `https` addresses, to `http` on the same machine
+(`localhost`, `127.0.0.1`, `[::1]`), and to app links in reverse-domain form such as
+`com.example.app:/callback`. A desktop app with a short link scheme of its own needs that scheme in
+`MCP_AUTH_REDIRECT_SCHEMES`, for example `MCP_AUTH_REDIRECT_SCHEMES=claude`. Other schemes are refused.
+
+### Without a browser: OAuth client credentials
+
+For gateways, automation and any client that supports the OAuth `client_credentials` grant
+(RFC 6749 §4.4, the MCP `oauth-client-credentials` extension). The client requests a token from
+`POST /token` and uses it as a bearer token; nothing needs to be configured on the server beyond
+`KOMODO_URL`.
+
+**With a Komodo API key** - `client_id` is the API key, `client_secret` is the API secret:
+
+```bash
+curl -u 'K_...your key..._K:S_...your secret..._S' -d grant_type=client_credentials \
+  https://mcp.example.com/token
+```
+
+The token acts as the Komodo user the key belongs to. Create a Komodo **service user** with exactly
+the permissions the automation needs and give it its own key - the MCP tools it can see and use
+follow from those permissions.
+
+A client that no longer needs its token can give it back before it expires, with the same
+credentials it got it with:
+
+```bash
+curl -u 'K_...your key..._K:S_...your secret..._S' -d "token=$TOKEN" https://mcp.example.com/revoke
+```
+
+Access tokens last one hour; clients simply request a new one. The sign-in endpoints (`/token`,
+`/authorize`, `/register`) together accept 30 requests per 15 minutes per client address, so reuse a
+token until it expires instead of requesting one per call.
+
+### Without a browser: API-key headers (opt-in)
+
+Some clients can neither run a browser login nor use `client_credentials`, but can send fixed
+headers. For those, set `MCP_AUTH_API_KEY_HEADER=true` and send Komodo's own API-key headers with
+every request:
+
+```
+X-Api-Key: K_...your key..._K
+X-Api-Secret: S_...your secret..._S
+```
+
+The request acts as the key's Komodo user, exactly like the options above. This is off by default
+because the long-lived secret sits in the client's configuration and travels with every request -
+prefer `client_credentials` where the client supports it, and expose the endpoint over TLS or an
+encrypted network only. An authenticating reverse proxy can inject the two headers so that clients
+never hold the key.
+
+An address that tries 20 different wrong keys or secrets within 15 minutes is locked out for the
+rest of that window. The same wrong key sent again counts only once, so a client with an outdated
+key does not lock out others behind the same address. A key that has worked before keeps working
+during a lockout; a key that has not been used yet waits until the window ends.
+
+### Plain HTTP on private networks
+
+OAuth requires TLS. With authentication on, the server refuses to start when its public URL
+(`MCP_BASE_URL`) is plain HTTP on anything but `localhost`. Options, in order of preference:
+
+1. **Serve HTTPS** - `MCP_TRANSPORT=https` with a certificate, or a TLS-terminating reverse proxy,
+   and set `MCP_BASE_URL=https://...`. On Tailscale, `tailscale serve` (or `tailscale cert`)
+   provides a certificate for the machine's `*.ts.net` name.
+2. **Accept plain HTTP explicitly** - if the network itself already encrypts the traffic
+   (Tailscale, WireGuard), set `MCP_DANGEROUSLY_ALLOW_INSECURE_ISSUER_URL=true`. The server then
+   starts with a `SECURITY` warning. Credentials and tokens are only as safe as that network.
+   This one setting must be a real environment variable of the server process (Docker
+   `environment:` / `env_file:`, or your shell) - it has no config-file key and is not picked up
+   from a `.env` file the server reads itself.
+
+Whenever clients reach the server under another address than it binds to, set `MCP_BASE_URL` to
+the address they use - sign-in links and OAuth metadata are built from it.
+
+### Authentication off
+
+**`MCP_AUTH_ENABLED=false` on a network transport:** the server runs **read-only** for anonymous
+callers - write/exec/delete tools (including `komodo_exec`) are hidden from `tools/list` and
+rejected on call. None of the options above is active in this mode, and no setting gives an
+unauthenticated caller write access. `stdio` is unaffected (fully capable).
 
 ## Transport & Network
 
@@ -334,7 +440,8 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | Variable | Config Key | Default | Description |
 |----------|-----------|---------|-------------|
 | `MCP_MAX_SESSIONS` | `session.max_sessions` | `200` | Max total concurrent sessions |
-| `MCP_MAX_STREAMABLE_HTTP_SESSIONS` | `session.max_streamable_http_sessions` | `100` | Max Streamable HTTP sessions |
+| `MCP_MAX_SESSIONS_PER_PRINCIPAL` | `session.max_sessions_per_principal` | `50` | Max concurrent sessions of one signed-in user; more are refused with `429`. Raise it when many clients share one account |
+| `MCP_MAX_STREAMABLE_HTTP_SESSIONS` | `session.max_streamable_http_sessions` | *(`MCP_MAX_SESSIONS`)* | Max Streamable HTTP sessions |
 | `MCP_MAX_SSE_SESSIONS` | `session.max_sse_sessions` | `50` | Max legacy SSE sessions |
 
 ## Logging
@@ -347,9 +454,9 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | `LOG_COMPONENT` | `logging.component` | `false` | Include component name in text output |
 | `LOG_DIR` | `logging.log_dir` | - | Directory for file logging (disabled if unset) |
 | `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation |
-| `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep |
-| `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled) |
-| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on) |
+| `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep (not the audit log) |
+| `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled; not the audit log) |
+| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on). The server never deletes audit files: remove old ones yourself |
 | `LOG_AUDIT_TOOL_IO` | `logging.audit_tool_io` | `summary` | Audit request/result depth per tool call (scrubbed): `off`, `summary`, `full` |
 
 ## Telemetry (Experimental)
@@ -385,7 +492,7 @@ The config file is organized into sections that map to the tables above:
 [telemetry]           # OpenTelemetry configuration
 ```
 
-See [`example.config.toml`](./example.config.toml) for a complete reference with all fields documented.
+See [`example.config.toml`](./example.config.toml) for every setting with its description.
 
 ## More Info
 

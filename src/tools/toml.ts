@@ -21,11 +21,11 @@
  * @module tools/toml
  */
 
-import { defineTool, structured } from "mcp-server-framework";
+import { defineTool, structured, type ToolResultFor } from "mcp-server-framework";
 import { createSecretScrubber, scrubByMimeType } from "mcp-server-framework/logger";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   wrapApiCall,
@@ -60,7 +60,7 @@ function buildTomlResult(
   sessionId: string | undefined,
   inlineFull: boolean | undefined,
   description: string,
-): ReturnType<typeof structured> {
+): ToolResultFor<typeof tomlOutputSchema> {
   const scrubConfig = resolveScrubOptions();
   const link = toml
     ? tryRegisterResource({
@@ -95,7 +95,7 @@ export const exportAllResourcesToTomlTool = defineTool({
     "Secret values (variable values, server passkeys, alerter webhook URLs) are redacted, so the export is for inspection " +
     "and diffing, not for re-applying verbatim via ResourceSync. " +
     "Large output is offloaded as a session-scoped resource link unless `inline_full` is set.",
-  input: tomlExportAllInputSchema.merge(inlineFullInputSchema),
+  input: tomlExportAllInputSchema.extend(inlineFullInputSchema.shape),
   output: tomlOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.TOML },
@@ -129,7 +129,7 @@ export const exportResourcesToTomlTool = defineTool({
   description:
     "Export a specific set of resources and/or user groups as sync TOML. " +
     "Secret values are redacted, so the export is for inspection and diffing, not for re-applying verbatim via ResourceSync.",
-  input: tomlExportResourcesInputSchema.merge(inlineFullInputSchema),
+  input: tomlExportResourcesInputSchema.extend(inlineFullInputSchema.shape),
   output: tomlOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.TOML },
@@ -141,10 +141,9 @@ export const exportResourcesToTomlTool = defineTool({
       ? targetEntries.map((entry) => {
           const target = splitResourceTarget(entry);
           if (!target) {
-            throw AppErrorFactory.validation.custom(
-              `Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`,
-              "targets",
-            );
+            throw new ValidationError(`Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`, {
+              field: "targets",
+            });
           }
           // @type-variance — { type: string } → SDK `ResourceTarget` (a per-type discriminated union).
           // Komodo validates the resource type server-side.

@@ -8,7 +8,7 @@
 
 import { z } from "mcp-server-framework";
 import { resourceNameSchema } from "./validators.js";
-import { actionResultSchema, pageOutputSchema, resourceLinkSchema } from "./shared.js";
+import { actionResultSchema, pageOutputSchema, resourceLinkSchema, komodoObjectSchema } from "./shared.js";
 
 /** Procedure identifier (id or name) accepted by the Komodo API. */
 export const procedureIdSchema = z.string().min(1);
@@ -40,7 +40,9 @@ export const procedureListOutputSchema = z
 export const procedureInfoOutputSchema = z
   .object({
     summary: procedureSummarySchema,
-    info: z.unknown().optional().describe("Full Procedure resource (only when not offloaded as a resource link)"),
+    info: komodoObjectSchema
+      .optional()
+      .describe("Full Procedure resource (only when not offloaded as a resource link)"),
     resourceLink: resourceLinkSchema.optional(),
   })
   .describe("Procedure summary + optional full resource");

@@ -20,9 +20,6 @@ export {
 // Error extraction
 export { formatError, extractKomodoError, isAuthRejection } from "./extraction.js";
 
-// Factory
-export { AppErrorFactory, type AppErrorFactoryType } from "./factory.js";
-
 // Re-exports from framework
-export { AppError, FrameworkErrorFactory, type ErrorCodeType, type BaseErrorOptions } from "mcp-server-framework";
+export { AppError, ValidationError, type ErrorCodeType, type BaseErrorOptions } from "mcp-server-framework";
 export { ErrorCodes, HttpStatus } from "mcp-server-framework/errors";

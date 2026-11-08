@@ -23,6 +23,8 @@ import {
   durationSchema,
   booleanFromEnv,
   optionalBooleanFromEnv,
+  caseInsensitiveEnum,
+  ConfigurationError,
 } from "mcp-server-framework";
 
 // ============================================================================
@@ -45,7 +47,7 @@ export const appEnvSchema = z.object({
   // ── Komodo Core connection ────────────────────────────────────────────────
 
   /** Komodo Core API URL */
-  KOMODO_URL: z.string().url().optional(),
+  KOMODO_URL: z.url().optional(),
 
   /** Username for login authentication */
   KOMODO_USERNAME: z.string().optional(),
@@ -104,7 +106,7 @@ export const appEnvSchema = z.object({
    * What to do when the client cannot prompt (no elicitation capability or stateless mode):
    * "deny" refuses the destructive call, "allow" executes it with a warning. Default: "deny"
    */
-  MCP_CONFIRM_FALLBACK: z.enum(["deny", "allow"]).default("deny"),
+  MCP_CONFIRM_FALLBACK: caseInsensitiveEnum(["deny", "allow"]).default("deny"),
 
   /**
    * How long to wait for the user to answer a confirmation prompt before giving up.
@@ -117,7 +119,7 @@ export const appEnvSchema = z.object({
   //
   // Layered on top of the framework's generic `MCP_SCRUB_*` settings: the
   // framework provides the BASE, these Komodo keys are the EXTENSION and win.
-  // See `resolveScrubOptions()` in `src/index.ts` for the exact composition.
+  // See `resolveScrubOptions()` in `src/server.ts` for the exact composition.
 
   /**
    * Master switch for secret redaction of tool output. Applied centrally by the
@@ -176,7 +178,17 @@ export type AppEnvConfig = z.infer<typeof appEnvSchema>;
  * {@link resolveKomodoConfig} once the config file has loaded — mutated **in place** so
  * every importer keeps a stable reference. Read `config.MCP_*` / `config.KOMODO_*` anywhere.
  */
-export const config: AppEnvConfig = appEnvSchema.parse(process.env);
+export const config: AppEnvConfig = parseAppEnv(process.env);
+
+/**
+ * Parse the app's settings. An invalid value is reported like the framework reports its own: a
+ * {@link ConfigurationError} that lists every setting with its problem, not a raw `ZodError`.
+ */
+function parseAppEnv(source: Record<string, string | undefined>): AppEnvConfig {
+  const result = appEnvSchema.safeParse(source);
+  if (!result.success) throw ConfigurationError.envValidationFailed(result.error);
+  return result.data;
+}
 
 /**
  * Merge the app-specific config-file sections and re-resolve {@link config} as
@@ -184,11 +196,11 @@ export const config: AppEnvConfig = appEnvSchema.parse(process.env);
  * schema parses, and `process.env` is spread last so a real env var always wins.
  *
  * Must be called AFTER the config file is loaded and BEFORE any consumer reads a file-backed
- * knob (`scrubOptions`, the resource registry, the tool filter in `src/index.ts`).
+ * knob (`scrubOptions`, the resource registry, the tool filter in `src/server.ts`).
  */
 export function resolveKomodoConfig(): void {
   getFrameworkConfig(); // ensure the config file is loaded so getAppConfig() has section data
-  Object.assign(config, appEnvSchema.parse({ ...fileSectionOverrides(), ...process.env }));
+  Object.assign(config, parseAppEnv({ ...fileSectionOverrides(), ...process.env }));
 }
 
 /** Map the registered app config-file sections to env-style string overrides (only for present keys). */
@@ -285,7 +297,7 @@ export function getKomodoCredentials(): KomodoCredentials {
 /** `[komodo]` — Komodo Core connection (credentials belong in the environment, not the file). */
 const komodoConfigFileSchema = z.object({
   /** Komodo Core API URL */
-  url: z.string().url().optional(),
+  url: z.url().optional(),
   /** Username for login authentication */
   username: z.string().optional(),
   /** Path to file containing the username (Docker secrets) */
@@ -321,7 +333,7 @@ const toolsConfigFileSchema = z.object({
   /** Require manual confirmation before destructive tools execute. Env: MCP_CONFIRM_DESTRUCTIVE */
   confirm_destructive: z.boolean().optional(),
   /** Behavior when a client cannot prompt: "deny" or "allow". Env: MCP_CONFIRM_FALLBACK */
-  confirm_fallback: z.enum(["deny", "allow"]).optional(),
+  confirm_fallback: caseInsensitiveEnum(["deny", "allow"]).optional(),
   /** How long to wait for a confirmation answer as duration ('5m', '30s') or ms. Env: MCP_CONFIRM_TIMEOUT_MS */
   confirm_timeout: z.union([z.number().int().positive(), z.string()]).optional(),
 });

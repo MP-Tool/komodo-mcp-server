@@ -65,6 +65,7 @@ export {
   summarizeResource,
   buildDeleteResult,
   buildInfoResult,
+  komodoObject,
   type ActionType,
   type ResourceType,
   type ActionResponseOptions,

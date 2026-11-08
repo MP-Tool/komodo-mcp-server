@@ -6,6 +6,174 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 --------------------------------------------------------------
+## [1.5.1]
+
+The theme: **every way to connect over the network now has a way to authenticate** - including
+clients that cannot open a browser and Komodo accounts that cannot sign in with a password. Nothing
+changes unless you use one of the new options; `stdio`, the browser login and the read-only mode
+with authentication switched off behave as in 1.5.0.
+
+> **Upgrade notes**
+> - **Node.js 22.23.4 or newer is required** (or 24.22.1+ / 26.12.1+). Older Node.js releases have a
+>   security flaw (Node2Shell, CVE-2026-111497). The Docker image already uses the newest Node.js 22.
+> - **Settings are checked strictly.** A config file with an unknown section or key is invalid. If you
+>   set it with `MCP_CONFIG_FILE_PATH`, the server does not start and lists every problem. Yes/no
+>   settings only accept `true`/`false`, `1`/`0`, `yes`/`no` or `on`/`off`. See
+>   [Strict Checking](config/README.md#strict-checking).
+> - **One signed-in user can have at most 50 sessions at a time**; more are refused. If many clients
+>   share one account, raise `MCP_MAX_SESSIONS_PER_PRINCIPAL`.
+> - **Audit log files are no longer deleted** by log rotation or retention. Remove old ones yourself.
+> - **Clients sign in again once** after the upgrade (as after any restart - sessions live in memory).
+> - **Plain HTTP with a non-`localhost` `MCP_BASE_URL`:** OAuth needs HTTPS. The server now says so
+>   at startup and stops, instead of failing with an unhelpful error. Use HTTPS, or see
+>   [Plain HTTP on private networks](config/README.md#plain-http-on-private-networks).
+
+### Added
+
+- **Sign in with a Komodo API key.** The login page has a second tab next to username/password. Use
+  it when your Komodo account signs in through SSO (OIDC, GitHub, Google), has two-factor
+  authentication, or when the client should act as a service user. When Komodo has local login
+  switched off, the password tab is hidden.
+- **Connect without a browser: OAuth client credentials.** Gateways, automation and other
+  machine-to-machine clients can request a token from `POST /token` with the standard
+  `client_credentials` grant - `client_id` is a Komodo API key, `client_secret` its secret. The
+  client acts as the Komodo user the key belongs to, with that user's permissions. No server
+  configuration needed. ([#182](https://github.com/MP-Tool/komodo-mcp-server/issues/182))
+- **API-key headers for clients that can only send fixed headers.** With
+  `MCP_AUTH_API_KEY_HEADER=true` the server also accepts Komodo's `X-Api-Key` / `X-Api-Secret`
+  headers on `/mcp`. Off by default, because the long-lived secret then travels with every request.
+- **Sessions that last.** Signed-in clients get a refresh token, so a login no longer ends after an
+  hour: a password session lasts as long as the Komodo login behind it (Komodo's `jwt_ttl`, one
+  day by default), an API-key session as long as the key is valid.
+- **The login page shows which client is signing in** and where you are sent back to.
+- **Machine clients can give a token back.** A client that got its token with OAuth client
+  credentials can now revoke it at `/revoke` before it expires, with the same credentials. Before,
+  the server announced that address but turned such clients away.
+- New guide: [examples/machine-clients](examples/machine-clients/).
+- **Sign-in from desktop apps with their own link scheme.** After sign-in, clients may now also
+  return to app links in reverse-domain form (`com.example.app:/callback`). Short schemes of a single
+  app can be allowed with `MCP_AUTH_REDIRECT_SCHEMES`. See the
+  [configuration reference](config/README.md#mcp-server-authentication).
+- **`MCP_MAX_SESSIONS_PER_PRINCIPAL`**: how many sessions one signed-in user may hold at once (default 50).
+- **The health check names the framework version** the server runs on, next to its own version - useful
+  when reporting a problem.
+- **The container list shows resource usage.** `komodo_container_list` now includes each container's
+  CPU, memory, network and disk usage and its process count whenever Komodo has collected them - no
+  extra calls, no extra permissions. Requested in [#201](https://github.com/MP-Tool/komodo-mcp-server/issues/201), contributed
+  by **htazq** in [#227](https://github.com/MP-Tool/komodo-mcp-server/pull/227) - thank you!
+
+### Changed
+
+- The username/password login no longer forces a new sign-in every hour (see *Sessions that last*).
+- With authentication on, the server needs only `KOMODO_URL`; `KOMODO_API_KEY` / `KOMODO_API_SECRET`
+  are used for `stdio` and the read-only mode.
+- **Stopping the server lets running calls finish**, for up to a few seconds, before it closes the
+  sessions. Before, a stop cut off every call in flight.
+- **`/ready` no longer reports session counts.** Its status code and `status` text are unchanged.
+
+### Security
+
+- **No way in without a credential - unchanged, and now spelled out.** The request in #182 was a
+  switch that would let unauthenticated network callers act with the server's Komodo credentials
+  again. That is the situation advisory GHSA-gf32-w3f6-crx6 was about, so there is no such switch:
+  every new option above makes the *caller* present a credential, and the caller then gets exactly
+  what that credential is worth in Komodo. With authentication switched off the network server
+  stays read-only, whatever else is configured.
+- **The server's own Komodo credentials are only used where you put them to use:** for `stdio` and
+  for the read-only mode. A signed-in user never acts through them.
+- **Sessions belong to whoever opened them.** A session id alone is no longer enough to use a
+  session; the request has to be authenticated as the same user or client.
+- **Stricter sign-in protocol:** tokens are issued by the server itself (random, stored only as
+  digests, bound to the client and to this server), refresh tokens are rotated on every use and a
+  replayed one ends the session, authorization codes can only be redeemed by the client they were
+  issued to, and the login form only works for a sign-in the server itself started.
+- **Permission changes take effect sooner.** A session is re-checked against Komodo whenever its
+  token is refreshed: a deleted API key or a disabled user ends it, changed permissions are picked up.
+- **Guessing API keys is stopped.** An address that tries 20 different wrong keys within 15 minutes
+  is locked out until that window ends. A client that keeps sending one outdated key does not count
+  as guessing, so it does not lock out others behind the same address, and keys that worked before
+  keep working during a lockout. Input that does not look like a Komodo API key is rejected without
+  being forwarded to Komodo.
+- **One caller's failed sign-ins no longer lock everyone out.** Komodo blocks an address for a short
+  while after a few failed sign-ins. Every request the MCP server makes to Komodo is made for one of
+  its callers, so until now Komodo saw all of them under the MCP server's address: a few wrong keys
+  from anyone, or a client that kept using a deleted key, blocked every user. The server now names
+  the caller on every request to Komodo, the way a reverse proxy does (`Forwarded` and
+  `X-Forwarded-For`), so only that caller's address is blocked. If the MCP server itself runs behind
+  a reverse proxy, set `MCP_TRUST_PROXY` so it knows the real address.
+- **A blocked sign-in says so.** When Komodo turns sign-ins away for now, clients get "too many
+  attempts" (HTTP 429) with the time to wait, instead of a server error.
+- **Failed sign-ins on the login page are recorded in the audit log** (without what was typed).
+- **Sign-in pages are never stored** by the browser or a proxy in between.
+- **A token can only be revoked by the client it was issued to.**
+- **Compressed request bodies are refused** (`415`). Unpacking them was the way in for Node2Shell.
+- **Secret redaction covers more**: error messages of failed tools, secrets nested below a sensitive
+  key, and more formats in text (quoted, numeric and URL credentials).
+- **The audit log no longer loses records.** Rotation used to delete the oldest file, so a flood of
+  rejected requests could push older records out.
+
+### Fixed
+
+- **Clients that authenticate with HTTP Basic are served everywhere.** The token endpoint accepted
+  `client_id`/`client_secret` in the `Authorization` header only for client credentials, and did
+  not announce it at all - clients that follow the announcement strictly could not connect. It is
+  now accepted for every kind of token request and announced.
+- **Refusals follow the HTTP standard.** When a client's credentials are refused at the token
+  address, the answer now always says how a client can authenticate - before, that was missing
+  unless the client had used HTTP Basic, which strict clients and proxies can stumble over. A wrong
+  password on the login page is now answered as "refused" (HTTP 403) instead of 401; the page looks
+  the same. If you watch your access log for failed sign-ins, look for 403 on `/authorize/local`.
+- **Clients that listen on the IPv6 loopback address** (`http://[::1]:...`) can sign in; they were
+  turned away before.
+- **Discovery follows the standard more closely:** the server now describes its `/mcp` endpoint
+  exactly under the address clients are told to look at (RFC 9728). Clients that connected before
+  keep working.
+- **Tools on a single resource work for non-admin users.** In 1.5.0, tools that look at or act on one
+  specific resource (info, logs, start/stop, update, ...) could refuse a signed-in Komodo user who is
+  not an admin with `requires ..., but you have undefined` - even though Komodo itself would have
+  allowed the call. Listing was not affected. Reported in [#217](https://github.com/MP-Tool/komodo-mcp-server/issues/217) and fixed by **htazq** in
+  [#226](https://github.com/MP-Tool/komodo-mcp-server/pull/226) - thank you!
+- **Permissions granted on one specific resource are honoured.** A user who may, for example, operate
+  a single deployment was turned away when the deployment was addressed by its name instead of its
+  id. Both now follow what the user is allowed to do in Komodo.
+- **A config file of another program in the working directory no longer stops the server** (#191). A
+  file found automatically that is invalid for this server is ignored, and the reasons are logged.
+- **A start that fails on its settings says why, in a few lines** (#191). Before, the error log of
+  your MCP client showed a stack trace or a raw validation dump. Now it lists each setting with its
+  problem and what to do, for example
+  `MCP_CONFIRM_FALLBACK: Invalid option: expected one of "deny"|"allow"`.
+- **Confirmation prompts reach clients without a separate event stream.** Destructive actions ask for
+  confirmation, and that question was sent where some clients never listen. It now arrives with the
+  tool call, and canceling the call also cancels the question.
+- **A session no longer expires while a call is running** or an event stream is open.
+- **Settings with fixed values accept any upper or lower case** (#191), in the environment and in the
+  config file: `LOG_LEVEL=INFO` and `MCP_CONFIRM_FALLBACK=Allow` work like `info` and `allow`.
+- **Tool descriptions pass MCP Inspector's checks.** Some tools described free-form data and values that
+  may be empty in a way that MCP Inspector warns about and that some clients (for example ones that
+  hand tools on to Gemini) may reject. They now use the form every client understands, and the full
+  resource of an `*_info` tool and the Docker data of an `*_inspect` tool are declared as objects.
+  The results themselves are unchanged.
+- **Running a resource sync is reported as a run.** `komodo_resource_sync_action` with `run` said the
+  sync was "deployed" and returned `"action": "deploy"`. It now says `run`, like the other run actions.
+- **Refreshing a resource sync works in strict clients.** `komodo_resource_sync_action` with `refresh`
+  answered with text only, although the tool promises a structured result, so strict clients refused
+  the answer (`Output validation error`). Fixed by **Shyrka973** in [#192](https://github.com/MP-Tool/komodo-mcp-server/pull/192) - thank you!
+- **Creating and deleting API keys works when the server connects to Komodo with an API key.**
+  `komodo_user_create_api_key` and `komodo_user_delete_api_key` failed in that setup. Fixed by
+  **htazq** in [#223](https://github.com/MP-Tool/komodo-mcp-server/pull/223) - thank you!
+
+### Dependencies
+
+- `mcp-server-framework` 1.2.0 → 1.3.0, which brings the sign-in changes above and Zod 4. Zod is no
+  longer a dependency of its own.
+- All other dependencies updated to their latest versions.
+
+### Notes
+
+- Sign-ins and sessions live in the server's memory: run one instance per address, not several
+  replicas behind a load balancer.
+
+--------------------------------------------------------------
 ## [1.5.0]
 
 The main themes: **sign in with your own Komodo account**, **secure by default** over the network,

@@ -16,7 +16,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -33,6 +33,7 @@ import {
   renderActionResult,
   renderBuilderList,
   renderBuilderInfo,
+  komodoObject,
 } from "../utils/index.js";
 import {
   builderIdSchema,
@@ -88,7 +89,7 @@ export const getBuilderInfoTool = defineTool({
   name: "komodo_builder_info",
   description:
     "Get the full Komodo Builder resource (type, connection/instance configuration). Offloaded via a session-scoped resource link unless `inline_full` is set.",
-  input: z.object({ builder: builderIdSchema.describe("Builder id or name") }).merge(inlineFullInputSchema),
+  input: z.object({ builder: builderIdSchema.describe("Builder id or name") }).extend(inlineFullInputSchema.shape),
   output: builderInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILDER },
@@ -116,7 +117,7 @@ export const getBuilderInfoTool = defineTool({
       inlineFull: args.inline_full,
       description: `Full builder resource for ${result.name}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: komodoObject(result) };
     return structured(payload, { text: renderBuilderInfo(payload), ...(link ? { links: [link] } : {}) });
   },
 });
@@ -141,7 +142,7 @@ export const applyBuilderTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Builder");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const config = toBuilderConfig(args.config);
       const result = await wrapApiCall(
@@ -152,9 +153,9 @@ export const applyBuilderTool = defineTool({
       const built = buildApplyResult("create", "builder", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.builder) throw AppErrorFactory.validation.fieldRequired("builder");
+    if (!args.builder) throw ValidationError.fieldRequired("builder");
     const config = toBuilderConfig(args.config);
-    if (!config) throw AppErrorFactory.validation.fieldRequired("config");
+    if (!config) throw ValidationError.fieldRequired("config");
     await requireKomodoPermission({ type: "Builder", id: args.builder }, Write);
     const builderId = args.builder;
     const result = await wrapApiCall(

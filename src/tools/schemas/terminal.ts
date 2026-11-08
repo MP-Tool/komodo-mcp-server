@@ -51,7 +51,7 @@ const execServiceNameSchema = z
  *
  * Replaces `z.discriminatedUnion("target", …)` so MCP Inspector and other UI
  * clients render the form. The handler validates per-target required fields
- * at runtime via `AppErrorFactory.validation.fieldRequired`.
+ * at runtime via `ValidationError.fieldRequired`.
  *
  * - `server`        — requires `server` + `command`
  * - `container`     — requires `server` + `container` + `command`

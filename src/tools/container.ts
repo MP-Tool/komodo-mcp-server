@@ -39,6 +39,7 @@ import {
   renderContainerSearchLogs,
   renderActionResult,
   tryRegisterResource,
+  komodoObject,
 } from "../utils/index.js";
 import {
   containerActionInputSchema,
@@ -72,15 +73,25 @@ const INSPECT_CONTAINER_READ = "InspectDockerContainer" as unknown as "InspectCo
 // List
 // ============================================================================
 
+/** Preserve live Periphery stats in structured output instead of dropping them. */
+export function summarizeContainerListItem(container: ContainerListItem) {
+  return {
+    name: container.name,
+    state: container.state,
+    ...(container.image ? { image: container.image } : {}),
+    ...(container.stats ? { stats: container.stats } : {}),
+  };
+}
+
 export const listContainersTool = defineTool({
   name: "komodo_container_list",
   description:
-    "List all containers on a server, including running, stopped, and paused containers. Shows container name, state, and image.",
+    "List all containers on a server, including running, stopped, and paused containers. Shows image, state, and available CPU, memory, network, block I/O, and PID statistics.",
   input: z
     .object({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_TO_LIST_CONTAINERS),
     })
-    .merge(paginationInputSchema),
+    .extend(paginationInputSchema.shape),
   output: containerListOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -95,11 +106,7 @@ export const listContainersTool = defineTool({
       abortSignal,
     );
 
-    const allItems = containers.map((c: ContainerListItem) => ({
-      name: c.name,
-      state: c.state,
-      ...(c.image ? { image: c.image } : {}),
-    }));
+    const allItems = containers.map(summarizeContainerListItem);
 
     const { items, page } = paginate(allItems, args.cursor, args.page_size);
     const payload = { items: [...items], page };
@@ -120,7 +127,7 @@ export const inspectContainerTool = defineTool({
       server: serverIdSchema.describe(PARAM_DESCRIPTIONS.SERVER_ID_WHERE_CONTAINER_RUNS),
       container: containerNameSchema.describe(PARAM_DESCRIPTIONS.CONTAINER_ID_FOR_INSPECT),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerInspectOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -153,7 +160,7 @@ export const inspectContainerTool = defineTool({
       inlineFull: args.inline_full,
       description: `Docker inspect data for container ${args.container} on ${args.server}`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, inspect: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, inspect: komodoObject(result) };
     return structured(payload, {
       text: renderContainerInspect(payload),
       ...(link ? { links: [link] } : {}),
@@ -186,7 +193,7 @@ export const getContainerLogsTool = defineTool({
         .default(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)
         .describe(LOG_DESCRIPTIONS.TIMESTAMPS(CONTAINER_LOGS_DEFAULTS.TIMESTAMPS)),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },
@@ -266,7 +273,7 @@ export const searchContainerLogsTool = defineTool({
         .default(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)
         .describe(LOG_DESCRIPTIONS.CASE_SENSITIVE(LOG_SEARCH_DEFAULTS.CASE_SENSITIVE)),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: containerSearchLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.CONTAINER },

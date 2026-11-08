@@ -17,7 +17,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoAdmin,
@@ -148,7 +148,7 @@ export const applyVariableTool = defineTool({
     }
     // update — dispatch to one or more endpoints based on which fields are set
     if (args.value === undefined && args.description === undefined && args.is_secret === undefined) {
-      throw AppErrorFactory.validation.fieldRequired("value | description | is_secret");
+      throw ValidationError.fieldRequired("value | description | is_secret");
     }
     let updated: Variable | undefined;
     if (args.value !== undefined) {

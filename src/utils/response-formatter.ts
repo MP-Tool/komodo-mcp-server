@@ -8,23 +8,17 @@
  * @module utils/response-formatter
  */
 
-import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
-import { structured, type ResourceLinkSpec } from "mcp-server-framework";
+import {
+  structured,
+  type ResourceLinkSpec,
+  type StructuredToolResult,
+  type ToolErrorResult,
+} from "mcp-server-framework";
 import { RESPONSE_ICONS } from "../config/index.js";
 import { tryRegisterResource, type RegisterResourceOptions } from "./resource-link.js";
 
 export type ActionType =
-  | "deploy"
-  | "pull"
-  | "start"
-  | "restart"
-  | "pause"
-  | "unpause"
-  | "stop"
-  | "destroy"
-  | "create"
-  | "update"
-  | "remove";
+  "deploy" | "pull" | "start" | "restart" | "pause" | "unpause" | "stop" | "destroy" | "create" | "update" | "remove";
 
 export type ResourceType =
   | "stack"
@@ -177,18 +171,31 @@ export function summarizeResource(result: unknown, fallbackName: string): { name
 }
 
 /**
- * Build a `CallToolResult` for a `*_info` tool: register the content for
+ * Build the structured result of a `*_info` tool: register the content for
  * resource-link offload and assemble the summary + (resourceLink | info)
  * payload consumed by the handler's renderer.
  *
  * Secret redaction is NOT this builder's job: inline results pass the
  * framework's central tool-result boundary, and offloaded content is scrubbed
- * on register by the `DynamicResourceRegistry` (both wired in `src/index.ts`).
+ * on register by the `DynamicResourceRegistry` (both wired in `src/server.ts`).
  *
  * Pairs with the various `*InfoOutputSchema` shapes across `tools/schemas`.
  */
+export type InfoResultPayload<S> = { summary: S } & (
+  { info: Record<string, unknown> } | { resourceLink: ResourceLinkSpec }
+);
+
+/**
+ * A Komodo answer as the JSON object the output schemas declare (`komodoObjectSchema`). Komodo's
+ * resources, updates and Docker inspect payloads are objects; their generated types just do not
+ * say "any property", so the one conversion lives here.
+ */
+export function komodoObject(value: object): Record<string, unknown> {
+  return value as Record<string, unknown>;
+}
+
 export function buildInfoResult<S extends object>(input: {
-  result: unknown;
+  result: object;
   summary: S;
   register: {
     ctx: { sessionId?: string | undefined };
@@ -197,8 +204,8 @@ export function buildInfoResult<S extends object>(input: {
     inlineFull?: boolean | undefined;
     description: string;
   };
-  render: (payload: { summary: S } & ({ info: unknown } | { resourceLink: ResourceLinkSpec })) => string;
-}): CallToolResult {
+  render: (payload: InfoResultPayload<S>) => string;
+}): StructuredToolResult<InfoResultPayload<S>> | ToolErrorResult {
   const link = tryRegisterResource({
     ctx: input.register.ctx,
     category: "info",
@@ -209,8 +216,8 @@ export function buildInfoResult<S extends object>(input: {
     inlineFull: input.register.inlineFull,
     description: input.register.description,
   } satisfies RegisterResourceOptions);
-  const payload = link
+  const payload: InfoResultPayload<S> = link
     ? { summary: input.summary, resourceLink: link }
-    : { summary: input.summary, info: input.result };
+    : { summary: input.summary, info: komodoObject(input.result) };
   return structured(payload, { text: input.render(payload), ...(link ? { links: [link] } : {}) });
 }

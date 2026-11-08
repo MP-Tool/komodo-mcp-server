@@ -11,13 +11,14 @@ npm install
 npm run build
 ```
 
-**Prerequisites**: Node.js 22+, Docker (for container testing), a Komodo v2 instance for testing tools.
+**Prerequisites**: Node.js 22.23.4+ (or 24.22.1+ / 26.12.1+), Docker (for container testing), a Komodo v2 instance for testing tools.
 
 ## Project Structure
 
 ```
 src/
-├── index.ts              # Server entry point (createServer + tool imports)
+├── index.ts              # Entry point: loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + tool imports
 ├── client.ts             # Komodo API client (connection management)
 ├── config/               # Configuration & environment validation (Zod)
 │   ├── env.ts            # Environment variable schema
@@ -54,13 +55,14 @@ Built on [mcp-server-framework](https://github.com/MP-Tool/mcp-server-framework)
 
 ### Error Handling
 
-Use `AppErrorFactory` for application errors, `wrapApiCall()` for Komodo API calls:
+Throw the error classes directly (Komodo's own from `errors/`, `ValidationError` from the framework), and use `wrapApiCall()` for Komodo API calls:
 
 ```typescript
-import { AppErrorFactory } from '../errors/index.js';
+import { ApiError, NotFoundError, ValidationError } from '../errors/index.js';
 
-throw AppErrorFactory.notFound.server('my-server');
-throw AppErrorFactory.api.requestFailed('timeout exceeded');
+throw NotFoundError.server('my-server');
+throw ApiError.requestFailed('timeout exceeded');
+throw ValidationError.fieldRequired('server');
 
 // API calls — handles errors, metrics, and tracing automatically
 const result = await wrapApiCall(
@@ -98,7 +100,7 @@ export const myTool = defineTool({
 });
 ```
 
-Import the tool file in `src/index.ts` — it auto-registers via the global registry.
+Import the tool file in `src/tools/index.ts` — it auto-registers via the global registry.
 
 ## Commits & Pull Requests
 

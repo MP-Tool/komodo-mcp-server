@@ -26,6 +26,7 @@ import {
   tryRegisterResource,
   DEFAULT_PAGE_SIZE,
   MAX_PAGE_SIZE,
+  komodoObject,
 } from "../utils/index.js";
 import {
   updateIdSchema,
@@ -183,7 +184,7 @@ export const getUpdateInfoTool = defineTool({
     .object({
       id: updateIdSchema,
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: updateInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.UPDATE },
@@ -206,7 +207,7 @@ export const getUpdateInfoTool = defineTool({
       inlineFull: args.inline_full,
       description: `Full update payload with per-stage logs`,
     });
-    const payload = link ? { summary, resourceLink: link } : { summary, info: result };
+    const payload = link ? { summary, resourceLink: link } : { summary, info: komodoObject(result) };
     return structured(payload, {
       text: renderUpdateInfo(payload),
       ...(link ? { links: [link] } : {}),

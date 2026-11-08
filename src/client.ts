@@ -1,16 +1,16 @@
 /**
  * Komodo Client
  *
- * Thin wrapper around komodo_client with local connection tracking,
+ * Talks to Komodo Core in komodo_client's wire format (whose types it uses), naming on every
+ * request the caller it serves — the way a proxy does —, with local connection tracking, the
  * Auth Strategy Pattern, and automatic reconnection.
  *
  * @module client
  */
 
 import { isIPv6 } from "node:net";
-import { KomodoClient as createKomodoClient } from "komodo_client";
-import type { Types } from "komodo_client";
-import { logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
+import type { KomodoClient as KomodoClientFactory, Types } from "komodo_client";
+import { currentCaller, logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
 import {
   AuthenticationError,
   ClientNotConfiguredError,
@@ -54,25 +54,6 @@ export interface KomodoLoginOptions {
   readonly oidc: boolean;
   readonly github: boolean;
   readonly google: boolean;
-}
-
-/**
- * Races `operation` against a timeout so an unresponsive Komodo cannot hold a login open.
- *
- * @throws {ConnectionError} when the timeout elapses first
- */
-async function withTimeout<T>(url: string, timeoutMs: number, operation: Promise<T>): Promise<T> {
-  let timeoutHandle: NodeJS.Timeout | undefined;
-  const timeoutPromise = new Promise<never>((_, reject) => {
-    timeoutHandle = setTimeout(() => reject(ConnectionError.timeout(url)), timeoutMs);
-  });
-  // Defensive: swallow a late rejection if the timer fires after the race already settled.
-  void timeoutPromise.catch(() => {});
-  try {
-    return await Promise.race([operation, timeoutPromise]);
-  } finally {
-    if (timeoutHandle) clearTimeout(timeoutHandle);
-  }
 }
 
 // ============================================================================
@@ -152,30 +133,175 @@ async function credentialCheck(
 }
 
 // ============================================================================
-// Client Type
+// Komodo's API, in the Caller's Name
 // ============================================================================
 
-/** The raw komodo_client instance type */
-type KomodoClientInstance = ReturnType<typeof createKomodoClient>;
+/** What komodo_client offers; its methods are the model for {@link KomodoApi}. */
+type KomodoClientInstance = ReturnType<typeof KomodoClientFactory>;
+
+/** Komodo's API as this server uses it — komodo_client's methods, sent by {@link createKomodoApi}. */
+export type KomodoApi = Pick<
+  KomodoClientInstance,
+  | "read"
+  | "write"
+  | "execute"
+  | "core_version"
+  | "execute_terminal_stream"
+  | "execute_container_terminal"
+  | "execute_deployment_terminal"
+  | "execute_stack_service_terminal"
+>;
+
+/** A request to Komodo that failed, with the `status` and `result` komodo_client reports. */
+export class KomodoRequestError extends Error {
+  /**
+   * @param status - Komodo's HTTP status; 1 when Komodo could not be reached
+   * @param result - Komodo's answer (`{ error, trace }`)
+   * @param cause - The network error, when Komodo could not be reached
+   */
+  constructor(
+    readonly status: number,
+    readonly result: unknown,
+    cause?: unknown,
+  ) {
+    const komodoError = (result as { error?: unknown } | undefined)?.error;
+    super(
+      cause instanceof Error ? cause.message : typeof komodoError === "string" ? komodoError : `HTTP ${status}`,
+      cause === undefined ? undefined : { cause },
+    );
+    this.name = "KomodoRequestError";
+  }
+}
+
+/** What a terminal command reports its output to (komodo_client does not export the type). */
+type ExecuteCallbacks = NonNullable<Parameters<KomodoApi["execute_container_terminal"]>[1]>;
+
+/** A terminal command for one target, as the `execute_*_terminal` methods take it. */
+interface TerminalCommand {
+  readonly terminal?: string;
+  readonly command: string;
+  readonly init?: Types.InitTerminal;
+}
+
+/** The body of `/terminal/execute`, without optional fields that are not set. */
+function terminalBody(
+  target: Types.ExecuteTerminalBody["target"],
+  { terminal, command, init }: TerminalCommand,
+): Types.ExecuteTerminalBody {
+  return { target, command, ...(terminal !== undefined && { terminal }), ...(init !== undefined && { init }) };
+}
+
+/** The marker with which Komodo ends a terminal command's output, followed by the exit code. */
+const EXIT_CODE_MARKER = "__KOMODO_EXIT_CODE";
+
+/**
+ * Komodo's API for one credential, every request sent in the name of the caller it serves.
+ *
+ * A server that acts on a caller's behalf names that caller on each request, as a proxy does
+ * ({@link forwardingHeaders}); komodo_client cannot add headers, so this speaks its wire format
+ * itself. Failures keep komodo_client's shape ({@link KomodoRequestError}), which is what the
+ * tools read Komodo's errors from.
+ *
+ * @param url - Komodo Core base URL
+ * @param credential - What every request authenticates with
+ * @param callerAddress - Who the request being served is for; asked at each request
+ */
+export function createKomodoApi(
+  url: string,
+  credential: KomodoUserCredential,
+  callerAddress: () => string | undefined,
+): KomodoApi {
+  const post = async (path: string, body: unknown): Promise<Response> => {
+    let response: Response;
+    try {
+      response = await fetch(`${url}${path}`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...credentialHeaders(credential),
+          ...forwardingHeaders(callerAddress()),
+        },
+        body: JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new KomodoRequestError(1, { error: "Request failed with error", trace: [] }, error);
+    }
+    if (response.status === 200) return response;
+    const result: unknown = await response.json().catch(() => ({ error: "Failed to get response body", trace: [] }));
+    throw new KomodoRequestError(response.status, result);
+  };
+
+  const call =
+    (kind: string) =>
+    async (type: string, params: unknown): Promise<unknown> =>
+      (await post(`/${kind}/${type}`, params)).json();
+
+  /** A terminal command's output, line by line. */
+  const lines = async (request: Types.ExecuteTerminalBody): Promise<AsyncIterable<string>> => {
+    const response = await post("/terminal/execute", request);
+    if (!response.body) throw new KomodoRequestError(response.status, { error: "No response body", trace: [] });
+    let tail = "";
+    return response.body.pipeThrough(new TextDecoderStream("utf-8")).pipeThrough(
+      new TransformStream<string, string>({
+        transform(chunk, controller) {
+          const parts = (tail + chunk).split(/\r?\n/);
+          tail = parts.pop() ?? "";
+          for (const line of parts) controller.enqueue(line);
+        },
+        flush(controller) {
+          if (tail) controller.enqueue(tail);
+        },
+      }),
+    );
+  };
+
+  const terminal = async (request: Types.ExecuteTerminalBody, callbacks?: ExecuteCallbacks): Promise<void> => {
+    for await (const line of await lines(request)) {
+      if (line.startsWith(EXIT_CODE_MARKER)) {
+        await callbacks?.onFinish?.(line.split(":")[1] ?? "");
+        return;
+      }
+      await callbacks?.onLine?.(line);
+    }
+    // No exit code: the command ended early.
+    await callbacks?.onFinish?.("Early exit without code");
+  };
+
+  const read = call("read") as KomodoApi["read"];
+  return {
+    read,
+    write: call("write") as KomodoApi["write"],
+    execute: call("execute") as KomodoApi["execute"],
+    core_version: async () => (await read("GetVersion", {})).version,
+    execute_terminal_stream: lines,
+    execute_container_terminal: ({ server, container, ...command }, callbacks) =>
+      terminal(terminalBody({ type: "Container", params: { server, container } }, command), callbacks),
+    execute_deployment_terminal: ({ deployment, ...command }, callbacks) =>
+      terminal(terminalBody({ type: "Deployment", params: { deployment } }, command), callbacks),
+    execute_stack_service_terminal: ({ stack, service, ...command }, callbacks) =>
+      terminal(terminalBody({ type: "Stack", params: { stack, service } }, command), callbacks),
+  };
+}
 
 // ============================================================================
 // Komodo Client
 // ============================================================================
 
 export class KomodoClient {
-  private readonly _client: KomodoClientInstance;
+  private readonly _api: KomodoApi;
   private readonly _url: string;
   private readonly _credential: KomodoUserCredential;
 
-  private constructor(url: string, client: KomodoClientInstance, credential: KomodoUserCredential) {
+  private constructor(url: string, credential: KomodoUserCredential) {
     this._url = url;
-    this._client = client;
     this._credential = credential;
+    // Each request names the caller of the MCP request it serves (none outside of one: stdio).
+    this._api = createKomodoApi(url, credential, () => currentCaller().remoteAddress);
   }
 
-  /** The raw komodo_client SDK instance. */
-  get client(): KomodoClientInstance {
-    return this._client;
+  /** Komodo's API, sent in the name of the caller each request serves. */
+  get client(): KomodoApi {
+    return this._api;
   }
 
   /** The base URL of the connected Komodo server. */
@@ -184,39 +310,24 @@ export class KomodoClient {
   }
 
   /**
-   * Manage API keys for the connected Komodo user.
-   *
-   * komodo_client initializes MoghAuthClient with the JWT only, so its
-   * auth.manage() calls are unauthenticated when the outer SDK client is
-   * using an API key. Keep the existing SDK path for JWT connections and
-   * use the same API-key headers as Komodo's /read and /write calls for
-   * /auth/manage on service-account connections.
+   * Manage API keys for the connected Komodo user (`/auth/manage`), with the same credential
+   * headers as every other request — komodo_client's auth client would send a JWT only.
    */
   async createApiKey(name: string, expires: number): Promise<{ key: string; secret: string }> {
-    if (this._credential.type !== "api-key") {
-      return this._client.auth.manage("CreateApiKey", { name, expires });
-    }
-    return this.apiKeyAuthManage<{ key: string; secret: string }>("CreateApiKey", { name, expires });
+    return this.authManage<{ key: string; secret: string }>("CreateApiKey", { name, expires });
   }
 
   async deleteApiKey(key: string): Promise<void> {
-    if (this._credential.type !== "api-key") {
-      await this._client.auth.manage("DeleteApiKey", { key });
-      return;
-    }
-    await this.apiKeyAuthManage("DeleteApiKey", { key });
+    await this.authManage("DeleteApiKey", { key });
   }
 
-  private async apiKeyAuthManage<T>(method: "CreateApiKey" | "DeleteApiKey", params: object): Promise<T> {
-    const credentials = this._credential;
-    if (credentials.type !== "api-key") throw new Error("API-key credentials are not configured");
-
+  private async authManage<T>(method: "CreateApiKey" | "DeleteApiKey", params: object): Promise<T> {
     const response = await fetch(`${this._url}/auth/manage/${method}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "X-Api-Key": credentials.key,
-        "X-Api-Secret": credentials.secret,
+        ...credentialHeaders(this._credential),
+        ...forwardingHeaders(currentCaller().remoteAddress),
       },
       body: JSON.stringify(params),
       signal: AbortSignal.timeout(config.KOMODO_API_TIMEOUT_MS),
@@ -310,17 +421,20 @@ export class KomodoClient {
    */
   static async getLoginOptions(baseUrl: string): Promise<KomodoLoginOptions> {
     const url = KomodoClient.normalizeUrl(baseUrl);
-    const tempClient = createKomodoClient(url, { type: "jwt", params: { jwt: "" } });
+    let response: Response;
     try {
-      return await withTimeout(
-        url,
-        Math.min(config.KOMODO_API_TIMEOUT_MS, LOGIN_OPTIONS_TIMEOUT_MS),
-        tempClient.auth.login("GetLoginOptions", {}),
-      );
+      response = await fetch(`${url}/auth/login/GetLoginOptions`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: "{}",
+        signal: AbortSignal.timeout(Math.min(config.KOMODO_API_TIMEOUT_MS, LOGIN_OPTIONS_TIMEOUT_MS)),
+      });
     } catch (error) {
-      if (error instanceof ConnectionError) throw error;
-      throw ConnectionError.failed(url, extractKomodoError(error));
+      if (error instanceof DOMException && error.name === "TimeoutError") throw ConnectionError.timeout(url);
+      throw ConnectionError.failed(url, error instanceof Error ? formatError(error) : String(error));
     }
+    if (!response.ok) throw ConnectionError.failed(url, `HTTP ${response.status}`);
+    return (await response.json()) as KomodoLoginOptions;
   }
 
   /**
@@ -339,8 +453,7 @@ export class KomodoClient {
   static connectWithApiKey(baseUrl: string, key: string, secret: string): KomodoClient {
     const url = KomodoClient.normalizeUrl(baseUrl);
     logger.trace("Creating API-Key client for %s", url);
-    const client = createKomodoClient(url, { type: "api-key", params: { key, secret } });
-    return new KomodoClient(url, client, { type: "api-key", key, secret });
+    return new KomodoClient(url, { type: "api-key", key, secret });
   }
 
   /**
@@ -352,8 +465,7 @@ export class KomodoClient {
   static connectWithJwt(baseUrl: string, jwt: string): KomodoClient {
     const url = KomodoClient.normalizeUrl(baseUrl);
     logger.trace("Creating JWT client for %s", url);
-    const client = createKomodoClient(url, { type: "jwt", params: { jwt } });
-    return new KomodoClient(url, client, { type: "jwt", jwt });
+    return new KomodoClient(url, { type: "jwt", jwt });
   }
 
   /**

@@ -210,7 +210,7 @@ For the full configuration reference (env vars, config files, Docker secrets), s
 **Tools are missing from the list.** Two causes, both by design:
 - **Read-only mode.** If you disabled auth (`MCP_AUTH_ENABLED=false`) on an HTTP/HTTPS transport, the server is read-only for anonymous callers — every write/exec/delete tool (incl. `komodo_exec`) is hidden and rejected. Enable `[auth]` to get them back. Startup logs a `READ-ONLY` notice when this is active.
 - **Your Komodo permissions.** With authentication on, you only see the tools your Komodo user (or the user your API key belongs to) may use. A read-only service user sees read tools only.
-- **Tool-surface filter.** `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, or `MCP_TOOLS_EXCLUDED_TOOLS` prune the registered set. Unset all three to expose everything. A bad category name is ignored with a startup warning listing the valid categories.
+- **Tool-surface filter.** `MCP_TOOLS_ALLOWED_CATEGORIES`, `MCP_TOOLS_EXCLUDED_CATEGORIES`, or `MCP_TOOLS_EXCLUDED_TOOLS` prune the registered set. Unset all three to expose everything. An unknown category in either category setting rejects startup and lists the valid categories, including when valid and unknown names are mixed. Unset or empty category lists retain their documented unrestricted semantics.
 
 ## Disclaimer
 

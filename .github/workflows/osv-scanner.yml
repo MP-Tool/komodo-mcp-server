@@ -9,11 +9,14 @@ on:
     paths:
       - 'package.json'
       - 'package-lock.json'
+      - 'osv-scanner.toml'
   pull_request:
-    branches: [main]
+    # main and release branches such as 1.5.1
+    branches: [main, '[0-9]+.[0-9]+.[0-9]+']
     paths:
       - 'package.json'
       - 'package-lock.json'
+      - 'osv-scanner.toml'
   schedule:
     # Run weekly on Monday at 10:00 UTC
     - cron: '0 10 * * 1'

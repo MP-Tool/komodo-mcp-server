@@ -20,6 +20,7 @@ import {
   isAuthRejection,
 } from "./errors/index.js";
 import { config, getKomodoCredentials } from "./config/index.js";
+import { getKomodoRequestSignal } from "./utils/request-signal.js";
 
 const logger = baseLogger.child({ component: "KomodoClient" });
 
@@ -211,7 +212,7 @@ export function createKomodoApi(
   credential: KomodoUserCredential,
   callerAddress: () => string | undefined,
 ): KomodoApi {
-  const post = async (path: string, body: unknown): Promise<Response> => {
+  const post = async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     let response: Response;
     try {
       response = await fetch(`${url}${path}`, {
@@ -222,6 +223,7 @@ export function createKomodoApi(
           ...forwardingHeaders(callerAddress()),
         },
         body: JSON.stringify(body),
+        ...(signal && { signal }),
       });
     } catch (error) {
       throw new KomodoRequestError(1, { error: "Request failed with error", trace: [] }, error);
@@ -233,8 +235,8 @@ export function createKomodoApi(
 
   const call =
     (kind: string) =>
-    async (type: string, params: unknown): Promise<unknown> =>
-      (await post(`/${kind}/${type}`, params)).json();
+    async (type: string, params: unknown, signal = getKomodoRequestSignal()): Promise<unknown> =>
+      (await post(`/${kind}/${type}`, params, signal)).json();
 
   /** A terminal command's output, line by line. */
   const lines = async (request: Types.ExecuteTerminalBody): Promise<AsyncIterable<string>> => {

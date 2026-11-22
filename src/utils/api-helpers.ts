@@ -29,6 +29,7 @@ import { connectUserClient, getGlobalClient, servesAnonymousRequests } from "../
 import { komodoIdentity, meetsPermissionLevel, canCreateResource, permissionLevelOf } from "../auth/komodo-identity.js";
 import type { CreatableResourceType } from "../auth/komodo-identity.js";
 import { config } from "../config/index.js";
+import { getKomodoRequestSignal, runWithKomodoRequestSignal } from "./request-signal.js";
 
 // ============================================================================
 // Error Code Sets
@@ -565,11 +566,17 @@ function isKomodoPermissionDenied(status: number, message: string): boolean {
  * - HTTP errors: { status: 4xx|5xx, result: { error: "message", trace?: [...] } }
  * - Network errors: { status: 1, result: { error: "..." }, error: <Error> }
  */
-export async function wrapApiCall<T>(operation: string, apiCall: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+export async function wrapApiCall<T>(
+  operation: string,
+  apiCall: () => Promise<T>,
+  signal = getKomodoRequestSignal() ?? getCurrentToolContext()?.abortSignal,
+): Promise<T> {
   checkCancelled(signal, operation);
 
   try {
-    return await apiCall();
+    const result = await runWithKomodoRequestSignal(signal, apiCall);
+    checkCancelled(signal, operation);
+    return result;
   } catch (error) {
     checkCancelled(signal, operation);
 

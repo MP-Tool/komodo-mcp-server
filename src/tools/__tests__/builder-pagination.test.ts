@@ -28,12 +28,14 @@ test("builder lists preserve the exact total and every cursor page across Core v
   process.env["KOMODO_API_KEY"] = "test-key";
   process.env["KOMODO_API_SECRET"] = "test-secret";
   let version = "2.2.0";
+  const requestedLimits: Array<number | undefined> = [];
   t.mock.method(globalThis, "fetch", async (url: string, init: RequestInit) => {
     if (url.endsWith("/version")) return new Response("2.3.4");
     if (url.endsWith("/GetVersion")) return Response.json({ version });
     assert.equal(new URL(url).pathname, "/read/ListBuilders");
     assert.ok(typeof init.body === "string");
     const params = JSON.parse(init.body) as { limit?: number };
+    requestedLimits.push(params.limit);
     // Core's default is 50. Also exercise a lower operator-configured limit.
     const defaultLimit = version === "2.3.0" ? 50 : 30;
     const result = version === "2.2.0" || params.limit === 0 ? builders : builders.slice(0, defaultLimit);
@@ -43,6 +45,7 @@ test("builder lists preserve the exact total and every cursor page across Core v
 
   for (version of ["2.2.0", "2.3.0", "2.3.4"]) {
     await t.test(`Core ${version}`, async () => {
+      requestedLimits.length = 0;
       const ids: string[] = [];
       let cursor: string | undefined;
       for (const expectedCount of [25, 25, 13]) {
@@ -62,6 +65,7 @@ test("builder lists preserve the exact total and every cursor page across Core v
         ids,
         builders.map(({ id }) => id),
       );
+      assert.deepEqual(requestedLimits, [0, 0, 0], "every ListBuilders request must send limit: 0");
     });
   }
 });

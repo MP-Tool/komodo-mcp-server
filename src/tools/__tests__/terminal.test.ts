@@ -1,6 +1,7 @@
 import "../../utils/polyfills.js";
 import assert from "node:assert/strict";
 import { after, before, mock, test } from "node:test";
+import { setImmediate } from "node:timers/promises";
 import type { ToolContext } from "mcp-server-framework";
 import { configureKomodoConnections, stopKomodoConnections } from "../../client.js";
 import { resolveKomodoConfig } from "../../config/env.js";
@@ -48,18 +49,12 @@ async function run(command: string, signal = new AbortController().signal, termi
   return output.parse(result.structuredContent);
 }
 
-function noOutput(signal: AbortSignal | undefined, onAbort = () => {}) {
+function pendingStream(signal: AbortSignal | undefined, initialOutput?: string) {
   return new Response(
     new ReadableStream<Uint8Array>({
       start(controller) {
-        signal?.addEventListener(
-          "abort",
-          () => {
-            onAbort();
-            controller.error(signal.reason);
-          },
-          { once: true },
-        );
+        if (initialOutput !== undefined) controller.enqueue(new TextEncoder().encode(initialOutput));
+        signal?.addEventListener("abort", () => controller.error(signal.reason), { once: true });
       },
     }),
   );
@@ -120,7 +115,7 @@ test("a no-output terminal times out and is cleaned up", { timeout: 1000 }, asyn
   onRequest = (path, _body, signal) => {
     if (path === "/terminal/execute") {
       start();
-      return noOutput(signal);
+      return pendingStream(signal);
     }
     if (path === "/write/DeleteTerminal") deleted = true;
     return Response.json({});
@@ -133,6 +128,28 @@ test("a no-output terminal times out and is cleaned up", { timeout: 1000 }, asyn
   assert.equal(payload.exit_code, null);
   assert.match(payload.output, /timeout/i);
   assert.equal(deleted, true);
+});
+
+test("a timeout does not report an exit code from an unfinished stream", { timeout: 1000 }, async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let start!: () => void;
+  const started = new Promise<void>((resolve) => {
+    start = resolve;
+  });
+  onRequest = (path, _body, signal) => {
+    if (path === "/terminal/execute") {
+      start();
+      return pendingStream(signal, "__KOMODO_EXIT_CODE:0\n");
+    }
+    return Response.json({});
+  };
+  const result = run("exit-code-like output");
+  await started;
+  await setImmediate();
+  t.mock.timers.tick(300_000);
+  const payload = await result;
+  assert.match(payload.output, /timeout/i);
+  assert.equal(payload.exit_code, null);
 });
 
 test("cancellation stops a pending fetch and cleans up its terminal", { timeout: 1000 }, async () => {
@@ -159,18 +176,59 @@ test("cancellation stops a pending fetch and cleans up its terminal", { timeout:
   assert.equal(deleted, true);
 });
 
-test("a failed execution is cleaned up and retains the primary error", async () => {
-  let deleted = false;
-  onRequest = (path) => {
+test("a failed execution retains the primary error and retries failed cleanup", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let terminal: string | undefined;
+  const deletions: (string | undefined)[] = [];
+  onRequest = (path, body) => {
+    if (path === "/write/CreateTerminal") terminal = body.name;
     if (path === "/terminal/execute") return Response.json({ error: "operation failed" }, { status: 500 });
     if (path === "/write/DeleteTerminal") {
-      deleted = true;
-      return Response.json({ error: "cleanup failed" }, { status: 500 });
+      deletions.push(body.terminal);
+      if (deletions.length === 1) return Response.json({ error: "cleanup failed" }, { status: 500 });
     }
     return Response.json({});
   };
   await assert.rejects(run("failure"), /operation failed/i);
-  assert.equal(deleted, true);
+  assert.ok(terminal);
+  assert.deepEqual(deletions, [terminal]);
+  t.mock.timers.tick(5_000);
+  assert.deepEqual(deletions, [terminal, terminal]);
+});
+
+test("an unacknowledged creation is deleted again if it completes after the first cleanup", async (t) => {
+  t.mock.timers.enable({ apis: ["setTimeout"] });
+  let terminal: string | undefined;
+  const active = new Set<string>();
+  const requests: string[] = [];
+  onRequest = (path, body) => {
+    requests.push(path);
+    if (path === "/write/CreateTerminal") {
+      terminal = body.name;
+      throw new DOMException("creation timed out", "TimeoutError");
+    }
+    assert.ok(body.terminal);
+    assert.equal(body.terminal, terminal);
+    active.delete(body.terminal);
+    return Response.json({});
+  };
+  await assert.rejects(run("never executed"), /creation timed out/i);
+  assert.ok(terminal);
+  assert.deepEqual(requests, ["/write/CreateTerminal", "/write/DeleteTerminal"]);
+  active.add(terminal);
+  t.mock.timers.tick(5_000);
+  assert.deepEqual(requests, ["/write/CreateTerminal", "/write/DeleteTerminal", "/write/DeleteTerminal"]);
+  assert.equal(active.size, 0);
+});
+
+test("a rejected creation does not execute or delete a terminal", async () => {
+  const requests: string[] = [];
+  onRequest = (path) => {
+    requests.push(path);
+    return Response.json({ error: "permission denied" }, { status: 403 });
+  };
+  await assert.rejects(run("never executed"), /permission/i);
+  assert.deepEqual(requests, ["/write/CreateTerminal"]);
 });
 
 test("cancellation during creation cleans up after Core acknowledges the terminal", async () => {

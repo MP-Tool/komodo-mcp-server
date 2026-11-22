@@ -9,7 +9,7 @@
  */
 
 import { isIPv6 } from "node:net";
-import type { KomodoClient as KomodoClientFactory, Types } from "komodo_client";
+import type { KomodoClient as KomodoClientFactory, Types, WriteResponses } from "komodo_client";
 import { currentCaller, logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
 import {
   AuthenticationError,
@@ -143,14 +143,19 @@ type KomodoClientInstance = ReturnType<typeof KomodoClientFactory>;
 export type KomodoApi = Pick<
   KomodoClientInstance,
   | "read"
-  | "write"
   | "execute"
   | "core_version"
-  | "execute_terminal_stream"
   | "execute_container_terminal"
   | "execute_deployment_terminal"
   | "execute_stack_service_terminal"
->;
+> & {
+  write<T extends Types.WriteRequest["type"], Req extends Extract<Types.WriteRequest, { type: T }>>(
+    type: T,
+    params: Req["params"],
+    signal?: AbortSignal,
+  ): Promise<WriteResponses[Req["type"]]>;
+  execute_terminal_stream(request: Types.ExecuteTerminalBody, signal?: AbortSignal): Promise<AsyncIterable<string>>;
+};
 
 /** A request to Komodo that failed, with the `status` and `result` komodo_client reports. */
 export class KomodoRequestError extends Error {
@@ -211,7 +216,7 @@ export function createKomodoApi(
   credential: KomodoUserCredential,
   callerAddress: () => string | undefined,
 ): KomodoApi {
-  const post = async (path: string, body: unknown): Promise<Response> => {
+  const post = async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     let response: Response;
     try {
       response = await fetch(`${url}${path}`, {
@@ -222,6 +227,7 @@ export function createKomodoApi(
           ...forwardingHeaders(callerAddress()),
         },
         body: JSON.stringify(body),
+        ...(signal && { signal }),
       });
     } catch (error) {
       throw new KomodoRequestError(1, { error: "Request failed with error", trace: [] }, error);
@@ -233,12 +239,12 @@ export function createKomodoApi(
 
   const call =
     (kind: string) =>
-    async (type: string, params: unknown): Promise<unknown> =>
-      (await post(`/${kind}/${type}`, params)).json();
+    async (type: string, params: unknown, signal?: AbortSignal): Promise<unknown> =>
+      (await post(`/${kind}/${type}`, params, signal)).json();
 
   /** A terminal command's output, line by line. */
-  const lines = async (request: Types.ExecuteTerminalBody): Promise<AsyncIterable<string>> => {
-    const response = await post("/terminal/execute", request);
+  const lines = async (request: Types.ExecuteTerminalBody, signal?: AbortSignal): Promise<AsyncIterable<string>> => {
+    const response = await post("/terminal/execute", request, signal);
     if (!response.body) throw new KomodoRequestError(response.status, { error: "No response body", trace: [] });
     let tail = "";
     return response.body.pipeThrough(new TextDecoderStream("utf-8")).pipeThrough(

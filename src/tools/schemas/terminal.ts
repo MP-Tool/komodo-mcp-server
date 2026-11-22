@@ -35,8 +35,8 @@ export const execTerminalNameSchema = z
   .min(1, "Terminal name cannot be empty")
   .max(VALIDATION_LIMITS.MAX_RESOURCE_NAME_LENGTH, "Terminal name is too long")
   .regex(/^[a-zA-Z0-9_.-]+$/, "Terminal name contains invalid characters")
-  .default("mcp")
-  .describe("Terminal session name on the server. If it doesn't exist, it will be created. Default: mcp");
+  .optional()
+  .describe("Optional persistent terminal name on the server. Omit to use an isolated terminal for this call.");
 
 /** Service name within a stack (used for `target: 'stack_service'`) */
 const execServiceNameSchema = z

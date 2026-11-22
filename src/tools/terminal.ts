@@ -14,9 +14,11 @@
  * @module tools/terminal
  */
 
-import { defineTool, structured } from "mcp-server-framework";
+import { randomUUID } from "node:crypto";
+import { defineTool, logger, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
 import { Types } from "komodo_client";
+import { KomodoRequestError, type KomodoApi } from "../client.js";
 import { ToolCategories, ToolScopes } from "../config/index.js";
 import { ValidationError } from "../errors/index.js";
 import { execInputSchema, execOutputSchema } from "./schemas/index.js";
@@ -28,6 +30,7 @@ import {
   readCoreVersion,
   KOMODO_MINIMAL_API_VERSION,
   wrapApiCall,
+  checkCancelled,
   renderExecResult,
 } from "../utils/index.js";
 
@@ -40,6 +43,12 @@ const MAX_OUTPUT_LENGTH = 50_000;
 
 /** Maximum time to wait for a terminal command to complete (5 minutes) */
 const TERMINAL_TIMEOUT_MS = 300_000;
+
+/** Independent limit for creating or deleting an isolated terminal. */
+const TERMINAL_MANAGEMENT_TIMEOUT_MS = 5_000;
+
+/** Give a delayed CreateTerminal request time to reach Periphery before retrying deletion. */
+const TERMINAL_CLEANUP_RETRY_DELAY_MS = 5_000;
 
 /** Report progress every N lines of output */
 const PROGRESS_INTERVAL = 50;
@@ -164,29 +173,105 @@ class OutputBuffer {
   }
 }
 
-/**
- * Collects output from an async iterable stream (server terminals).
- * Parses the Komodo exit-code sentinel from the stream.
- */
-async function collectStreamOutput(
-  stream: AsyncIterable<string>,
-  signal?: AbortSignal,
+/** Execute a server command with a deadline and clean up terminals owned by this call. */
+async function executeServerTerminal(
+  api: KomodoApi,
+  {
+    server,
+    shell,
+    command,
+    terminal: persistentName,
+  }: { server: string; shell: string; command: string; terminal?: string | undefined },
+  abortSignal: AbortSignal,
   reportProgress?: ProgressReporter,
 ): Promise<TerminalResult> {
+  const operation = "executeServerTerminal";
+  checkCancelled(abortSignal, operation);
+  const target = { type: "Server", params: { server } } as const;
+  const terminal = persistentName ?? `mcp-${randomUUID()}`;
+  const init = echoSuppressedInit(shell);
+  const deadline = new AbortController();
+  const timer = setTimeout(() => deadline.abort(), TERMINAL_TIMEOUT_MS);
+  const signal = AbortSignal.any([abortSignal, deadline.signal]);
   const buf = new OutputBuffer();
+  let reporting = false;
+  let exitCode: string | null = null;
+  let creation: "none" | "confirmed" | "uncertain" = persistentName === undefined ? "uncertain" : "none";
 
-  for await (const line of stream) {
-    if (!buf.isActive(signal)) break;
-
-    if (line.startsWith(EXIT_CODE_PREFIX)) {
-      buf.exitCode = parseExitCode(line.slice(EXIT_CODE_PREFIX.length));
-      continue;
+  try {
+    if (persistentName === undefined) {
+      // Create separately so a late execute request cannot recreate a deleted terminal.
+      // Let creation settle even if the caller cancels, then delete with an independent signal.
+      try {
+        await api.write(
+          "CreateTerminal",
+          { target, name: terminal, ...init },
+          AbortSignal.timeout(TERMINAL_MANAGEMENT_TIMEOUT_MS),
+        );
+        creation = "confirmed";
+      } catch (error) {
+        // These rejections occur before Core can create the terminal. Other failures may occur after delivery.
+        if (error instanceof KomodoRequestError && [400, 401, 403, 404, 405, 409, 422].includes(error.status)) {
+          creation = "none";
+        } else {
+          logger.warn("Could not confirm creation of isolated Komodo terminal %s on server %s", terminal, server);
+        }
+        throw error;
+      }
     }
 
-    if (!buf.addLine(line)) break;
-    await buf.reportProgress(reportProgress);
+    signal.throwIfAborted();
+    const stream = await api.execute_terminal_stream(
+      { target, terminal, command, ...(persistentName !== undefined && { init }) },
+      signal,
+    );
+    for await (const line of stream) {
+      if (line.startsWith(EXIT_CODE_PREFIX)) {
+        exitCode = parseExitCode(line.slice(EXIT_CODE_PREFIX.length));
+      } else {
+        if (!buf.addLine(line)) {
+          exitCode = null;
+          break;
+        }
+        if (reportProgress && !reporting) {
+          reporting = true;
+          void buf
+            .reportProgress(reportProgress)
+            .catch(() => {})
+            .finally(() => {
+              reporting = false;
+            });
+        }
+      }
+    }
+    signal.throwIfAborted();
+    // The shell can print a line that looks like the exit marker while the command is still running.
+    buf.exitCode = exitCode;
+  } catch (error) {
+    checkCancelled(abortSignal, operation);
+    if (!deadline.signal.aborted) throw error;
+    buf.markTimeout();
+  } finally {
+    clearTimeout(timer);
+    if (creation !== "none") {
+      const deleteTerminal = async (): Promise<boolean> => {
+        try {
+          await api.write("DeleteTerminal", { target, terminal }, AbortSignal.timeout(TERMINAL_MANAGEMENT_TIMEOUT_MS));
+          return true;
+        } catch {
+          logger.warn("Could not delete isolated Komodo terminal %s on server %s", terminal, server);
+          return false;
+        }
+      };
+      const deleted = await deleteTerminal();
+      if (creation === "uncertain" || !deleted) {
+        // Delete is idempotent. An earlier success may have found no terminal if creation was still in flight.
+        setTimeout(() => void deleteTerminal(), TERMINAL_CLEANUP_RETRY_DELAY_MS).unref();
+      }
+    }
   }
 
+  checkCancelled(abortSignal, operation);
   return buf.getResult();
 }
 
@@ -263,18 +348,11 @@ export const execTool = defineTool({
           resourceId: server,
           detail: `Command: ${commandPreview}`,
         });
-        const stream = await wrapApiCall(
+        const result = await wrapApiCall(
           "executeServerTerminal",
-          () =>
-            komodo.client.execute_terminal_stream({
-              target: { type: "Server", params: { server } },
-              terminal: args.terminal,
-              command: args.command,
-              init: echoSuppressedInit(args.shell),
-            }),
+          () => executeServerTerminal(komodo.client, { ...args, server }, abortSignal, reportProgress),
           abortSignal,
         );
-        const result = await collectStreamOutput(stream, abortSignal, reportProgress);
         const payload = {
           target: "server" as const,
           command: args.command,

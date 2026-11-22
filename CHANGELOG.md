@@ -114,6 +114,8 @@ with authentication switched off behave as in 1.5.0.
 
 ### Fixed
 
+- **Server shell calls use isolated terminals by default** (#229). Silent server commands now time out after five minutes. An explicit terminal name keeps a shared, persistent shell.
+
 - **Clients that authenticate with HTTP Basic are served everywhere.** The token endpoint accepted
   `client_id`/`client_secret` in the `Authorization` header only for client credentials, and did
   not announce it at all - clients that follow the announcement strictly could not connect. It is

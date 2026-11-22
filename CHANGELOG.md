@@ -114,6 +114,8 @@ with authentication switched off behave as in 1.5.0.
 
 ### Fixed
 
+- **Builder lists include all visible builders** (follow-up to #174). The tool reports the full count and keeps its existing cursors on Komodo Core 2.3 and later.
+
 - **Clients that authenticate with HTTP Basic are served everywhere.** The token endpoint accepted
   `client_id`/`client_secret` in the `Authorization` header only for client credentials, and did
   not announce it at all - clients that follow the announcement strictly could not connect. It is

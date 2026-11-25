@@ -826,7 +826,7 @@ export async function configureKomodoConnections(opts: {
   } catch (error) {
     if (isAuthRejection(error)) {
       logger.error(
-        "Global Komodo authentication failed — check credentials: %s",
+        "Global Komodo authentication failed: %s — check the configured Komodo credentials",
         error instanceof Error ? error.message : String(error),
       );
       globalConnection = null;

@@ -176,6 +176,10 @@ with authentication switched off behave as in 1.5.0.
 - **The TOML export says whether its secrets are masked.** Its first line always claimed secrets
   were "masked as [[VAR]]" - not the mask actually used, and not true when redaction is switched
   off. It now says "secret values masked", or warns that secret values are in plain text.
+- **Log messages about credentials are readable.** Secret redaction took the word "credentials" in
+  two log lines for a secret field and masked what followed: the reason when the server's own login
+  to Komodo fails, and part of the start-up line about sign-in. Both are readable now; a secret
+  inside them is still masked.
 
 ### Dependencies
 

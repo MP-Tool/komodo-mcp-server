@@ -363,7 +363,7 @@ export async function createKomodoAuth(options: KomodoAuthSetupOptions): Promise
   }
 
   logger.info(
-    "MCP authentication enabled — sign-in: %s | client credentials: Komodo API keys%s | API-key headers: %s",
+    "MCP authentication enabled — sign-in: %s | service clients: Komodo API keys%s | API-key headers: %s",
     [...signInProviders.map(describeProvider), ...localLogin.map((method) => method.displayName)].join(" + "),
     serviceClients.length > 0 ? ` + ${serviceClients.length} registered client(s)` : "",
     config.apiKeyHeader ? "on" : "off",

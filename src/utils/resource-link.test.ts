@@ -34,7 +34,7 @@ afterEach(() => {
   Object.assign(config, originalConfig);
 });
 
-test("default link mode offloads even tiny payloads and preserves link metadata", () => {
+void test("default link mode offloads even tiny payloads and preserves link metadata", () => {
   const link = tryRegisterResource(options);
   assert.ok(link);
   assert.match(link.uri, /^ephemeral:\/\/info\/[a-f0-9]{32}$/);
@@ -49,13 +49,13 @@ test("default link mode offloads even tiny payloads and preserves link metadata"
   assert.deepEqual(JSON.parse(stored.content as string), JSON.parse(options.content as string));
 });
 
-test("auto mode inlines small payloads without registering a resource", () => {
+void test("auto mode inlines small payloads without registering a resource", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   assert.equal(tryRegisterResource(options), null);
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
-test("auto mode offloads payloads larger than the configured threshold", () => {
+void test("auto mode offloads payloads larger than the configured threshold", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   const content = "x".repeat(config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES + 1);
   const link = tryRegisterResource({ ...options, content, mimeType: "text/plain" });
@@ -63,7 +63,7 @@ test("auto mode offloads payloads larger than the configured threshold", () => {
   assert.equal(getDynamicResourceRegistry().read(link.uri, "session-a").content, content);
 });
 
-test("auto mode uses an inclusive exact byte threshold", () => {
+void test("auto mode uses an inclusive exact byte threshold", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   for (const delta of [-1, 0, 1]) {
     const link = tryRegisterResource({
@@ -75,7 +75,7 @@ test("auto mode uses an inclusive exact byte threshold", () => {
   }
 });
 
-test("auto mode measures UTF-8 multibyte characters rather than UTF-16 code units", () => {
+void test("auto mode measures UTF-8 multibyte characters rather than UTF-16 code units", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 8;
   assert.equal(tryRegisterResource({ ...options, content: "é漢€", mimeType: "text/plain" }), null); // 2+3+3 bytes
@@ -84,7 +84,7 @@ test("auto mode measures UTF-8 multibyte characters rather than UTF-16 code unit
   assert.ok(tryRegisterResource({ ...options, content, mimeType: "text/plain" }));
 });
 
-test("auto mode measures a Uint8Array view, not its entire backing buffer", () => {
+void test("auto mode measures a Uint8Array view, not its entire backing buffer", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 8;
   const buffer = new Uint8Array(100);
@@ -92,14 +92,14 @@ test("auto mode measures a Uint8Array view, not its entire backing buffer", () =
   assert.ok(tryRegisterResource({ ...options, content: buffer.subarray(0, 9) }));
 });
 
-test("inline mode always skips offloading, including large payloads", () => {
+void test("inline mode always skips offloading, including large payloads", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "inline";
   assert.equal(tryRegisterResource(options), null);
   assert.equal(tryRegisterResource({ ...options, content: "x".repeat(32768) }), null);
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
-test("lazy resource factories are not evaluated when delivery is already inline", (t) => {
+void test("lazy resource factories are not evaluated when delivery is already inline", (t) => {
   const content = t.mock.fn(() => {
     throw new Error("discarded resource serialization executed");
   });
@@ -119,7 +119,7 @@ test("lazy resource factories are not evaluated when delivery is already inline"
   assert.equal(content.mock.callCount(), 0);
 });
 
-test("large info inline results skip their unused JSON resource copy", (t) => {
+void test("large info inline results skip their unused JSON resource copy", (t) => {
   const toJSON = t.mock.fn(() => {
     throw new Error("unused JSON resource copy");
   });
@@ -149,7 +149,7 @@ test("large info inline results skip their unused JSON resource copy", (t) => {
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
-test("link and auto evaluate lazy content exactly once when sizing or offloading needs it", (t) => {
+void test("link and auto evaluate lazy content exactly once when sizing or offloading needs it", (t) => {
   for (const mode of ["link", "auto"] as const) {
     config.MCP_RESOURCE_RESPONSE_MODE = mode;
     for (const size of [8, 32768]) {
@@ -162,7 +162,7 @@ test("link and auto evaluate lazy content exactly once when sizing or offloading
   }
 });
 
-test("lazy content preserves complete inline fallback when registration fails", (t) => {
+void test("lazy content preserves complete inline fallback when registration fails", (t) => {
   t.mock.method(getDynamicResourceRegistry(), "register", () => {
     throw new Error("registry unavailable");
   });
@@ -174,7 +174,7 @@ test("lazy content preserves complete inline fallback when registration fails", 
   }
 });
 
-test("lazy preparation failures remain tool errors instead of registry fallbacks", () => {
+void test("lazy preparation failures remain tool errors instead of registry fallbacks", () => {
   const content = () => {
     throw new Error("serialization failed");
   };
@@ -184,7 +184,7 @@ test("lazy preparation failures remain tool errors instead of registry fallbacks
   }
 });
 
-test("inline_full overrides every mode even for large payloads", () => {
+void test("inline_full overrides every mode even for large payloads", () => {
   for (const mode of ["link", "inline", "auto"] as const) {
     config.MCP_RESOURCE_RESPONSE_MODE = mode;
     assert.equal(tryRegisterResource({ ...options, content: "x".repeat(32768), inlineFull: true }), null);
@@ -192,14 +192,14 @@ test("inline_full overrides every mode even for large payloads", () => {
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
-test("inline_full false does not override the configured policy", () => {
+void test("inline_full false does not override the configured policy", () => {
   for (const mode of ["link", "inline", "auto"] as const) {
     config.MCP_RESOURCE_RESPONSE_MODE = mode;
     assert.equal(tryRegisterResource({ ...options, inlineFull: false }) !== null, mode === "link");
   }
 });
 
-test("missing and empty sessions preserve inline fallback in every mode", () => {
+void test("missing and empty sessions preserve inline fallback in every mode", () => {
   for (const mode of ["link", "inline", "auto"] as const) {
     config.MCP_RESOURCE_RESPONSE_MODE = mode;
     for (const ctx of [{}, { sessionId: "" }]) {
@@ -209,7 +209,7 @@ test("missing and empty sessions preserve inline fallback in every mode", () => 
   assert.equal(getDynamicResourceRegistry().size, 0);
 });
 
-test("registration failure falls back to the complete inline output shape", (t) => {
+void test("registration failure falls back to the complete inline output shape", (t) => {
   t.mock.method(getDynamicResourceRegistry(), "register", () => {
     throw new Error("registry unavailable");
   });
@@ -231,7 +231,7 @@ test("registration failure falls back to the complete inline output shape", (t) 
   }
 });
 
-test("auto measures the original serialized payload before redaction can shrink it", () => {
+void test("auto measures the original serialized payload before redaction can shrink it", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 128;
   const link = tryRegisterResource({ ...options, content: JSON.stringify({ password: "s".repeat(512) }) });
@@ -241,7 +241,7 @@ test("auto measures the original serialized payload before redaction can shrink 
   assert.ok(Buffer.byteLength(stored, "utf8") < 128);
 });
 
-test("pre-scrubbed TOML still selects delivery using the original byte count", () => {
+void test("pre-scrubbed TOML still selects delivery using the original byte count", () => {
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 128;
   const link = tryRegisterResource({
@@ -254,7 +254,7 @@ test("pre-scrubbed TOML still selects delivery using the original byte count", (
   assert.equal(getDynamicResourceRegistry().read(link.uri, "session-a").content, 'name = "safe"\n');
 });
 
-test("auto preserves per-call TTLs, session isolation, and registry entry bounds", (t) => {
+void test("auto preserves per-call TTLs, session isolation, and registry entry bounds", (t) => {
   t.mock.timers.enable({ apis: ["Date"], now: 1000 });
   config.MCP_RESOURCE_RESPONSE_MODE = "auto";
   config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES = 1;

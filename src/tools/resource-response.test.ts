@@ -25,7 +25,7 @@ import { exportAllResourcesToTomlTool, exportResourcesToTomlTool } from "./toml.
 // These tests exercise real tool handlers, SDK output-schema validation, the
 // framework result scrubber, scrub-on-register, and MCP resources/read. Only
 // Komodo's downstream API is mocked; no network or production access is used.
-test("adaptive delivery preserves complete, redacted tool results across the MCP boundary", async (t) => {
+void test("adaptive delivery preserves complete, redacted tool results across the MCP boundary", async (t) => {
   const originalConfig = { ...config };
   const originalEnv = { ...process.env };
   // Komodo's explicit test setting overrides an inherited MCP_SCRUB_ENABLED=false.
@@ -386,7 +386,7 @@ test("adaptive delivery preserves complete, redacted tool results across the MCP
     st.mock.method(registry, "register", () => {
       throw new Error("registration scrub failed");
     });
-    st.mock.method(resultScrubber, "scrubObject", () => {
+    st.mock.method(resultScrubber, "scrubStructured", () => {
       throw new Error("boundary scrub failed");
     });
     const response = await client.callTool({ name: getStackInfoTool.name, arguments: { stack: "test-stack" } });

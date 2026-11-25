@@ -5,6 +5,7 @@ import { writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { appEnvSchema, config, registerKomodoConfigSection, resolveKomodoConfig } from "./env.js";
 
 // Point the framework config loader at a temp file. env.js's import-time parse is env-only;
@@ -48,7 +49,7 @@ after(() => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test("config-file values are resolved (file > default), one key per new section", () => {
+void test("config-file values are resolved (file > default), one key per new section", () => {
   resolveKomodoConfig();
   assert.equal(config.MCP_CONFIRM_DESTRUCTIVE, false); // [tools] overrides default(true)
   assert.deepEqual(config.MCP_TOOLS_ALLOWED_CATEGORIES, ["server", "stack"]); // [tools]
@@ -58,7 +59,7 @@ test("config-file values are resolved (file > default), one key per new section"
   assert.equal(config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES, 2048);
 });
 
-test("environment variables override config-file values (env > file)", () => {
+void test("environment variables override config-file values (env > file)", () => {
   process.env["MCP_RESOURCE_MAX_ENTRIES"] = "99";
   process.env["MCP_CONFIRM_DESTRUCTIVE"] = "true";
   process.env["MCP_RESOURCE_RESPONSE_MODE"] = "inline";
@@ -71,20 +72,22 @@ test("environment variables override config-file values (env > file)", () => {
   assert.deepEqual(config.MCP_TOOLS_ALLOWED_CATEGORIES, ["server", "stack"]); // no env → file still applies
 });
 
-test("resource delivery defaults preserve v1.5.0 link behavior", () => {
+void test("resource delivery defaults preserve the link default", () => {
   const defaults = appEnvSchema.parse({});
   assert.equal(defaults.MCP_RESOURCE_RESPONSE_MODE, "link");
   assert.equal(defaults.MCP_RESOURCE_INLINE_THRESHOLD_BYTES, 16384);
 });
 
-test("all resource delivery modes are accepted", () => {
+void test("all resource delivery modes are accepted", () => {
   for (const mode of ["link", "inline", "auto"]) {
-    assert.equal(appEnvSchema.parse({ MCP_RESOURCE_RESPONSE_MODE: mode }).MCP_RESOURCE_RESPONSE_MODE, mode);
+    for (const value of [mode, mode.toUpperCase()]) {
+      assert.equal(appEnvSchema.parse({ MCP_RESOURCE_RESPONSE_MODE: value }).MCP_RESOURCE_RESPONSE_MODE, mode);
+    }
   }
 });
 
-test("invalid resource delivery configuration reports the offending variable", () => {
-  for (const value of ["", "AUTO", "unknown", " link "]) {
+void test("invalid resource delivery configuration reports the offending variable", () => {
+  for (const value of ["", "unknown", " link "]) {
     const parsed = appEnvSchema.safeParse({ MCP_RESOURCE_RESPONSE_MODE: value });
     assert.equal(parsed.success, false);
     assert.deepEqual(parsed.error.issues[0]?.path, ["MCP_RESOURCE_RESPONSE_MODE"]);
@@ -121,7 +124,7 @@ test("invalid resource delivery configuration reports the offending variable", (
   }
 });
 
-test("invalid delivery settings fail config resolution instead of silently using defaults", () => {
+void test("invalid delivery settings fail config resolution instead of silently using defaults", () => {
   process.env["MCP_RESOURCE_RESPONSE_MODE"] = "broken";
   assert.throws(resolveKomodoConfig, /MCP_RESOURCE_RESPONSE_MODE/);
   delete process.env["MCP_RESOURCE_RESPONSE_MODE"];
@@ -129,40 +132,37 @@ test("invalid delivery settings fail config resolution instead of silently using
   assert.throws(resolveKomodoConfig, /MCP_RESOURCE_INLINE_THRESHOLD_BYTES/);
 });
 
-test("invalid resource delivery settings in a config file fail startup with the offending key", () => {
-  // Config files are cached per process, so each case needs a fresh loader.
-  const moduleUrl = new URL("./env.js", import.meta.url).href;
-  const script = `const config = await import(${JSON.stringify(moduleUrl)}); config.registerKomodoConfigSection(); config.resolveKomodoConfig();`;
-  for (const [setting, key] of [
-    ['response_mode = "invalid"', "response_mode"],
-    ["inline_threshold_bytes = 0", "inline_threshold_bytes"],
-    ["inline_threshold_bytes = 1.5", "inline_threshold_bytes"],
-    ["inline_threshold_bytes = 9007199254740992", "inline_threshold_bytes"],
-    ["inline_threshold_bytes = nan", "inline_threshold_bytes"],
-    ["inline_threshold_bytes = inf", "inline_threshold_bytes"],
-    ['inline_threshold_bytes = "16384"', "inline_threshold_bytes"],
+void test("invalid resource delivery settings in an explicit config file fail startup", () => {
+  const entryPoint = new URL("../index.js", import.meta.url);
+  for (const [filename, contents, diagnostic] of [
+    ["invalid.toml", '[resources]\nresponse_mode = "invalid"\n', /resources\.response_mode/],
+    ["invalid.toml", "[resources]\ninline_threshold_bytes = 0\n", /resources\.inline_threshold_bytes/],
+    ["invalid.toml", "[resources]\ninline_threshold_bytes = 1.5\n", /resources\.inline_threshold_bytes/],
+    ["invalid.toml", "[resources]\ninline_threshold_bytes = 9007199254740992\n", /cannot be represented losslessly/],
+    ["invalid.toml", "[resources]\ninline_threshold_bytes = nan\n", /resources\.inline_threshold_bytes/],
+    ["invalid.toml", "[resources]\ninline_threshold_bytes = inf\n", /resources\.inline_threshold_bytes/],
+    ["invalid.toml", '[resources]\ninline_threshold_bytes = "16384"\n', /resources\.inline_threshold_bytes/],
+    ["invalid.yaml", "resources:\n  inline_threshold_bytes: 9007199254740992\n", /resources\.inline_threshold_bytes/],
   ] as const) {
-    const invalidPath = join(dir, "invalid.toml");
-    writeFileSync(invalidPath, `[resources]\n${setting}\n`);
-    const env: NodeJS.ProcessEnv = { ...process.env, MCP_CONFIG_FILE_PATH: invalidPath };
-    delete env["MCP_RESOURCE_RESPONSE_MODE"];
-    delete env["MCP_RESOURCE_INLINE_THRESHOLD_BYTES"];
-    const result = spawnSync(process.execPath, ["--input-type=module", "--eval", script], {
-      env,
+    const invalidPath = join(dir, filename);
+    writeFileSync(invalidPath, contents);
+    const result = spawnSync(process.execPath, [fileURLToPath(entryPoint)], {
+      env: { ...process.env, MCP_CONFIG_FILE_PATH: invalidPath },
       encoding: "utf8",
       timeout: 10000,
     });
     assert.equal(result.error, undefined);
-    assert.equal(result.status, 1, `${setting}: ${result.stderr}`);
-    assert.ok(result.stderr.includes(key), `${setting}: missing validation key in ${result.stderr}`);
+    assert.equal(result.status, 1, `${contents}: ${result.stderr}`);
+    assert.match(result.stderr, /Komodo MCP Server could not start/);
+    assert.match(result.stderr, diagnostic, contents);
   }
 });
 
-test("TOML and YAML retain numeric threshold boundaries and environment precedence", () => {
+void test("TOML and YAML retain numeric threshold boundaries and environment precedence", () => {
   const moduleUrl = new URL("./env.js", import.meta.url).href;
   const script = `const m = await import(${JSON.stringify(moduleUrl)}); m.registerKomodoConfigSection(); m.resolveKomodoConfig(); process.stdout.write(JSON.stringify({mode:m.config.MCP_RESOURCE_RESPONSE_MODE, bytes:m.config.MCP_RESOURCE_INLINE_THRESHOLD_BYTES}));`;
   for (const [extension, contents, bytes] of [
-    ["toml", '[resources]\nresponse_mode = "auto"\ninline_threshold_bytes = 1\n', 1],
+    ["toml", '[resources]\nresponse_mode = "AuTo"\ninline_threshold_bytes = 1\n', 1],
     [
       "yaml",
       "resources:\n  response_mode: auto\n  inline_threshold_bytes: 9007199254740991\n",

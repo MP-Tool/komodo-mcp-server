@@ -30,18 +30,27 @@ name = "slack-prod"
 url = "https://hooks.slack.com/services/T00/B00/SECRETWEBHOOK"
 `;
 
-test("policy(toml): null-prototype tables survive structural scrub, serialization and validation", () => {
+interface ExportFixture {
+  title: string;
+  created_at: Date;
+  metadata: { "dotted.label": string; enabled: boolean; counts: number[] };
+  variable: [{ value: string; is_secret: boolean }, { value: string }];
+  server: [{ config: { address: string; passkey: string } }];
+  alerter: [{ endpoint: { params: { url: string } } }];
+}
+
+void test("policy(toml): null-prototype tables survive structural scrub, serialization and validation", () => {
   const parsed = tomlParse(
     'title = "export-é漢😀"\ncreated_at = 2026-11-02T00:00:00Z\n' +
       'metadata = { "dotted.label" = "ordinary", enabled = true, counts = [1, 2, 3] }\n' +
       KOMODO_EXPORT_TOML,
-  ) as any;
+  ) as unknown as ExportFixture;
   for (const table of [parsed, parsed.metadata, parsed.variable[0], parsed.server[0].config]) {
     assert.equal(Object.getPrototypeOf(table), null);
     assert.equal(table.hasOwnProperty, undefined);
   }
   const serialized = tomlStringify(scrubber.scrubObject(parsed));
-  const validated = tomlParse(serialized) as any;
+  const validated = tomlParse(serialized) as unknown as ExportFixture;
   assert.equal(Object.getPrototypeOf(validated), null);
   assert.equal(validated.title, "export-é漢😀");
   assert.equal(validated.created_at.toISOString(), parsed.created_at.toISOString());

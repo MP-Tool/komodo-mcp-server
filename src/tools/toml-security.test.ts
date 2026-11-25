@@ -137,9 +137,9 @@ async function checkScenario(scenario: Scenario): Promise<void> {
 }
 
 if (isMainThread) {
-  test("GHSA-7w5x-hrqm-74c2: EOF comments fail safely without exporting or logging secrets", () =>
+  void test("GHSA-7w5x-hrqm-74c2: EOF comments fail safely without exporting or logging secrets", () =>
     runIsolated("malformed"));
-  test("GHSA-r4xh-jqrq-34v2: many ordinary dot-free keys parse within an isolated safety deadline", () =>
+  void test("GHSA-r4xh-jqrq-34v2: many ordinary dot-free keys parse within an isolated safety deadline", () =>
     runIsolated("many-keys"));
 } else {
   try {

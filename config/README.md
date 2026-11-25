@@ -464,8 +464,8 @@ rules out configured inline delivery, `inline_full`, and missing sessions. Auto 
 content when needed to measure bytes; link/auto prepare it at most once. TOML's strict structural
 scrub always runs when enabled because its sanitized export is also the complete inline payload.
 
-Invalid modes and thresholds fail configuration validation. Thresholds must be positive safe
-integers (1 through 9007199254740991 bytes). Environment strings must contain only decimal digits;
+Mode names are case-insensitive. Invalid modes and thresholds fail configuration validation.
+Thresholds must be positive safe integers (1 through 9007199254740991 bytes). Environment strings must contain only decimal digits;
 fractions (even ones JavaScript would round to integers), exponent/hex notation, signs, whitespace,
 zero, and overflow are rejected. Config-file values must be numeric positive safe integers.
 Validation applies even when the mode is `link` or `inline`. Environment variables override file

@@ -3,12 +3,14 @@
  *
  * Komodo declares WHAT to redact here; the framework implements HOW — once,
  * for everything: the tool-result boundary (`scrubToolResults`), offloaded
- * resources (`DynamicResourceRegistry` scrub-on-register, JSON scrubbed as
- * objects), and forwarded log notifications all apply this same policy.
- * Values masked in structured content are also purged from the rendered text
- * of the same result (the boundary's value collector), so the declarative
- * rules below reach every representation. Wired in `src/server.ts` together
- * with the `MCP_SECRET_SCRUB_*` env extensions.
+ * resources (`DynamicResourceRegistry` scrub-on-register, JSON and TOML
+ * scrubbed as documents), and forwarded log notifications all apply this same
+ * policy. JSON and TOML documents inside strings — a sync's `file_contents`,
+ * the inline TOML export, a fenced block in a tool's text — are scrubbed as
+ * documents too, so the rules below apply there as well. Whatever any part of
+ * a result masks is purged from every other part of it, so the declarative
+ * rules reach every representation. Wired in `src/server.ts` together with the
+ * `MCP_SECRET_SCRUB_*` env extensions.
  *
  * There is deliberately no redaction CODE in Komodo anymore — supersedes the
  * bespoke `redactAlerterEndpoint` / `redactDeployedSecrets` / `maskSecretValue`

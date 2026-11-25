@@ -109,6 +109,13 @@ with authentication switched off behave as in 1.5.0.
 - **Compressed request bodies are refused** (`415`). Unpacking them was the way in for Node2Shell.
 - **Secret redaction covers more**: error messages of failed tools, secrets nested below a sensitive
   key, and more formats in text (quoted, numeric and URL credentials).
+- **Secrets are masked however they are quoted.** A value in quotes with escaped quotes inside, in
+  triple quotes, or spread over several lines - such as a private key in an environment variable -
+  could show up partly or fully readable in tool results, most of all in the text of create and
+  update results and in full `*_info` output. Such values are now masked whatever their quoting or
+  escaping, private keys as a whole block, and the rules for secret variables and alerter URLs also
+  apply to the TOML file of a resource sync. A value that is masked in one part of a result is
+  masked in every other part as well.
 - **The audit log no longer loses records.** Rotation used to delete the oldest file, so a flood of
   rejected requests could push older records out.
 
@@ -161,6 +168,8 @@ with authentication switched off behave as in 1.5.0.
 - **Creating and deleting API keys works when the server connects to Komodo with an API key.**
   `komodo_user_create_api_key` and `komodo_user_delete_api_key` failed in that setup. Fixed by
   **htazq** in [#223](https://github.com/MP-Tool/komodo-mcp-server/pull/223) - thank you!
+- **The TOML export is valid TOML when shown inline** (`inline_full`). It was masked twice, and the
+  second pass could break escaped characters in quoted values, so the file no longer parsed.
 
 ### Dependencies
 

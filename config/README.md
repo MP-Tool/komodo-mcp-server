@@ -386,8 +386,11 @@ framework-based servers from one shared environment.
 **Coverage:** every tool result - structured resource config (env var blocks, `webhook_secret`,
 `passkey`), alerter webhook URLs/emails, container inspect `Config.Env`, `komodo_exec` output,
 container/build/update logs, and the sync-TOML export - inline payloads AND offloaded resource
-links. Fail-closed: if scrubbing itself fails, the result is withheld rather than returned
-unscrubbed. Komodo's domain rules are declared as policy and enforced by the same engine: secret
+links. Values are found however they are written: quoted or unquoted, with escaped quotes, in
+triple quotes, spread over several lines (such as a private key in an env file), and inside files
+carried in other data, such as a resource sync's TOML or a JSON value in an environment variable.
+A value masked in one part of a result is masked in every other part of it too. Fail-closed: if
+scrubbing itself fails, the result is withheld rather than returned unscrubbed. Komodo's domain rules are declared as policy and enforced by the same engine: secret
 variables (`is_secret`) always have their value masked, alerter endpoint URLs/emails are masked by
 path, and stacks' post-interpolation `deployed_config`/`deployed_contents` are removed entirely -
 in structured payloads, rendered text, offloaded JSON and exported TOML alike.
@@ -404,7 +407,7 @@ that is the tool's purpose. The secret persists in the client transcript; rotate
 transcript is untrusted.
 
 **Limits:** runtime output (exec/logs) is scanned with the same heuristics - deterministic shapes
-(tokenised URLs, JWTs, `KEY=value` pairs) are caught, but arbitrary secret material without a
+(tokenised URLs, JWTs, private keys, `KEY=value` pairs) are caught, but arbitrary secret material without a
 recognizable shape is not. Don't rely on this feature as the only line of defence.
 
 ### Tool Surface

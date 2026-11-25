@@ -180,6 +180,9 @@ with authentication switched off behave as in 1.5.0.
   two log lines for a secret field and masked what followed: the reason when the server's own login
   to Komodo fails, and part of the start-up line about sign-in. Both are readable now; a secret
   inside them is still masked.
+- **The Docker examples for Claude Desktop and VS Code in the README work.** They left out
+  `MCP_TRANSPORT=stdio`, so the container started its HTTP server and the client got no answers.
+  The full guides under `examples/` were already right.
 
 ### Dependencies
 

@@ -105,6 +105,7 @@ Add to your `claude_desktop_config.json` (Settings -> Developer -> Edit Config):
   "command": "docker",
   "args": [
     "run", "-i", "--rm",
+    "-e", "MCP_TRANSPORT=stdio",
     "-e", "KOMODO_URL=https://komodo.example.com:9120",
     "-e", "KOMODO_API_KEY=api-key",
     "-e", "KOMODO_API_SECRET=api-secret",
@@ -127,6 +128,7 @@ Add to `.vscode/mcp.json` in your workspace:
       "command": "docker",
       "args": [
         "run", "-i", "--rm",
+        "-e", "MCP_TRANSPORT=stdio",
         "-e", "KOMODO_URL=https://komodo.example.com:9120",
         "-e", "KOMODO_API_KEY=api-key",
         "-e", "KOMODO_API_SECRET=api-secret",

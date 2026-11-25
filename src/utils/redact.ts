@@ -9,7 +9,9 @@
  * the inline TOML export, a fenced block in a tool's text — are scrubbed as
  * documents too, so the rules below apply there as well. Whatever any part of
  * a result masks is purged from every other part of it, so the declarative
- * rules reach every representation. Wired in `src/server.ts` together with the
+ * rules reach every representation. Rules need a document to work on: data
+ * rendered into a tool's text goes into a fenced block (`jsonBlock`), never as
+ * bare JSON after a header. Wired in `src/server.ts` together with the
  * `MCP_SECRET_SCRUB_*` env extensions.
  *
  * There is deliberately no redaction CODE in Komodo anymore — supersedes the

@@ -16,6 +16,7 @@ import {
 } from "mcp-server-framework";
 import { RESPONSE_ICONS } from "../config/index.js";
 import { tryRegisterResource, type RegisterResourceOptions } from "./resource-link.js";
+import { jsonBlock } from "./markdown.js";
 
 export type ActionType =
   "deploy" | "pull" | "start" | "restart" | "pause" | "unpause" | "stop" | "destroy" | "create" | "update" | "remove";
@@ -124,7 +125,7 @@ export function buildApplyResult(
       resource_id: resourceId,
       ...(resource ? { resource } : {}),
     },
-    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+    text: `${header}\n\n${jsonBlock(result)}`,
   };
 }
 
@@ -150,7 +151,7 @@ export function buildDeleteResult(
       resource_id: resourceId,
       ...(resource ? { resource } : {}),
     },
-    text: `${header}\n\n${JSON.stringify(result, null, 2)}`,
+    text: `${header}\n\n${jsonBlock(result)}`,
   };
 }
 

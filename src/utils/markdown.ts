@@ -53,8 +53,12 @@ function codeBlock(value: string, language = ""): string {
   return `\`\`\`${language}\n${value}\n\`\`\``;
 }
 
-/** Pretty-print an unknown payload as JSON inside a fenced ` ```json ` block. */
-function jsonBlock(value: unknown): string {
+/**
+ * Pretty-print an unknown payload as JSON inside a fenced ` ```json ` block. Data rendered into a
+ * tool's text belongs in one: the secret scrubber reads the block as a JSON document, so the
+ * policy's rules (`is_secret` values, alerter endpoints) apply to it as they do to an object.
+ */
+export function jsonBlock(value: unknown): string {
   try {
     return codeBlock(JSON.stringify(value, null, 2), "json");
   } catch {

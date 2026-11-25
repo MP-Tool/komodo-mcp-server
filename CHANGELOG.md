@@ -70,6 +70,9 @@ with authentication switched off behave as in 1.5.0.
 - **Stopping the server lets running calls finish**, for up to a few seconds, before it closes the
   sessions. Before, a stop cut off every call in flight.
 - **`/ready` no longer reports session counts.** Its status code and `status` text are unchanged.
+- **Create, update and delete results show the resource as a JSON block**, like the `*_info` tools,
+  and so does refreshing a resource sync. In a block the redaction reads the resource as data, so
+  secret variables and alerter URLs are masked there by the same rules as everywhere else.
 
 ### Security
 

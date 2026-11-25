@@ -35,6 +35,7 @@ import {
   buildApplyResult,
   buildDeleteResult,
   buildInfoResult,
+  jsonBlock,
 } from "../utils/index.js";
 import {
   resourceSyncIdSchema,
@@ -193,7 +194,7 @@ export const resourceSyncActionTool = defineTool({
       resource_id: args.resource_sync,
     };
     return structured(payload, {
-      text: `${header} (pending preview refreshed)\n\n${JSON.stringify(result, null, 2)}`,
+      text: `${header} (pending preview refreshed)\n\n${jsonBlock(result)}`,
     });
   },
 });

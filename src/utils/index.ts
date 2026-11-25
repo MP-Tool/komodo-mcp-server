@@ -122,4 +122,5 @@ export {
   renderTagList,
   renderTagInfo,
   renderTomlExport,
+  jsonBlock,
 } from "./markdown.js";

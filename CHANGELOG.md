@@ -170,6 +170,9 @@ with authentication switched off behave as in 1.5.0.
   **htazq** in [#223](https://github.com/MP-Tool/komodo-mcp-server/pull/223) - thank you!
 - **The TOML export is valid TOML when shown inline** (`inline_full`). It was masked twice, and the
   second pass could break escaped characters in quoted values, so the file no longer parsed.
+- **The TOML export says whether its secrets are masked.** Its first line always claimed secrets
+  were "masked as [[VAR]]" - not the mask actually used, and not true when redaction is switched
+  off. It now says "secret values masked", or warns that secret values are in plain text.
 
 ### Dependencies
 

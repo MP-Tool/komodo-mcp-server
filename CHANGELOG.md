@@ -73,6 +73,9 @@ with authentication switched off behave as in 1.5.0.
 - **Create, update and delete results show the resource as a JSON block**, like the `*_info` tools,
   and so does refreshing a resource sync. In a block the redaction reads the resource as data, so
   secret variables and alerter URLs are masked there by the same rules as everywhere else.
+- **The audit log stays in one file.** The server no longer rotates or deletes it, so it grows until
+  you rotate it yourself, for example with logrotate; a file moved aside or deleted is created anew
+  with the next record. `LOG_MAX_FILE_SIZE` and `LOG_MAX_FILES` apply to the other log files only.
 
 ### Security
 

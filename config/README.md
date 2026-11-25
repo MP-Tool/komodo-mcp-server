@@ -456,10 +456,10 @@ links, fetched out-of-band via `resources/read`, so they don't bloat the tool re
 | `LOG_TIMESTAMP` | `logging.timestamp` | `false` | Include timestamps in text output |
 | `LOG_COMPONENT` | `logging.component` | `false` | Include component name in text output |
 | `LOG_DIR` | `logging.log_dir` | - | Directory for file logging (disabled if unset) |
-| `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation |
+| `LOG_MAX_FILE_SIZE` | `logging.max_file_size` | `10mb` | Max log file size before rotation (not the audit log) |
 | `LOG_MAX_FILES` | `logging.max_files` | `3` | Max rotated log files to keep (not the audit log) |
 | `LOG_RETENTION_DAYS` | `logging.retention_days` | `0` | Delete log files older than N days (0 = disabled; not the audit log) |
-| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on). The server never deletes audit files: remove old ones yourself |
+| `LOG_AUDIT_FILE` | `logging.audit_file` | `<logs>/audit.log` | Path to the JSON-Lines audit-log file (always on). One file that the server never rotates or deletes: rotate it yourself, for example with logrotate |
 | `LOG_AUDIT_TOOL_IO` | `logging.audit_tool_io` | `summary` | Audit request/result depth per tool call (scrubbed): `off`, `summary`, `full` |
 
 ## Telemetry (Experimental)

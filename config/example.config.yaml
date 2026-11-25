@@ -474,7 +474,7 @@ logging:
   ## Optional, no default (file logging disabled).
   # log_dir: "/var/log/komodo-mcp"
 
-  ## Maximum size of a single log file before rotation.
+  ## Maximum size of a single log file before rotation (not the audit log).
   ## Accepts human-readable sizes ("10mb", "500kb", "1gb") or byte counts.
   ## Env: LOG_MAX_FILE_SIZE
   ## Default: "10mb"
@@ -496,7 +496,8 @@ logging:
   ## Dedicated JSON-Lines audit-log file (always on; records who did what to which resource + outcome).
   ## Env: LOG_AUDIT_FILE
   ## Default: "<log dir or ./logs>/audit.log"
-  ## Audit files are never deleted automatically: remove old ones yourself.
+  ## The audit log is one file that the server never rotates or deletes:
+  ## rotate it yourself, for example with logrotate.
   # audit_file: "/var/log/komodo-mcp/audit.log"
 
   ## How much request/result detail the audit log records for each tool call (always

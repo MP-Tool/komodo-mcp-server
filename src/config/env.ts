@@ -43,6 +43,17 @@ const csvList = () =>
     )
     .optional();
 
+/** Check decimal integer syntax BEFORE conversion can round a fractional env string. */
+const resourceInlineThresholdSchema = z
+  .union([
+    z
+      .string()
+      .regex(/^[0-9]+$/, "Expected a decimal integer byte count")
+      .transform(Number),
+    z.number(),
+  ])
+  .pipe(z.number().int().positive());
+
 export const appEnvSchema = z.object({
   // ── Komodo Core connection ────────────────────────────────────────────────
 
@@ -83,6 +94,12 @@ export const appEnvSchema = z.object({
   KOMODO_API_TIMEOUT_MS: durationSchema("30s").pipe(z.number().int().positive()),
 
   // ── Ephemeral resource registry (MCP-server payload offloading) ────────────
+
+  /** Delivery policy for offload-capable tools. Explicit inline_full always wins. Default: link */
+  MCP_RESOURCE_RESPONSE_MODE: caseInsensitiveEnum(["link", "inline", "auto"]).default("link"),
+
+  /** Maximum serialized payload size to inline in auto mode (UTF-8 bytes, inclusive). Default: 16384 */
+  MCP_RESOURCE_INLINE_THRESHOLD_BYTES: resourceInlineThresholdSchema.default(16384),
 
   /** TTL for ephemeral info/inspect resources. Accepts durations ('15m') or ms. Default: '15m' */
   MCP_RESOURCE_TTL_INFO: durationSchema("15m").pipe(z.number().int().positive()),
@@ -229,6 +246,8 @@ function fileSectionOverrides(): Record<string, string> {
   put("MCP_RESOURCE_TTL_INFO", resources?.ttl_info);
   put("MCP_RESOURCE_TTL_LOGS", resources?.ttl_logs);
   put("MCP_RESOURCE_MAX_ENTRIES", resources?.max_entries);
+  put("MCP_RESOURCE_RESPONSE_MODE", resources?.response_mode);
+  put("MCP_RESOURCE_INLINE_THRESHOLD_BYTES", resources?.inline_threshold_bytes);
   return overrides;
 }
 
@@ -350,6 +369,10 @@ const redactionConfigFileSchema = z.object({
 
 /** `[resources]` — ephemeral resource registry for offloaded payloads (env `MCP_RESOURCE_*`). */
 const resourcesConfigFileSchema = z.object({
+  /** Delivery policy for offload-capable tools. Env: MCP_RESOURCE_RESPONSE_MODE */
+  response_mode: caseInsensitiveEnum(["link", "inline", "auto"]).optional(),
+  /** Inclusive auto-mode threshold in UTF-8 bytes. Env: MCP_RESOURCE_INLINE_THRESHOLD_BYTES */
+  inline_threshold_bytes: z.number().int().positive().optional(),
   /** TTL for info/inspect resources as duration ('15m') or ms. Env: MCP_RESOURCE_TTL_INFO */
   ttl_info: z.union([z.number().int().positive(), z.string()]).optional(),
   /** TTL for log resources as duration ('2m') or ms. Env: MCP_RESOURCE_TTL_LOGS */

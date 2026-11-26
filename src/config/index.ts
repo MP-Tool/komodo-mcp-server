@@ -23,6 +23,7 @@ export { ToolScopes, type ToolScope } from "./scopes.js";
 
 // Descriptions
 export {
+  RESOURCE_DELIVERY_DESCRIPTION,
   RESPONSE_ICONS,
   PARAM_DESCRIPTIONS,
   CONFIG_DESCRIPTIONS,

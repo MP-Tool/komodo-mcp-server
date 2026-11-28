@@ -10,6 +10,7 @@ import "./utils/polyfills.js";
 
 import {
   createServer,
+  ConfigurationError,
   logger,
   logAuditEvent,
   getFrameworkConfig,
@@ -196,18 +197,15 @@ if (anonymousScopes && resolveAuth(startupCreds) !== null) {
 // `_meta.category` strings in config/categories.ts.
 const knownCategories = new Set<string>(Object.values(ToolCategories));
 
-/** Drop unknown category names (typo protection) with a clear warning, keep the valid ones. */
+/** Reject unknown categories before registration; an empty list means no restriction. */
 function validateCategories(raw: readonly string[] | undefined, varName: string): Set<string> {
   const set = new Set(raw);
   const unknown = [...set].filter((c) => !knownCategories.has(c));
   if (unknown.length > 0) {
-    logger.warn(
-      "Ignoring unknown categories in %s: %s — valid categories: %s",
+    throw ConfigurationError.invalidEnvVar(
       varName,
-      unknown.join(", "),
-      [...knownCategories].join(", "),
+      `unknown categories: ${unknown.join(", ")} — valid categories: ${[...knownCategories].join(", ")}`,
     );
-    for (const c of unknown) set.delete(c);
   }
   return set;
 }

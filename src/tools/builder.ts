@@ -29,6 +29,7 @@ import {
   buildApplyResult,
   buildDeleteResult,
   paginate,
+  LIST_ALL,
   tryRegisterResource,
   renderActionResult,
   renderBuilderList,
@@ -68,7 +69,7 @@ export const listBuildersTool = defineTool({
   requiredScopes: [ToolScopes.READ],
   handler: async (args, { abortSignal }) => {
     const komodo = requireClient();
-    const builders = await wrapApiCall("listBuilders", () => komodo.client.read("ListBuilders", {}), abortSignal);
+    const builders = await wrapApiCall("listBuilders", () => komodo.client.read("ListBuilders", LIST_ALL), abortSignal);
     const allItems = builders.map((b: BuilderListItem) => ({
       id: b.id,
       name: b.name,

@@ -41,7 +41,7 @@ Komodo MCP Server enables seamless interaction between AI assistants (like Claud
 
 ### ⚡ Reliability & Operations
 
-- **Live Progress & Cancellation** — Long-running operations (deploy, start, stop) report real-time progress. Cancel any operation mid-flight via AbortSignal.
+- **Live Progress & Cancellation** — Long-running operations report progress while MCP waits, for up to 30 minutes from submission. Cancelling the MCP request stops that wait. Komodo may continue an operation it already accepted. Use a Komodo cancel action where the tool supports it.
 - **Auto-Reconnection** — Connection monitoring with automatic recovery and exponential backoff. Auth failures stop retries immediately.
 - **Health & Readiness** — Kubernetes-ready `/health` and `/ready` endpoints. `komodo_health_check` reports server version, connectivity, and auth status.
 

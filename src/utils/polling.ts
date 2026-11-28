@@ -8,12 +8,15 @@
  * @module utils/polling
  */
 
+import { addAbortListener } from "node:events";
+import timers from "node:timers/promises";
 import { Types } from "komodo_client";
 import type { ProgressReporter } from "mcp-server-framework";
 import { OperationCancelledError, getCurrentToolContext } from "mcp-server-framework";
 import type { KomodoClient } from "../client.js";
 import { ApiError } from "../errors/index.js";
 import { requireClient, checkCancelled, wrapApiCall } from "./api-helpers.js";
+import { getKomodoRequestSignal, runWithKomodoRequestSignal } from "./request-signal.js";
 
 type Update = Types.Update;
 
@@ -24,7 +27,7 @@ type Update = Types.Update;
 /** Interval between status polls (ms) */
 const POLL_INTERVAL_MS = 1_000;
 
-/** Maximum time to wait for an operation to complete (30 minutes) */
+/** Maximum time to submit an operation and wait for it to complete (30 minutes) */
 const POLL_MAX_DURATION_MS = 1_800_000;
 
 /** Interval between progress reports to the MCP client (ms) */
@@ -62,7 +65,7 @@ export function extractUpdateId(update: { _id?: { $oid?: string } }): string {
  * @param client     - Komodo API client
  * @param updateId   - The `_id.$oid` of the Update returned by `execute()`
  * @param operation  - Human-readable operation name (for progress messages)
- * @param signal     - AbortSignal for cancellation
+ * @param signal     - The combined caller cancellation and workflow deadline
  * @param reportProgress - MCP progress reporter (optional)
  * @returns The final Update with `status === "Complete"`
  */
@@ -70,7 +73,7 @@ async function pollUntilComplete(
   client: KomodoClient,
   updateId: string,
   operation: string,
-  signal?: AbortSignal,
+  signal: AbortSignal,
   reportProgress?: ProgressReporter,
 ): Promise<Update> {
   const startTime = Date.now();
@@ -79,21 +82,9 @@ async function pollUntilComplete(
 
   // eslint-disable-next-line @typescript-eslint/no-unnecessary-condition -- intentional polling loop, exits via return or throw
   while (true) {
-    checkCancelled(signal, operation);
-
     // Wait one poll interval
-    await new Promise((resolve) => setTimeout(resolve, POLL_INTERVAL_MS));
-
-    checkCancelled(signal, operation);
-
+    await timers.setTimeout(POLL_INTERVAL_MS, undefined, { signal });
     const elapsed = Date.now() - startTime;
-
-    // Enforce maximum timeout
-    if (elapsed > POLL_MAX_DURATION_MS) {
-      throw ApiError.requestFailed(
-        `${operation}: polling timed out after ${Math.round(elapsed / 1000)}s (update: ${updateId})`,
-      );
-    }
 
     // Poll status
     const update = await wrapApiCall(
@@ -101,6 +92,7 @@ async function pollUntilComplete(
       () => client.client.read("GetUpdate", { id: updateId }),
       signal,
     );
+    signal.throwIfAborted();
 
     const logs = update.logs;
     const stageCount = logs.length;
@@ -122,6 +114,7 @@ async function pollUntilComplete(
           message: `${operation}: in progress (${elapsedSec}s)`,
         });
       }
+      signal.throwIfAborted();
     }
 
     if (update.status === Types.UpdateStatus.Complete) {
@@ -132,6 +125,7 @@ async function pollUntilComplete(
           total: stageCount || 1,
           message: `${operation}: complete (${totalSec}s)`,
         });
+        signal.throwIfAborted();
       }
       // Record the operation's effect on the tool.call audit entry (what was produced).
       getCurrentToolContext()?.recordAuditDetail({
@@ -150,43 +144,57 @@ async function pollUntilComplete(
  * Executes a Komodo action and polls until the operation completes.
  *
  * Replaces the direct use of `komodo_client.execute_and_poll()` to add:
- * - Cancellation via AbortSignal (checked every poll iteration)
+ * - Cancellation via AbortSignal
  * - Progress reporting to the MCP client
- * - Maximum timeout enforcement
+ * - A single deadline for submission, polling and progress
  *
  * For instant operations (status already `Complete` after `execute()`),
  * the polling loop is skipped entirely.
+ * Stopping this wait cannot undo an operation Komodo has already received.
  */
 export async function wrapExecuteAndPoll(
   operation: string,
   executeCall: () => Promise<Update>,
-  signal?: AbortSignal,
+  signal = getKomodoRequestSignal() ?? getCurrentToolContext()?.abortSignal,
   reportProgress?: ProgressReporter,
 ): Promise<Update> {
   checkCancelled(signal, operation);
 
   const client = requireClient();
-
+  const deadline = new AbortController();
+  const workflowSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
+  const timer = setTimeout(() => deadline.abort(), POLL_MAX_DURATION_MS);
+  let abortListener: ReturnType<typeof addAbortListener> | undefined;
+  const stopped = new Promise<never>((_, reject) => {
+    abortListener = addAbortListener(workflowSignal, () => reject(new OperationCancelledError(operation)));
+  });
+  let updateId = "unknown";
   try {
-    const update = await wrapApiCall(operation, executeCall, signal);
-    checkCancelled(signal, operation);
+    const workflow = runWithKomodoRequestSignal(workflowSignal, async () => {
+      const update = await wrapApiCall(operation, executeCall, workflowSignal);
+      workflowSignal.throwIfAborted();
+      if (update.status === Types.UpdateStatus.Complete) return update;
 
-    // If already complete, skip polling
-    if (update.status === Types.UpdateStatus.Complete) {
-      return update;
-    }
-
-    // Poll until complete with cancellation + progress
-    const updateId = extractUpdateId(update);
-    return await pollUntilComplete(client, updateId, operation, signal, reportProgress);
+      updateId = extractUpdateId(update);
+      return await pollUntilComplete(client, updateId, operation, workflowSignal, reportProgress);
+    });
+    return await Promise.race([workflow, stopped]);
   } catch (error) {
     checkCancelled(signal, operation);
+    if (deadline.signal.aborted) {
+      throw ApiError.requestFailed(
+        `${operation}: polling timed out after ${POLL_MAX_DURATION_MS / 1000}s (update: ${updateId})`,
+      );
+    }
 
     if (OperationCancelledError.isCancellation(error)) {
       throw new OperationCancelledError(operation);
     }
     // All other errors already wrapped by wrapApiCall
     throw error;
+  } finally {
+    clearTimeout(timer);
+    abortListener?.[Symbol.dispose]();
   }
 }
 

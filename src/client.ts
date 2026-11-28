@@ -10,7 +10,7 @@
 
 import { isIPv6 } from "node:net";
 import type { KomodoClient as KomodoClientFactory, Types } from "komodo_client";
-import { currentCaller, logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
+import { currentCaller, getCurrentToolContext, logger as baseLogger, TooManyAttemptsError } from "mcp-server-framework";
 import {
   AuthenticationError,
   ClientNotConfiguredError,
@@ -20,6 +20,7 @@ import {
   isAuthRejection,
 } from "./errors/index.js";
 import { config, getKomodoCredentials } from "./config/index.js";
+import { getKomodoRequestSignal } from "./utils/request-signal.js";
 
 const logger = baseLogger.child({ component: "KomodoClient" });
 
@@ -211,7 +212,7 @@ export function createKomodoApi(
   credential: KomodoUserCredential,
   callerAddress: () => string | undefined,
 ): KomodoApi {
-  const post = async (path: string, body: unknown): Promise<Response> => {
+  const post = async (path: string, body: unknown, signal?: AbortSignal): Promise<Response> => {
     let response: Response;
     try {
       response = await fetch(`${url}${path}`, {
@@ -222,6 +223,7 @@ export function createKomodoApi(
           ...forwardingHeaders(callerAddress()),
         },
         body: JSON.stringify(body),
+        ...(signal && { signal }),
       });
     } catch (error) {
       throw new KomodoRequestError(1, { error: "Request failed with error", trace: [] }, error);
@@ -233,8 +235,8 @@ export function createKomodoApi(
 
   const call =
     (kind: string) =>
-    async (type: string, params: unknown): Promise<unknown> =>
-      (await post(`/${kind}/${type}`, params)).json();
+    async (type: string, params: unknown, signal = getKomodoRequestSignal()): Promise<unknown> =>
+      (await post(`/${kind}/${type}`, params, signal)).json();
 
   /** A terminal command's output, line by line. */
   const lines = async (request: Types.ExecuteTerminalBody): Promise<AsyncIterable<string>> => {
@@ -267,11 +269,42 @@ export function createKomodoApi(
     await callbacks?.onFinish?.("Early exit without code");
   };
 
-  const read = call("read") as KomodoApi["read"];
+  // The timeout covers the entire JSON exchange, including error bodies.
+  const boundedCall = (kind: string) => {
+    const request = call(kind);
+    return async (
+      type: string,
+      params: unknown,
+      callerSignal = getKomodoRequestSignal() ?? getCurrentToolContext()?.abortSignal,
+    ): Promise<unknown> => {
+      callerSignal?.throwIfAborted();
+      const deadline = new AbortController();
+      const signal = callerSignal ? AbortSignal.any([callerSignal, deadline.signal]) : deadline.signal;
+      const timer = setTimeout(
+        () => deadline.abort(new DOMException("Komodo API request timed out", "TimeoutError")),
+        config.KOMODO_API_TIMEOUT_MS,
+      );
+      try {
+        const result = await request(type, params, signal);
+        signal.throwIfAborted();
+        return result;
+      } catch (error) {
+        callerSignal?.throwIfAborted();
+        // Keep an HTTP rejection that already arrived, even if its body stalled.
+        if (error instanceof KomodoRequestError && error.status !== 1) throw error;
+        deadline.signal.throwIfAborted();
+        throw error;
+      } finally {
+        clearTimeout(timer);
+      }
+    };
+  };
+
+  const read = boundedCall("read") as KomodoApi["read"];
   return {
     read,
-    write: call("write") as KomodoApi["write"],
-    execute: call("execute") as KomodoApi["execute"],
+    write: boundedCall("write") as KomodoApi["write"],
+    execute: boundedCall("execute") as KomodoApi["execute"],
     core_version: async () => (await read("GetVersion", {})).version,
     execute_terminal_stream: lines,
     execute_container_terminal: ({ server, container, ...command }, callbacks) =>

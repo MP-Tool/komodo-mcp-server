@@ -18,7 +18,7 @@ import { defineTool, structured } from "mcp-server-framework";
 import type { ProgressReporter } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import { execInputSchema, execOutputSchema } from "./schemas/index.js";
 import {
   requireClient,
@@ -254,7 +254,7 @@ export const execTool = defineTool({
 
     switch (args.target) {
       case "server": {
-        if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
+        if (!args.server) throw ValidationError.fieldRequired("server");
         const server = args.server;
         await requireKomodoPermission({ type: "Server", id: server }, Types.PermissionLevel.Execute);
         await requireDestructiveConfirmation({
@@ -287,8 +287,8 @@ export const execTool = defineTool({
       }
 
       case "container": {
-        if (!args.server) throw AppErrorFactory.validation.fieldRequired("server");
-        if (!args.container) throw AppErrorFactory.validation.fieldRequired("container");
+        if (!args.server) throw ValidationError.fieldRequired("server");
+        if (!args.container) throw ValidationError.fieldRequired("container");
         const server = args.server;
         const container = args.container;
         await requireKomodoPermission({ type: "Server", id: server }, Types.PermissionLevel.Execute);
@@ -332,7 +332,7 @@ export const execTool = defineTool({
       }
 
       case "deployment": {
-        if (!args.deployment) throw AppErrorFactory.validation.fieldRequired("deployment");
+        if (!args.deployment) throw ValidationError.fieldRequired("deployment");
         const deployment = args.deployment;
         await requireKomodoPermission({ type: "Deployment", id: deployment }, Types.PermissionLevel.Execute);
         await requireDestructiveConfirmation({
@@ -371,8 +371,8 @@ export const execTool = defineTool({
       }
 
       case "stack_service": {
-        if (!args.stack) throw AppErrorFactory.validation.fieldRequired("stack");
-        if (!args.service) throw AppErrorFactory.validation.fieldRequired("service");
+        if (!args.stack) throw ValidationError.fieldRequired("stack");
+        if (!args.service) throw ValidationError.fieldRequired("service");
         const stack = args.stack;
         const service = args.service;
         await requireKomodoPermission({ type: "Stack", id: stack }, Types.PermissionLevel.Execute);

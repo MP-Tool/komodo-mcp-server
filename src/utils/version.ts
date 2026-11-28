@@ -15,7 +15,7 @@
  * @module utils/version
  */
 
-import { AppErrorFactory } from "../errors/index.js";
+import { ApiError } from "../errors/index.js";
 
 /** A parsed `major.minor.patch` version. Missing components default to `0`. */
 export interface Version {
@@ -87,7 +87,7 @@ export function isVersionGreater(a: string, b: string): boolean {
  */
 export function requireMinimalVersion(current: string, minimum: string, feature: string): void {
   if (isVersionGreater(minimum, current)) {
-    throw AppErrorFactory.api.custom(
+    throw new ApiError(
       `${feature} requires Komodo core >= ${minimum}, but the connected core reports ${current}. ` +
         `Please upgrade your Komodo core to use this feature.`,
     );

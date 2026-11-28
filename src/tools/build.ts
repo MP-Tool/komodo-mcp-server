@@ -17,7 +17,7 @@
 import { defineTool, structured, z } from "mcp-server-framework";
 import { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   requireKomodoPermission,
@@ -110,7 +110,7 @@ export const getBuildInfoTool = defineTool({
     .object({
       build: buildIdSchema.describe("Build id or name"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: buildInfoOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILD },
@@ -207,7 +207,7 @@ export const getBuildLogsTool = defineTool({
     .object({
       update_id: z.string().min(1).describe("Komodo Update id returned by a previous komodo_build_run call"),
     })
-    .merge(inlineFullInputSchema),
+    .extend(inlineFullInputSchema.shape),
   output: buildLogsOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.BUILD },
@@ -307,7 +307,7 @@ export const applyBuildTool = defineTool({
     const komodo = requireClient();
     if (args.action === "create") {
       requireKomodoCreatePermission("Build");
-      if (!args.name) throw AppErrorFactory.validation.fieldRequired("name");
+      if (!args.name) throw ValidationError.fieldRequired("name");
       const name = args.name;
       const result = await wrapApiCall(
         "createBuild",
@@ -322,7 +322,7 @@ export const applyBuildTool = defineTool({
       const built = buildApplyResult("create", "build", name, result);
       return structured(built.payload, { text: built.text });
     }
-    if (!args.build) throw AppErrorFactory.validation.fieldRequired("build");
+    if (!args.build) throw ValidationError.fieldRequired("build");
     await requireKomodoPermission({ type: "Build", id: args.build }, Types.PermissionLevel.Write);
     const buildId = args.build;
     const result = await wrapApiCall(

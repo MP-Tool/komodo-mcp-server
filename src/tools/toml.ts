@@ -8,24 +8,24 @@
  * so it is offloaded to a session-scoped resource link (summary + link) unless `inline_full`
  * is set.
  *
- * **Redaction is this tool's own responsibility, not Komodo Core's.** Core masks exactly
- * one thing in the export — a Variable's `value`, and only when the caller is NOT an admin
+ * **Komodo Core does not redact the export; this server does.** Core masks exactly one
+ * thing in it — a Variable's `value`, and only when the caller is NOT an admin
  * (`bin/core/src/api/read/toml.rs`). Every resource config passes through verbatim, so
- * alerter webhook URLs, `server.passkey` and builder secrets reach the client raw, and an
- * admin export leaks Variable values too. The content is therefore declared as
- * `application/toml` so the framework scrubs it STRUCTURALLY (parse → scrubObject →
- * re-serialize): only that path applies the `maskWhenSibling` / `sensitivePaths` rules in
- * `utils/redact.ts`, and only it leaves the allowlisted `is_secret` boolean intact — the
- * flat-text pass masks the flag itself and breaks the document.
+ * alerter webhook URLs, `server.passkey` and builder secrets reach the server raw, and an
+ * admin export carries Variable values too. The framework scrubs the export as a TOML
+ * document wherever it appears — the offloaded resource (declared `application/toml`), the
+ * inline `toml` field and the fenced block in the text — so the `maskWhenSibling` /
+ * `sensitivePaths` rules in `utils/redact.ts` apply and the allowlisted `is_secret` flag
+ * stays a boolean. Nothing here scrubs it a second time: a second pass is what used to
+ * break escaped characters in the inline export.
  *
  * @module tools/toml
  */
 
-import { defineTool, structured } from "mcp-server-framework";
-import { createSecretScrubber, scrubByMimeType } from "mcp-server-framework/logger";
+import { defineTool, structured, type ToolResultFor } from "mcp-server-framework";
 import type { Types } from "komodo_client";
 import { ToolCategories, ToolScopes, config } from "../config/index.js";
-import { AppErrorFactory } from "../errors/index.js";
+import { ValidationError } from "../errors/index.js";
 import {
   requireClient,
   wrapApiCall,
@@ -42,17 +42,15 @@ import {
   inlineFullInputSchema,
 } from "./schemas/index.js";
 
-/** MIME type that routes content through the framework's STRUCTURAL scrub (never `text/plain`). */
+/** MIME type of the offloaded export: the framework scrubs it as a TOML document. */
 const TOML_MIME = "application/toml";
 
 /**
  * Offload the TOML (large) to a resource unless inline_full is set; return summary + link|toml.
  *
- * Both branches must end up equally redacted. The offloaded branch is scrubbed by the
- * registry on register; the inline branch would otherwise reach `structuredContent` as a
- * raw string and get only the tool-result boundary's flat-text pass — which misses every
- * structural rule. So the inline branch is scrubbed here, with the same policy and the
- * same MIME type, before it is handed over.
+ * Both branches are redacted alike by the framework: the offloaded one on register, by its
+ * MIME type, and the inline one at the tool-result boundary, which scrubs a TOML document
+ * inside a string as a document. `bytes` is the size of the export as Komodo returned it.
  */
 function buildTomlResult(
   toml: string,
@@ -60,8 +58,8 @@ function buildTomlResult(
   sessionId: string | undefined,
   inlineFull: boolean | undefined,
   description: string,
-): ReturnType<typeof structured> {
-  const scrubConfig = resolveScrubOptions();
+): ToolResultFor<typeof tomlOutputSchema> {
+  const summary = { bytes: Buffer.byteLength(toml, "utf8"), secrets_masked: resolveScrubOptions() !== false };
   const link = toml
     ? tryRegisterResource({
         ctx: { sessionId },
@@ -76,15 +74,11 @@ function buildTomlResult(
     : null;
 
   if (link) {
-    const summary = { bytes: Buffer.byteLength(toml, "utf8"), secrets_masked: scrubConfig !== false };
     const payload = { summary, resourceLink: link };
     return structured(payload, { text: renderTomlExport(payload), links: [link] });
   }
 
-  const scrubber = createSecretScrubber(scrubConfig);
-  const inline = scrubber ? scrubByMimeType(toml, TOML_MIME, scrubber) : toml;
-  const summary = { bytes: Buffer.byteLength(inline, "utf8"), secrets_masked: scrubber !== undefined };
-  const payload = { summary, toml: inline };
+  const payload = { summary, toml };
   return structured(payload, { text: renderTomlExport(payload) });
 }
 
@@ -95,7 +89,7 @@ export const exportAllResourcesToTomlTool = defineTool({
     "Secret values (variable values, server passkeys, alerter webhook URLs) are redacted, so the export is for inspection " +
     "and diffing, not for re-applying verbatim via ResourceSync. " +
     "Large output is offloaded as a session-scoped resource link unless `inline_full` is set.",
-  input: tomlExportAllInputSchema.merge(inlineFullInputSchema),
+  input: tomlExportAllInputSchema.extend(inlineFullInputSchema.shape),
   output: tomlOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.TOML },
@@ -129,7 +123,7 @@ export const exportResourcesToTomlTool = defineTool({
   description:
     "Export a specific set of resources and/or user groups as sync TOML. " +
     "Secret values are redacted, so the export is for inspection and diffing, not for re-applying verbatim via ResourceSync.",
-  input: tomlExportResourcesInputSchema.merge(inlineFullInputSchema),
+  input: tomlExportResourcesInputSchema.extend(inlineFullInputSchema.shape),
   output: tomlOutputSchema,
   annotations: { readOnlyHint: true },
   _meta: { category: ToolCategories.TOML },
@@ -141,10 +135,9 @@ export const exportResourcesToTomlTool = defineTool({
       ? targetEntries.map((entry) => {
           const target = splitResourceTarget(entry);
           if (!target) {
-            throw AppErrorFactory.validation.custom(
-              `Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`,
-              "targets",
-            );
+            throw new ValidationError(`Invalid target "${entry}". Use "Type:id", e.g. "Stack:web".`, {
+              field: "targets",
+            });
           }
           // @type-variance — { type: string } → SDK `ResourceTarget` (a per-type discriminated union).
           // Komodo validates the resource type server-side.

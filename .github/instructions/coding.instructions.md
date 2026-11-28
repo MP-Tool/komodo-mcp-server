@@ -14,23 +14,30 @@ description: General coding standards and best practices
 
 ## Error Handling
 
-### Error Factory Pattern
+### Error Classes
 
-Centralized error creation via `AppErrorFactory` in `errors/factory.ts`:
+Throw the error classes directly. Komodo's own classes live in `errors/classes.ts`; `ValidationError` comes from the framework and is re-exported by `errors/`:
 
 ```typescript
-import { AppErrorFactory } from "../errors/index.js";
+import {
+  ApiError,
+  AuthenticationError,
+  ClientNotConfiguredError,
+  NotFoundError,
+  ValidationError,
+} from "../errors/index.js";
+import { OperationError } from "mcp-server-framework";
 
 // Komodo-specific errors
-throw AppErrorFactory.notFound.server("my-server");
-throw AppErrorFactory.notFound.container(containerId);
-throw AppErrorFactory.api.requestFailed("timeout exceeded");
-throw AppErrorFactory.auth.invalidCredentials();
-throw AppErrorFactory.client.notConfigured();
+throw NotFoundError.server("my-server");
+throw NotFoundError.container(containerId);
+throw ApiError.requestFailed("timeout exceeded");
+throw AuthenticationError.invalidCredentials();
+throw ClientNotConfiguredError.notConfigured();
 
-// Framework errors (delegated)
-throw AppErrorFactory.validation.fieldRequired("containerId");
-throw AppErrorFactory.operation.failed("deploy", "image not found");
+// Framework errors
+throw ValidationError.fieldRequired("containerId");
+throw OperationError.failed("deploy", "image not found");
 ```
 
 ### Message Registry Pattern
@@ -70,7 +77,7 @@ All MCP infrastructure is imported from `mcp-server-framework`. This section pro
 
 | Export | Purpose | Usage |
 |--------|---------|-------|
-| `createServer(options)` | Create and start MCP server | `src/index.ts` entry point |
+| `createServer(options)` | Create and start MCP server | `src/server.ts` (loaded by the entry point `src/index.ts`) |
 | `defineTool({ name, input, handler })` | Define + auto-register a tool | Every tool file |
 | `z` | Zod re-export (version-safe) | Input schemas, env validation |
 | `text(content)` | Text tool response | Most tool handlers |
@@ -94,13 +101,13 @@ const logger = baseLogger.child({ component: "client" });
 | Export | Purpose | Usage |
 |--------|---------|-------|
 | `AppError` | Base error class | Extend for custom errors |
-| `FrameworkErrorFactory` | Error factory with categories | `AppErrorFactory` extends this |
+| `ValidationError`, `OperationError`, … | Framework error classes with static constructors | `ValidationError.fieldRequired("server")` |
 | `OperationCancelledError` | Thrown on `AbortSignal` abort | `wrapApiCall()`, `polling.ts` |
 | `interpolate(template, params)` | `{var}` string interpolation | Error message registry |
 
 ```typescript
 import { AppError, type BaseErrorOptions } from "mcp-server-framework";
-import { FrameworkErrorFactory } from "mcp-server-framework";
+import { ValidationError, OperationError } from "mcp-server-framework";
 import { OperationCancelledError } from "mcp-server-framework";
 import { interpolate, type MessageParams } from "mcp-server-framework";
 ```

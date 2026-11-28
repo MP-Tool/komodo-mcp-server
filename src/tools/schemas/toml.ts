@@ -9,7 +9,7 @@
  * @module tools/schemas/toml
  */
 
-import { z } from "zod";
+import { z } from "mcp-server-framework";
 import { resourceLinkSchema } from "./shared.js";
 
 /**
@@ -42,7 +42,7 @@ export function splitResourceTarget(entry: string): { type: string; id: string }
 export const tomlOutputSchema = z
   .object({
     summary: z.object({
-      bytes: z.number().int().describe("Size of the exported TOML in bytes"),
+      bytes: z.number().int().describe("Size of the TOML export as Komodo returned it, in bytes"),
       secrets_masked: z
         .boolean()
         .describe(

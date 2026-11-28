@@ -8,7 +8,7 @@
  */
 
 import { Types } from "komodo_client";
-import type { KomodoClient } from "../client.js";
+import type { KomodoClient, KomodoUserCredential } from "../client.js";
 import {
   ClientNotConfiguredError,
   ApiError,
@@ -25,8 +25,8 @@ import {
   logger,
   elicitConfirmation,
 } from "mcp-server-framework";
-import { connectUserClient, getGlobalClient } from "../client.js";
-import { komodoIdentity, meetsPermissionLevel, canCreateResource } from "../auth/komodo-identity.js";
+import { connectUserClient, getGlobalClient, servesAnonymousRequests } from "../client.js";
+import { komodoIdentity, meetsPermissionLevel, canCreateResource, permissionLevelOf } from "../auth/komodo-identity.js";
 import type { CreatableResourceType } from "../auth/komodo-identity.js";
 import { config } from "../config/index.js";
 
@@ -44,39 +44,93 @@ const TIMEOUT_ERROR_CODES = new Set(["ECONNABORTED", "UND_ERR_CONNECT_TIMEOUT"])
 // Client Access
 // ============================================================================
 
+/** Where {@link clientForAuth} gets its clients from — injectable so the rule can be tested. */
+export interface KomodoClientSources {
+  /** The server's own `[komodo]` connection, or `null` while it is not connected. */
+  readonly global: () => KomodoClient | null;
+  /** Whether requests without authentication are served at all (stdio, or HTTP with auth off). */
+  readonly servesAnonymous: () => boolean;
+  /** A client for a user's own credential. */
+  readonly user: (credential: KomodoUserCredential) => KomodoClient;
+}
+
+const LIVE_SOURCES: KomodoClientSources = {
+  global: getGlobalClient,
+  servesAnonymous: servesAnonymousRequests,
+  user: connectUserClient,
+};
+
 /**
- * Returns the Komodo client for the current tool call, resolved by operating mode.
+ * Decides which Komodo client a request may use, from its authentication alone.
  *
- * Reads the current tool context's auth (via AsyncLocalStorage, set by the framework
- * before each handler runs):
- * - **Authenticated** request → a client scoped to that user's minted Komodo JWT, built
- *   fresh from the request's own `auth.extra` so users are strictly isolated.
- * - **Anonymous** request (stdio, or HTTP with auth disabled) → the global service
- *   connection from the `[komodo]` credentials.
+ * This is where the server's own `[komodo]` credentials are guarded. They serve a request in
+ * exactly two cases, and no configuration adds a third:
  *
- * Synchronous by design (no `await` at the ~80 call sites): the per-user client is a thin,
- * stateless JWT wrapper, and the global connection is already established at startup.
+ * 1. the request is **anonymous** and the server runs in anonymous mode — stdio, or HTTP with
+ *    authentication switched off (where the framework has already limited anonymous callers
+ *    to read-only tools), or
+ * 2. the request is authenticated as a **registered service client** (`[auth.clients]`),
+ *    which the operator set up to act as that account.
+ *
+ * Every other authenticated request uses the credential of its own Komodo user. A request
+ * that is authenticated but carries no Komodo identity gets no client at all — it is never
+ * quietly served with the global credentials. Neither is an unauthenticated request while
+ * authentication is on: none should get this far, and if one ever does, the global connection
+ * that may exist for service clients is not for it.
+ *
+ * @param auth - The request's auth carrier (`ToolContext.auth`), or `undefined` when anonymous
+ * @param sources - Client sources; defaults to the live connection layer
+ * @throws {ClientNotConfiguredError} when no client is available for this request
  */
-export function requireClient(): KomodoClient {
-  const auth = getCurrentToolContext()?.auth;
+export function clientForAuth(
+  auth: Parameters<typeof komodoIdentity.read>[0],
+  sources: KomodoClientSources = LIVE_SOURCES,
+): KomodoClient {
   const identity = komodoIdentity.read(auth);
 
   if (identity) {
-    // Authenticated Komodo user → their own JWT-scoped client.
-    return connectUserClient(identity.komodoJwt);
+    const { credential } = identity;
+    if (credential.type !== "service") {
+      // Authenticated Komodo user → a client scoped to their own credential.
+      return sources.user(credential);
+    }
+    // A "service" credential only means something for a session that was established as a
+    // registered service client; anything else claiming it is a bug, not a way in.
+    if (identity.method !== "service-client") throw ClientNotConfiguredError.notConfigured();
+    const client = sources.global();
+    if (!client) throw ClientNotConfiguredError.notConnected();
+    return client;
   }
 
   if (auth) {
     // Authenticated to the MCP server but no Komodo identity is bound. This should not
-    // occur — the OAuth hooks deny sessions for users that don't exist in Komodo — so
-    // treat it as a misconfiguration rather than silently falling back to global creds.
+    // occur — every authentication path resolves a Komodo user — so treat it as a
+    // misconfiguration rather than silently falling back to global creds.
     throw ClientNotConfiguredError.notConfigured();
   }
 
-  // Anonymous request → global service connection (stdio / auth-disabled HTTP).
-  const client = getGlobalClient();
+  // No authentication at all. Only anonymous mode (stdio / auth-disabled HTTP) answers such
+  // a request, through the global service connection. With authentication on, the middleware
+  // has authenticated everything that reaches a tool — this guard is what keeps the service
+  // account out of reach should a request ever arrive without.
+  if (!sources.servesAnonymous()) throw ClientNotConfiguredError.notConfigured();
+  const client = sources.global();
   if (!client) throw ClientNotConfiguredError.notConfigured();
   return client;
+}
+
+/**
+ * Returns the Komodo client for the current tool call, resolved by operating mode.
+ *
+ * Reads the current tool context's auth (via AsyncLocalStorage, set by the framework
+ * before each handler runs) and applies {@link clientForAuth}.
+ *
+ * Synchronous by design (no `await` at the ~80 call sites): the per-user client is a thin,
+ * stateless wrapper over the session's credential, and the global connection is already
+ * established at startup.
+ */
+export function requireClient(): KomodoClient {
+  return clientForAuth(getCurrentToolContext()?.auth);
 }
 
 // ============================================================================
@@ -143,6 +197,81 @@ function cachePermission(key: string, entry: CachedPermission): void {
     if (!oldest.done) permissionCache.delete(oldest.value);
   }
   permissionCache.set(key, entry);
+}
+
+/** What Komodo calls a resource id (a Mongo ObjectId) — as opposed to the resource's name. */
+const RESOURCE_ID = /^[0-9a-f]{24}$/i;
+
+/** Komodo's list request per resource kind — the generic way to turn a resource name into its id. */
+const LIST_REQUEST = {
+  Swarm: "ListSwarms",
+  Server: "ListServers",
+  Stack: "ListStacks",
+  Deployment: "ListDeployments",
+  Build: "ListBuilds",
+  Repo: "ListRepos",
+  Procedure: "ListProcedures",
+  Action: "ListActions",
+  Builder: "ListBuilders",
+  Alerter: "ListAlerters",
+  ResourceSync: "ListResourceSyncs",
+} as const satisfies Record<Exclude<Types.ResourceTarget["type"], "System">, Types.ReadRequest["type"]>;
+
+/** The Komodo reads the permission pre-check needs — injectable so the rule can be tested. */
+export interface PermissionReader {
+  /** `GetPermission` for the calling user, in either of the forms Komodo answers with. */
+  readonly getPermission: (
+    target: Types.ResourceTarget,
+  ) => Promise<Types.PermissionLevelAndSpecifics | Types.PermissionLevel>;
+  /** The id of the resource called `name`, or `undefined` when the caller can see none by that name. */
+  readonly findResourceId: (type: Types.ResourceTarget["type"], name: string) => Promise<string | undefined>;
+}
+
+/**
+ * The calling user's permission level on `target`, as Komodo will enforce it on the real call.
+ *
+ * Tools take a resource by id or by name, but Komodo weighs a grant on one specific resource
+ * only when it is asked by **id** — asked by name it reports the user's base level for the
+ * resource kind. A name is therefore resolved to its id first. Without that, a user whose
+ * access comes from a per-resource grant would be turned away from exactly the resources they
+ * were given. A name the caller cannot see is passed on as it is: Komodo then answers with the
+ * base level, or says that there is no such resource.
+ *
+ * @param reader - Komodo reads on behalf of the calling user
+ * @param target - The resource, by id or name
+ */
+export async function effectivePermissionLevel(
+  reader: PermissionReader,
+  target: Types.ResourceTarget,
+): Promise<Types.PermissionLevel> {
+  const id = RESOURCE_ID.test(target.id)
+    ? target.id
+    : ((await reader.findResourceId(target.type, target.id)) ?? target.id);
+  return permissionLevelOf(await reader.getPermission({ ...target, id }));
+}
+
+/** {@link PermissionReader} backed by the calling user's own Komodo client. */
+function komodoPermissionReader(client: KomodoClient): PermissionReader {
+  // One call signature for the eleven list requests — they all take a name filter and
+  // return items that carry `id` and `name`.
+  const listByName = client.client.read as unknown as (
+    type: Types.ReadRequest["type"],
+    params: { query: { names: string[] } },
+  ) => Promise<ReadonlyArray<{ id: string; name: string }>>;
+
+  return {
+    getPermission: (target) =>
+      wrapApiCall(`check permission on ${target.type} '${target.id}'`, () =>
+        client.client.read("GetPermission", { target }),
+      ),
+    findResourceId: async (type, name) => {
+      if (type === "System") return undefined;
+      const matches = await wrapApiCall(`look up ${type} '${name}'`, () =>
+        listByName(LIST_REQUEST[type], { query: { names: [name] } }),
+      );
+      return matches.find((resource) => resource.name === name)?.id;
+    },
+  };
 }
 
 /**
@@ -245,11 +374,7 @@ export async function requireKomodoPermission(
   if (cached && cached.expiresAt > now) {
     level = cached.level;
   } else {
-    const client = requireClient();
-    const result = await wrapApiCall(`check permission on ${target.type} '${target.id}'`, () =>
-      client.client.read("GetPermission", { target }),
-    );
-    level = result.level;
+    level = await effectivePermissionLevel(komodoPermissionReader(requireClient()), target);
     cachePermission(cacheKey, { level, expiresAt: now + PERMISSION_CACHE_TTL_MS });
   }
 

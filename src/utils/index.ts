@@ -65,6 +65,7 @@ export {
   summarizeResource,
   buildDeleteResult,
   buildInfoResult,
+  komodoObject,
   type ActionType,
   type ResourceType,
   type ActionResponseOptions,
@@ -121,4 +122,5 @@ export {
   renderTagList,
   renderTagInfo,
   renderTomlExport,
+  jsonBlock,
 } from "./markdown.js";

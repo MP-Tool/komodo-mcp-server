@@ -20,7 +20,9 @@ I release security updates for the latest version (main branch) only. Please kee
 ## Security Best Practices
 
 - **Never commit credentials** or `.env` files.
-- **Use dedicated Komodo users** with minimal permissions.
+- **Use dedicated Komodo users** with minimal permissions - for automation, a Komodo service user
+  with its own API key.
+- **Serve the MCP endpoint over HTTPS**, or only inside a network that encrypts traffic.
 - **Run containers as non-root** (default in our setup).
 - **Use HTTPS** for Komodo connections.
 
@@ -28,10 +30,17 @@ I release security updates for the latest version (main branch) only. Please kee
 
 **In the server (runtime):**
 
-- **Authentication on by default** for HTTP/HTTPS - each user signs in and acts as their own Komodo
-  identity with their own permissions, never a shared account.
+- **Authentication on by default** for HTTP/HTTPS - every caller presents a Komodo credential
+  (username/password or API key in the browser, OAuth client credentials, or the opt-in API-key
+  headers) and acts as that Komodo user with that user's permissions, never more.
 - **Open servers are read-only**: if you disable authentication on a network transport, only read
-  tools are available - write, delete and terminal tools are hidden and refused.
+  tools are available - write, delete and terminal tools are hidden and refused. No setting gives
+  a caller without a credential write access.
+- **The server's own Komodo credentials are not lent out**: they serve stdio and the read-only
+  open mode. A caller always signs in with a Komodo credential of its own.
+- **Tokens are the server's own**: opaque, stored only as digests, bound to the requesting client
+  and to this server, with refresh tokens rotated on every use. A session belongs to the caller
+  that opened it.
 - **Per-resource permission checks** run before every action, enforced against the user's Komodo
   permissions.
 - **Confirmation for destructive actions** (delete, destroy, prune, terminal commands, and

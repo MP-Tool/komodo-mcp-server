@@ -30,6 +30,15 @@ Run directly with Node.js - no Docker required. Works on Windows, macOS, and Lin
 - Also works as a globally installed package
 - **Best for:** Quick testing, native installation, CI/CD pipelines
 
+### [Machine clients](./machine-clients/)
+
+Connect gateways, automation and other clients to a remote server over HTTP **without a browser
+login**.
+
+- OAuth client credentials with a Komodo API key
+- API-key headers for clients that can only send static headers
+- **Best for:** MCP gateways, CI/CD, service accounts on a private network
+
 ## Comparison
 
 | Feature | Claude Desktop | VS Code | Node.js / npx |

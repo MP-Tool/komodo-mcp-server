@@ -53,8 +53,12 @@ function codeBlock(value: string, language = ""): string {
   return `\`\`\`${language}\n${value}\n\`\`\``;
 }
 
-/** Pretty-print an unknown payload as JSON inside a fenced ` ```json ` block. */
-function jsonBlock(value: unknown): string {
+/**
+ * Pretty-print an unknown payload as JSON inside a fenced ` ```json ` block. Data rendered into a
+ * tool's text belongs in one: the secret scrubber reads the block as a JSON document, so the
+ * policy's rules (`is_secret` values, alerter endpoints) apply to it as they do to an object.
+ */
+export function jsonBlock(value: unknown): string {
   try {
     return codeBlock(JSON.stringify(value, null, 2), "json");
   } catch {
@@ -113,13 +117,21 @@ interface ContainerListItem {
   readonly name: string;
   readonly state?: string;
   readonly image?: string;
+  readonly stats?: Types.ContainerStats;
 }
 
 export function renderContainerList(payload: { items: readonly ContainerListItem[]; page?: PageInfo }): string {
   const { items, page } = payload;
   const header = `${RESPONSE_ICONS.CONTAINER} Containers (${items.length})`;
   if (items.length === 0) return `${header}\n\nNo containers found.`;
-  const rows = items.map((c) => `• ${c.name} (${stateBadge(c.state)}) — ${c.image ?? "Unknown image"}`).join("\n");
+  const rows = items
+    .map((c) => {
+      const stats = c.stats
+        ? ` | CPU: ${c.stats.cpu_perc} | Memory: ${c.stats.mem_perc} (${c.stats.mem_usage}) | Network: ${c.stats.net_io} | Block I/O: ${c.stats.block_io} | PIDs: ${c.stats.pids}`
+        : "";
+      return `• ${c.name} (${stateBadge(c.state)}) — ${c.image ?? "Unknown image"}${stats}`;
+    })
+    .join("\n");
   return `${header}\n\n${rows}${pageFooter(page, items.length)}`;
 }
 
@@ -701,6 +713,7 @@ interface HealthCheckPayload {
   readonly server?: string;
   readonly komodo_version?: string;
   readonly mcp_server_version: string;
+  readonly framework_version: string;
   readonly error?: string;
 }
 
@@ -710,6 +723,7 @@ export function renderHealthCheck(payload: HealthCheckPayload): string {
       `${RESPONSE_ICONS.WARNING} Komodo not configured.`,
       "",
       `MCP server: v${payload.mcp_server_version}`,
+      `Framework: v${payload.framework_version}`,
       "",
       "_Set `[komodo]` in config.toml (or `KOMODO_URL`/`KOMODO_API_KEY` etc. env vars) and restart, " +
         "or sign in via local login if per-user authentication is enabled._",
@@ -723,6 +737,7 @@ export function renderHealthCheck(payload: HealthCheckPayload): string {
   const lines = [`${icon} Komodo ${verdict} — ${server}`, ""];
   if (payload.komodo_version) lines.push(`• Komodo version: v${payload.komodo_version}`);
   lines.push(`• MCP server version: v${payload.mcp_server_version}`);
+  lines.push(`• Framework version: v${payload.framework_version}`);
   if (payload.error) lines.push(`• Error: ${payload.error}`);
   return lines.join("\n");
 }
@@ -1143,7 +1158,10 @@ interface TomlExportPayload {
   readonly resourceLink?: { readonly uri: string };
 }
 export function renderTomlExport(payload: TomlExportPayload): string {
-  const header = `${RESPONSE_ICONS.SYNC} Exported sync TOML (${payload.summary.bytes} bytes, secrets masked as [[VAR]])`;
+  const { bytes, secrets_masked } = payload.summary;
+  const header = secrets_masked
+    ? `${RESPONSE_ICONS.SYNC} Exported sync TOML (${bytes} bytes, secret values masked)`
+    : `${RESPONSE_ICONS.SYNC} Exported sync TOML (${bytes} bytes) - secret redaction is off, so secret values are in plain text`;
   if (payload.resourceLink) {
     return `${header}\n\nFull TOML available at: \`${payload.resourceLink.uri}\` (request via \`resources/read\`).`;
   }

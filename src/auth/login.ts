@@ -11,7 +11,12 @@
  * @module auth/login
  */
 
-import type { LoginPageRenderer, SelectableProvider, LocalLoginForm } from "mcp-server-framework";
+import type {
+  LoginPageRenderer,
+  SelectableProvider,
+  LocalLoginForm,
+  LoginMethodDescriptor,
+} from "mcp-server-framework";
 
 // ============================================================================
 // Komodo Login Page Renderer
@@ -24,23 +29,41 @@ import type { LoginPageRenderer, SelectableProvider, LocalLoginForm } from "mcp-
 export const komodoLoginPage: LoginPageRenderer = {
   renderSelectionPage,
   renderSuccessRedirectPage,
+  renderProviderRedirectPage,
 };
 
 // ============================================================================
 // Implementation
 // ============================================================================
 
-function renderSuccessRedirectPage(redirectUrl: string): string {
-  const safeUrl = escapeHtml(redirectUrl);
+/** The Komodo-styled page that sends the browser somewhere after a short notice. */
+function renderRedirectPage(page: {
+  readonly url: string;
+  /** Seconds before the browser moves on — long enough for the notice to be seen, or 0. */
+  readonly delaySeconds: number;
+  readonly label: string;
+  readonly sub: string;
+  /** Whether to show the "done" check mark. */
+  readonly done: boolean;
+}): string {
+  const safeUrl = escapeHtml(page.url);
   // No JavaScript — meta refresh is CSP-safe (not subject to script-src) and fires after
-  // the browser has painted the page, so the Komodo-styled confirmation is actually visible.
+  // the browser has painted the page, so the Komodo-styled notice is actually visible.
   // All CSS is inline: no external dependencies, no race with CDN loading.
+  const check = page.done
+    ? `<div class="check-circle" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+      </svg>
+    </div>`
+    : "";
   return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="refresh" content="1; url=${safeUrl}">
+  <meta http-equiv="refresh" content="${page.delaySeconds}; url=${safeUrl}">
   <title>Komodo MCP Server</title>
   <link rel="icon" type="image/svg+xml" href="${FAVICON_DATA_URI}">
   <style>
@@ -49,57 +72,66 @@ function renderSuccessRedirectPage(redirectUrl: string): string {
 </head>
 <body>
   <div class="card">
-    <div class="check-circle" aria-hidden="true">
-      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-           stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-      </svg>
-    </div>
-    <p class="label">Signed in</p>
-    <p class="sub">Redirecting&hellip;</p>
+    ${check}
+    <p class="label">${escapeHtml(page.label)}</p>
+    <p class="sub">${escapeHtml(page.sub)}</p>
     <a href="${safeUrl}" class="link">Continue if not redirected automatically</a>
   </div>
 </body>
 </html>`;
 }
 
+function renderSuccessRedirectPage(redirectUrl: string): string {
+  return renderRedirectPage({ url: redirectUrl, delaySeconds: 1, label: "Signed in", sub: "Redirecting…", done: true });
+}
+
+/**
+ * Takes the browser on to the identity provider. A page of its own rather than an HTTP
+ * redirect, because the login page's Content-Security-Policy does not let a form it posted
+ * be redirected to another site — the browser would block it and the button would do nothing.
+ */
+function renderProviderRedirectPage(redirectUrl: string, provider: SelectableProvider): string {
+  return renderRedirectPage({
+    url: redirectUrl,
+    delaySeconds: 0,
+    label: `Continuing to ${provider.displayName}`,
+    sub: "You sign in there and come back here.",
+    done: false,
+  });
+}
+
 function renderSelectionPage(
-  originalUrl: string,
+  _originalUrl: string,
   providers: readonly SelectableProvider[],
   localForm?: LocalLoginForm,
   error?: string,
 ): string {
-  const hasLocal = localForm !== undefined;
-  const hasProviders = providers.length > 0;
+  const hasLocal = localForm !== undefined && localForm.methods?.length !== 0;
+  // A provider button posts the pending request back, so it needs that context to exist.
+  const offered = localForm ? providers : [];
+  const hasProviders = offered.length > 0;
 
-  const providerButtons = providers
-    .map((prov) => {
-      const separator = originalUrl.includes("?") ? "&" : "?";
-      const href = `${originalUrl}${separator}provider=${encodeURIComponent(prov.name)}`;
-      return `<a href="${escapeHtml(href)}" class="provider-btn d-flex align-items-center gap-3 w-100 text-decoration-none mb-2">
-          <span class="provider-icon">${providerIconSvg(prov.name)}</span>
-          <span>Continue with ${escapeHtml(prov.displayName)}</span>
-        </a>`;
-    })
+  // Each provider is a form, not a link: that the button was pressed on this page — where
+  // the requesting client is named — is the person's consent to sign in for that client.
+  const providerButtons = offered
+    .map(
+      (prov) => `<form method="POST" action="/authorize/upstream" class="mb-2">
+          ${localForm ? pendingRequestFields(localForm) : ""}
+          <input type="hidden" name="provider" value="${escapeHtml(prov.name)}">
+          <button type="submit" class="provider-btn d-flex align-items-center gap-3 w-100">
+            <span class="provider-icon">${providerIconSvg(prov.name)}</span>
+            <span>Continue with ${escapeHtml(prov.displayName)}</span>
+          </button>
+        </form>`,
+    )
     .join("\n");
 
-  // OAuth-only error (no local form) — shown above the provider buttons
+  // An error that is not about a credential form — a sign-in through a provider that did
+  // not complete — is shown above everything. (Credential errors appear in their form.)
+  const aboutCredentials = hasLocal && localForm.activeMethod !== undefined;
   const topErrorBanner =
-    error && !hasLocal
+    error && !aboutCredentials
       ? `<div class="error-banner mb-3" role="alert">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
-            <line x1="12" y1="16" x2="12.01" y2="16"/>
-          </svg>
-          ${escapeHtml(error)}
-        </div>`
-      : "";
-
-  // Local-login error — shown inside the form, between password and submit button
-  const inlineError =
-    error && hasLocal
-      ? `<div class="error-inline" role="alert">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
             <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
@@ -111,27 +143,12 @@ function renderSelectionPage(
 
   const divider = hasLocal && hasProviders ? `<div class="divider my-4"><span>or</span></div>` : "";
 
-  const localFormHtml = localForm
-    ? `<form method="POST" action="/authorize/local" novalidate>
-        <input type="hidden" name="redirect_uri"  value="${escapeHtml(localForm.redirectUri)}">
-        <input type="hidden" name="state"          value="${escapeHtml(localForm.state)}">
-        <input type="hidden" name="code_challenge" value="${escapeHtml(localForm.codeChallenge)}">
-        <input type="hidden" name="authorize_url"  value="${escapeHtml(originalUrl)}">
-        <div class="mb-3">
-          <label for="username" class="form-label">Username</label>
-          <input id="username" type="text" name="username" class="form-control"
-                 placeholder="username" autocomplete="username"
-                 autocapitalize="off" spellcheck="false" required>
-        </div>
-        <div class="mb-3">
-          <label for="password" class="form-label">Password</label>
-          <input id="password" type="password" name="password" class="form-control"
-                 placeholder="••••••••" autocomplete="current-password" required>
-        </div>
-        ${inlineError}
-        <button type="submit" class="btn btn-komodo w-100 mt-1">Login</button>
-      </form>`
-    : "";
+  const localFormHtml =
+    localForm && hasLocal ? renderCredentialForms(localForm, aboutCredentials ? error : undefined) : "";
+
+  // Who is asking, and where the browser goes next — so a sign-in started by a client the
+  // user does not recognise is noticed before credentials are entered.
+  const clientNotice = localForm?.redirectHost ? renderClientNotice(localForm) : "";
 
   return `<!DOCTYPE html>
 <html lang="en">
@@ -143,6 +160,7 @@ function renderSelectionPage(
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css">
   <style>
     ${BASE_CSS}
+    ${methodTabCss(localForm?.methods?.length ?? 0)}
   </style>
 </head>
 <body class="d-flex align-items-center justify-content-center min-vh-100">
@@ -159,9 +177,168 @@ function renderSelectionPage(
     ${providerButtons}
     ${divider}
     ${localFormHtml}
+    ${clientNotice}
   </div>
 </body>
 </html>`;
+}
+
+// ============================================================================
+// Internal: credential forms — one per sign-in method, switched without JavaScript
+// ============================================================================
+
+/** What the two inputs of a sign-in method look like. Unknown methods get neutral defaults. */
+interface MethodPresentation {
+  readonly identifierPlaceholder: string;
+  readonly secretPlaceholder: string;
+  /** `autocomplete` tokens — only an account password should be offered to password managers as one. */
+  readonly identifierAutocomplete: string;
+  readonly secretAutocomplete: string;
+  /** Optional hint shown under the form. */
+  readonly hint?: string;
+}
+
+const METHOD_PRESENTATION: Readonly<Record<string, MethodPresentation>> = {
+  password: {
+    identifierPlaceholder: "username",
+    secretPlaceholder: "••••••••",
+    identifierAutocomplete: "username",
+    secretAutocomplete: "current-password",
+  },
+  "api-key": {
+    identifierPlaceholder: "K_…_K",
+    secretPlaceholder: "S_…_S",
+    identifierAutocomplete: "off",
+    secretAutocomplete: "off",
+    hint:
+      "Create an API key in Komodo under your profile. Use this if your account signs in with SSO " +
+      "or two-factor authentication, or to sign in as a service user.",
+  },
+};
+
+const DEFAULT_PRESENTATION: MethodPresentation = {
+  identifierPlaceholder: "",
+  secretPlaceholder: "",
+  identifierAutocomplete: "off",
+  secretAutocomplete: "off",
+};
+
+/**
+ * Names the application the person is signing in for: its name, the website that vouches
+ * for that name (applications that identify themselves by a web address), and where the
+ * sign-in returns to — with a warning when that is an application on their own device.
+ */
+function renderClientNotice(form: LocalLoginForm): string {
+  const name = `<strong>${escapeHtml(form.clientName ?? "an MCP client")}</strong>`;
+  const identity = form.clientIdHost ? ` (identified by <code>${escapeHtml(form.clientIdHost)}</code>)` : "";
+  const warning = form.localRedirect
+    ? `<p class="client-warning" role="note">This sign-in returns to an application on this device, and it cannot be
+        verified that the application is the one named above. Continue only if you started this sign-in yourself.</p>`
+    : "";
+  return `<p class="client-notice">Signing in to ${name}${identity}
+        &middot; returns to <code>${escapeHtml(form.redirectHost ?? "")}</code></p>${warning}`;
+}
+
+function errorBlock(error: string): string {
+  return `<div class="error-inline" role="alert">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+          </svg>
+          ${escapeHtml(error)}
+        </div>`;
+}
+
+/** The hidden fields every form on the page posts back: they identify the pending request. */
+function pendingRequestFields(form: LocalLoginForm): string {
+  return `<input type="hidden" name="redirect_uri"  value="${escapeHtml(form.redirectUri)}">
+        <input type="hidden" name="state"          value="${escapeHtml(form.state)}">
+        <input type="hidden" name="code_challenge" value="${escapeHtml(form.codeChallenge)}">`;
+}
+
+/**
+ * One sign-in form. The hidden fields are posted back unchanged — they identify the pending
+ * authorization request — and `method` tells the server which credentials these are.
+ */
+function renderCredentialForm(
+  form: LocalLoginForm,
+  method: LoginMethodDescriptor | undefined,
+  index: number,
+  error: string | undefined,
+): string {
+  const identifierLabel = method?.identifierLabel ?? "Username";
+  const secretLabel = method?.secretLabel ?? "Password";
+  // A renderer-side default for a form context without methods: the classic password form.
+  const look = METHOD_PRESENTATION[method?.id ?? "password"] ?? DEFAULT_PRESENTATION;
+
+  return `<form method="POST" action="/authorize/local" novalidate>
+        ${pendingRequestFields(form)}
+        ${method ? `<input type="hidden" name="method" value="${escapeHtml(method.id)}">` : ""}
+        <div class="mb-3">
+          <label for="username-${index}" class="form-label">${escapeHtml(identifierLabel)}</label>
+          <input id="username-${index}" type="text" name="username" class="form-control"
+                 placeholder="${escapeHtml(look.identifierPlaceholder)}" autocomplete="${look.identifierAutocomplete}"
+                 autocapitalize="off" spellcheck="false" required>
+        </div>
+        <div class="mb-3">
+          <label for="password-${index}" class="form-label">${escapeHtml(secretLabel)}</label>
+          <input id="password-${index}" type="password" name="password" class="form-control"
+                 placeholder="${escapeHtml(look.secretPlaceholder)}" autocomplete="${look.secretAutocomplete}" required>
+        </div>
+        ${error ? errorBlock(error) : ""}
+        <button type="submit" class="btn btn-komodo w-100 mt-1">Login</button>
+        ${look.hint ? `<p class="method-hint">${escapeHtml(look.hint)}</p>` : ""}
+      </form>`;
+}
+
+/**
+ * The sign-in form(s). A single method is a plain form. Several become tabs driven by radio
+ * inputs and sibling selectors: the page's Content-Security-Policy forbids inline script, and
+ * a login page is a good place not to need any.
+ */
+function renderCredentialForms(form: LocalLoginForm, error: string | undefined): string {
+  const methods = form.methods ?? [];
+  if (methods.length <= 1) return renderCredentialForm(form, methods[0], 0, error);
+
+  const activeIndex = Math.max(
+    0,
+    methods.findIndex((method) => method.id === form.activeMethod),
+  );
+  const radios = methods
+    .map(
+      (_, i) =>
+        `<input type="radio" name="login-method" id="login-method-${i}" class="method-radio"${i === activeIndex ? " checked" : ""}>`,
+    )
+    .join("\n");
+  const tabs = methods
+    .map((method, i) => `<label for="login-method-${i}">${escapeHtml(method.displayName)}</label>`)
+    .join("\n");
+  // An error belongs to the method that was just submitted — the one shown again.
+  const panels = methods
+    .map(
+      (method, i) =>
+        `<div class="method-panel method-panel-${i}">${renderCredentialForm(form, method, i, i === activeIndex ? error : undefined)}</div>`,
+    )
+    .join("\n");
+
+  return `${radios}
+      <div class="method-tabs" role="presentation">${tabs}</div>
+      ${panels}`;
+}
+
+/** Per-method rules: show the panel of the checked radio and mark its tab. */
+function methodTabCss(methodCount: number): string {
+  if (methodCount <= 1) return "";
+  const rules: string[] = [];
+  for (let i = 0; i < methodCount; i++) {
+    rules.push(
+      `#login-method-${i}:checked ~ .method-panel-${i} { display: block; }`,
+      `#login-method-${i}:checked ~ .method-tabs label[for="login-method-${i}"] { color: var(--text); border-bottom-color: var(--green); }`,
+      `#login-method-${i}:focus-visible ~ .method-tabs label[for="login-method-${i}"] { box-shadow: 0 0 0 0.2rem var(--green-ring); }`,
+    );
+  }
+  return rules.join("\n    ");
 }
 
 // ============================================================================
@@ -274,6 +451,9 @@ const BASE_CSS = `
     --error-bg:      #fff0f0;
     --error-border:  #f5c6cb;
     --error-text:    #8b1a1a;
+    --warn-bg:       #fffbeb;
+    --warn-border:   #fde68a;
+    --warn-text:     #92400e;
     --shadow:        0 4px 24px rgba(46,133,85,0.10), 0 1px 4px rgba(0,0,0,0.06);
   }
   @media (prefers-color-scheme: dark) {
@@ -298,6 +478,9 @@ const BASE_CSS = `
       --error-bg:      #2c1010;
       --error-border:  #5a2020;
       --error-text:    #f4a0a0;
+      --warn-bg:       #2a2008;
+      --warn-border:   #5c4a12;
+      --warn-text:     #f2d48a;
       --shadow:        0 4px 24px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.30);
     }
   }
@@ -351,6 +534,9 @@ const BASE_CSS = `
     font-size: 0.9375rem;
     font-weight: 500;
     color: var(--text);
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
     transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
   }
   .provider-btn:hover {
@@ -386,6 +572,29 @@ const BASE_CSS = `
     margin-bottom: 0.75rem; line-height: 1.4;
   }
   .error-inline svg { flex-shrink: 0; margin-top: 1px; }
+
+  /* ── Sign-in method tabs (radio-driven, no script) ── */
+  .method-radio { position: absolute; opacity: 0; pointer-events: none; }
+  .method-tabs { display: flex; gap: 0.25rem; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border); }
+  .method-tabs label {
+    padding: 0.5rem 0.75rem; font-size: 0.875rem; font-weight: 500; color: var(--muted);
+    cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; border-radius: 6px 6px 0 0;
+  }
+  .method-tabs label:hover { color: var(--text); }
+  .method-panel { display: none; }
+  .method-hint { font-size: 0.8125rem; color: var(--muted); line-height: 1.45; margin: 0.875rem 0 0; }
+
+  /* ── Requesting client ── */
+  .client-notice {
+    font-size: 0.8125rem; color: var(--muted); line-height: 1.5;
+    margin: 1.5rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border);
+  }
+  .client-notice strong { color: var(--text); font-weight: 600; }
+  .client-notice code { font-size: 0.8125rem; color: var(--text); background: none; padding: 0; }
+  .client-warning {
+    font-size: 0.8125rem; line-height: 1.5; margin: 0.75rem 0 0; padding: 0.5rem 0.75rem;
+    background: var(--warn-bg); border: 1px solid var(--warn-border); color: var(--warn-text); border-radius: 8px;
+  }
 
   /* ── Top error banner — OAuth-only errors, no local form ── */
   .error-banner {

@@ -89,6 +89,31 @@ Most MCP clients support the Streamable HTTP transport:
 | `http://komodo-mcp.example.com:8000/health` | Health check (always 200) |
 | `http://komodo-mcp.example.com:8000/ready` | Readiness check (200/503) |
 
+### How clients authenticate
+
+Over HTTP the server requires authentication by default. A client can:
+
+- **sign in through the browser** - most MCP clients do this on their own: they open the server's
+  login page, where you sign in with your Komodo username and password, or with a Komodo API key
+  (for SSO-only and 2FA accounts, or to act as a service user);
+- **use OAuth client credentials** - for gateways and automation, no browser involved: `client_id`
+  is a Komodo API key, `client_secret` its secret;
+- **send API-key headers** - for clients that can only set fixed headers; opt-in with
+  `MCP_AUTH_API_KEY_HEADER=true`.
+
+In every case the client acts as the Komodo user behind the credential, with that user's
+permissions. See [MCP-Server Authentication](../config/README.md#mcp-server-authentication) and
+the [machine-client examples](../examples/machine-clients/).
+
+> **One container per address:** sign-ins and sessions live in the server's memory. Run a single
+> instance behind an address - not several replicas behind a load balancer - and expect clients
+> to sign in again after a restart.
+
+> OAuth needs HTTPS. If clients reach the server under anything other than `localhost`, set
+> `MCP_BASE_URL` to the `https://` address they use - see
+> [Plain HTTP on private networks](../config/README.md#plain-http-on-private-networks) for
+> Tailscale/WireGuard setups.
+
 ### Claude Desktop
 
 Claude Desktop requires `stdio` transport. For Docker-based setup, use:
@@ -140,7 +165,7 @@ npx @modelcontextprotocol/inspector --url http://komodo-mcp.example.com:8000/mcp
 
 The server has solid defaults, so in many cases you only need to set the Komodo connection and credentials. However, there are many additional options for configuring transport, security, logging, and more. You can set these via environment variables, in the config file in your preferred file format (TOML, JSON, YAML), or using Docker secrets for sensitive information. Environment variables take precedence over config file settings.
 
-The MCP server looks automatically for a config file (`config.toml`|`config.yaml`|`config.json`) in the root of the run directory, in the docker container it will be the `/app` directory. You can also specify a custom path to your config file with `MCP_CONFIG_PATH`.
+The MCP server looks automatically for a config file (`config.toml`|`config.yaml`|`config.json`) in the root of the run directory, in the docker container it will be the `/app` directory. You can also specify a custom path to your config file with `MCP_CONFIG_FILE_PATH`.
 
 For the complete configuration reference (all variables, config file formats, priority chain, Docker secrets), see the **[Configuration Guide](../config/README.md)**.
 
@@ -154,7 +179,10 @@ For the complete configuration reference (all variables, config file formats, pr
 | `KOMODO_USERNAME` | ✅* | Username (alternative to API Key) |
 | `KOMODO_PASSWORD` | ✅* | Password (alternative to API Key) |
 
-*Either API Key/Secret OR Username/Password required
+*Either API Key/Secret OR Username/Password - needed for `stdio`, for the read-only mode with
+authentication switched off, and for [registered machine clients](../config/README.md#without-a-browser-oauth-client-credentials).
+With authentication on (the HTTP default) clients bring their own Komodo credential and only
+`KOMODO_URL` is required.
 
 ### Key Docker Settings
 

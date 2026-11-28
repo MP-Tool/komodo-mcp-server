@@ -19,7 +19,8 @@ An MCP (Model Context Protocol) server that enables AI assistants to interact wi
 
 ```
 src/
-├── index.ts              # Entry point — createServer() + lifecycle hooks
+├── index.ts              # Entry point — loads server.ts, reports a start that fails on its settings
+├── server.ts             # createServer() + lifecycle hooks
 ├── client.ts             # KomodoClient wrapper + connection monitoring
 ├── config/
 │   ├── index.ts          # Barrel export
@@ -30,7 +31,6 @@ src/
 ├── errors/
 │   ├── index.ts          # Barrel export
 │   ├── classes.ts        # ApiError, ConnectionError, AuthenticationError
-│   ├── factory.ts        # AppErrorFactory (extends FrameworkErrorFactory)
 │   ├── messages.ts       # AppMessages registry + getAppMessage()
 │   └── extraction.ts     # Error parsing from komodo_client responses
 ├── tools/
@@ -121,14 +121,15 @@ defineTool({
 
 ### Error Handling
 
-Centralized error creation via `AppErrorFactory`:
+Throw the error classes directly: Komodo's own from `errors/`, `ValidationError` from the framework (re-exported by `errors/`):
 
 ```typescript
-import { AppErrorFactory } from "../errors/index.js";
+import { ApiError, AuthenticationError, NotFoundError, ValidationError } from "../errors/index.js";
 
-throw AppErrorFactory.notFound.server("my-server");
-throw AppErrorFactory.api.requestFailed("timeout exceeded");
-throw AppErrorFactory.auth.invalidCredentials();
+throw NotFoundError.server("my-server");
+throw ApiError.requestFailed("timeout exceeded");
+throw AuthenticationError.invalidCredentials();
+throw ValidationError.fieldRequired("server");
 ```
 
 Messages via `getAppMessage()` with interpolation:
@@ -170,7 +171,7 @@ import { requireClient } from "../utils/api-helpers.js";
 
 ## 70 MCP Tools
 
-Namenskonvention: `komodo_<domain>_<action>`. Lifecycle-Operationen mit ≥4 Verben sind als `*_action`-Tools mit Discriminator konsolidiert. CRUD-Operationen (`create` + `update`) sind als `*_apply`-Tools mit `action`-Discriminator konsolidiert (Terraform/kubectl-Idiom). Sowohl `*_action` als auch `*_apply` nutzen ein flaches `z.object({ action: z.enum([...]), ...optional })`-Schema (kein `z.discriminatedUnion`), da viele MCP-Clients (inkl. MCP Inspector) Discriminated Unions als Input nicht rendern können — Pflichtfelder pro Branch werden zur Laufzeit via `AppErrorFactory.validation.fieldRequired()` validiert.
+Namenskonvention: `komodo_<domain>_<action>`. Lifecycle-Operationen mit ≥4 Verben sind als `*_action`-Tools mit Discriminator konsolidiert. CRUD-Operationen (`create` + `update`) sind als `*_apply`-Tools mit `action`-Discriminator konsolidiert (Terraform/kubectl-Idiom). Sowohl `*_action` als auch `*_apply` nutzen ein flaches `z.object({ action: z.enum([...]), ...optional })`-Schema (kein `z.discriminatedUnion`), da viele MCP-Clients (inkl. MCP Inspector) Discriminated Unions als Input nicht rendern können — Pflichtfelder pro Branch werden zur Laufzeit via `ValidationError.fieldRequired()` validiert.
 
 | Category | Count | Tools |
 |----------|-------|-------|
